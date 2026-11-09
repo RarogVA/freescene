@@ -1,0 +1,725 @@
+{
+  "vlcVersion": "3.0.21",
+  "sourceArchiveSha256": "24dbbe1d7dfaeea0994d5def0bbde200177347136dbfe573f5b6a4cee25afbb0",
+  "scope": "Source headers only; static dependency inventory remains a separate release check",
+  "modules": [
+    {
+      "module": "filesystem",
+      "sources": [
+        {
+          "source": "access/directory.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "access/file.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "access/fs.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "http",
+      "sources": [
+        {
+          "source": "access/http.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "https",
+      "sources": [
+        {
+          "source": "access/http/access.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "securetransport",
+      "sources": [
+        {
+          "source": "misc/securetransport.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "mp4",
+      "sources": [
+        {
+          "source": "demux/asf/asfpacket.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mp4/essetup.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mp4/fragments.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mp4/libmp4.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mp4/meta.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mp4/mp4.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "mkv",
+      "sources": [
+        {
+          "source": "demux/mkv/Ebml_parser.cpp",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mkv/chapter_command.cpp",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mkv/chapters.cpp",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mkv/demux.cpp",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mkv/matroska_segment.cpp",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mkv/matroska_segment_parse.cpp",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mkv/matroska_segment_seeker.cpp",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mkv/mkv.cpp",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mkv/stream_io_callback.cpp",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mkv/util.cpp",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mkv/virtual_segment.cpp",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mp4/libmp4.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "packetizer/dts_header.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "avi",
+      "sources": [
+        {
+          "source": "demux/avi/avi.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/avi/libavi.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "ts",
+      "sources": [
+        {
+          "source": "codec/atsc_a65.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "codec/opus_header.c",
+          "headerLicense": "BSD-2-Clause"
+        },
+        {
+          "source": "demux/mpeg/mpeg4_iod.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mpeg/sections.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mpeg/ts.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mpeg/ts_arib.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mpeg/ts_decoders.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mpeg/ts_hotfixes.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mpeg/ts_metadata.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mpeg/ts_pid.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mpeg/ts_psi.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mpeg/ts_psip.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mpeg/ts_psip_dvbpsi_fixes.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mpeg/ts_scte.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mpeg/ts_si.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mpeg/ts_sl.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/mpeg/ts_streams.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "mux/mpeg/csa.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "mux/mpeg/tables.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "mux/mpeg/tsutil.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "avcodec",
+      "sources": [
+        {
+          "source": "access/avio.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "codec/avcodec/audio.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "codec/avcodec/avcodec.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "codec/avcodec/encoder.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "codec/avcodec/subtitle.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "codec/avcodec/va.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "codec/avcodec/video.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/avformat/demux.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "demux/avformat/mux.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "packetizer/av1_obu.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "packetizer/avparser.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "videotoolbox",
+      "sources": [
+        {
+          "source": "codec/hxxx_helper.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "codec/videotoolbox.m",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "codec/vt_utils.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "packetizer/h264_nal.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "packetizer/h264_slice.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "packetizer/hevc_nal.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "packetizer/hxxx_nal.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "packetizer/hxxx_sei.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "vout_macosx",
+      "sources": [
+        {
+          "source": "video_output/macosx.m",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "caopengllayer",
+      "sources": [
+        {
+          "source": "video_output/caopengllayer.m",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "auhal",
+      "sources": [
+        {
+          "source": "audio_output/auhal.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "audio_output/coreaudio_common.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "audio_format",
+      "sources": [
+        {
+          "source": "audio_filter/converter/format.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "float_mixer",
+      "sources": [
+        {
+          "source": "audio_mixer/float.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "integer_mixer",
+      "sources": [
+        {
+          "source": "audio_mixer/integer.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "trivial_channel_mixer",
+      "sources": [
+        {
+          "source": "audio_filter/channel_mixer/trivial.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "simple_channel_mixer",
+      "sources": [
+        {
+          "source": "audio_filter/channel_mixer/simple.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "ugly_resampler",
+      "sources": [
+        {
+          "source": "audio_filter/resampler/ugly.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "speex_resampler",
+      "sources": [
+        {
+          "source": "audio_filter/resampler/speex.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "glconv_cvpx",
+      "sources": [
+        {
+          "source": "codec/vt_utils.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "video_output/opengl/converter_cvpx.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "swscale",
+      "sources": [
+        {
+          "source": "codec/avcodec/chroma.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "video_chroma/swscale.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "i420_rgb",
+      "sources": [
+        {
+          "source": "video_chroma/i420_rgb.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "video_chroma/i420_rgb16.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "video_chroma/i420_rgb8.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "i420_yuy2",
+      "sources": [
+        {
+          "source": "video_chroma/i420_yuy2.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "i422_i420",
+      "sources": [
+        {
+          "source": "video_chroma/i422_i420.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "yuy2_i420",
+      "sources": [
+        {
+          "source": "video_chroma/yuy2_i420.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "i420_nv12",
+      "sources": [
+        {
+          "source": "video_chroma/i420_nv12.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "i420_10_p010",
+      "sources": [
+        {
+          "source": "video_chroma/i420_10_p010.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "packetizer_h264",
+      "sources": [
+        {
+          "source": "packetizer/h264.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "packetizer/h264_nal.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "packetizer/h264_slice.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "packetizer/hxxx_common.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "packetizer/hxxx_sei.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "packetizer_hevc",
+      "sources": [
+        {
+          "source": "packetizer/hevc.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "packetizer/hevc_nal.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "packetizer/hxxx_common.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "packetizer/hxxx_sei.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "packetizer_mpeg4audio",
+      "sources": [
+        {
+          "source": "packetizer/mpeg4audio.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "packetizer_mpeg4video",
+      "sources": [
+        {
+          "source": "packetizer/mpeg4video.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "packetizer_mpegvideo",
+      "sources": [
+        {
+          "source": "packetizer/mpegvideo.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "packetizer_mpegaudio",
+      "sources": [
+        {
+          "source": "packetizer/mpegaudio.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "packetizer_a52",
+      "sources": [
+        {
+          "source": "packetizer/a52.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "packetizer_dts",
+      "sources": [
+        {
+          "source": "packetizer/dts.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "packetizer/dts_header.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "packetizer_flac",
+      "sources": [
+        {
+          "source": "packetizer/flac.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "packetizer_copy",
+      "sources": [
+        {
+          "source": "packetizer/copy.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "subsdec",
+      "sources": [
+        {
+          "source": "codec/subsdec.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "subtitle",
+      "sources": [
+        {
+          "source": "demux/subtitle.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "substx3g",
+      "sources": [
+        {
+          "source": "codec/substx3g.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "freetype",
+      "sources": [
+        {
+          "source": "text_renderer/freetype/fonts/android.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "text_renderer/freetype/fonts/darwin.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "text_renderer/freetype/fonts/dwrite.cpp",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "text_renderer/freetype/fonts/fontconfig.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "text_renderer/freetype/fonts/win32.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "text_renderer/freetype/freetype.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "text_renderer/freetype/platform_fonts.c",
+          "headerLicense": "LGPL"
+        },
+        {
+          "source": "text_renderer/freetype/text_layout.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "cache_read",
+      "sources": [
+        {
+          "source": "stream_filter/cache_read.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "cache_block",
+      "sources": [
+        {
+          "source": "stream_filter/cache_block.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "vdummy",
+      "sources": [
+        {
+          "source": "video_output/vdummy.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    },
+    {
+      "module": "adummy",
+      "sources": [
+        {
+          "source": "audio_output/adummy.c",
+          "headerLicense": "LGPL"
+        }
+      ]
+    }
+  ]
+}

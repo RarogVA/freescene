@@ -1,0 +1,14 @@
+FreeScene Android/TV includes audio decoders from FFmpeg 6.1.6, LGPL-2.1-or-later.
+GPL, version3 and nonfree components are disabled. Complete corresponding sources,
+configuration flags and rebuild recipe accompany the APKs in
+FreeScene-android-audio-sources.tar.gz. The source FFmpeg archive contains
+COPYING.LGPLv2.1. The same license text is included in libVLC-LGPL-2.1.txt.
+Source: https://ffmpeg.org/releases/ffmpeg-6.1.6.tar.xz
+
+The unmodified Media3 1.11.1 FFmpeg Java/JNI wrapper is Apache-2.0.
+Copyright (C) 2016 The Android Open Source Project.
+License: AndroidX-Media3-LICENSE.txt.
+Source: https://github.com/androidx/media/tree/1.11.1/libraries/decoder_ffmpeg
+
+Modified libraries can be rebuilt and relinked into an APK signed with a personal
+Android key. No restriction on debugging modified libraries is imposed.

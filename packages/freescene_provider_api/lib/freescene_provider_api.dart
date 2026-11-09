@@ -1,0 +1,9 @@
+export 'src/catalog_models.dart';
+export 'src/catalog_dictionaries.dart';
+export 'src/series_coverage.dart';
+export 'src/source.dart';
+export 'src/native_transport.dart';
+export 'src/stream_client.dart';
+export 'src/playback.dart';
+export 'src/provider_error.dart';
+export 'src/provider_setup.dart';

@@ -1,0 +1,136 @@
+package local.freescene.freescene
+
+import android.app.AlertDialog
+import android.view.View
+import androidx.media3.common.C
+import androidx.media3.common.Format
+import androidx.media3.common.PlaybackParameters
+import androidx.media3.common.Player
+import androidx.media3.common.TrackGroup
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.TrackSelectionParameters
+import androidx.media3.common.Tracks
+import androidx.media3.ui.DefaultTrackNameProvider
+import androidx.media3.ui.PlayerView
+import com.google.common.collect.ImmutableList
+import java.lang.reflect.Proxy
+import org.junit.Assert.*
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowAlertDialog
+
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [28])
+class PlayerSettingsTest {
+    private val context get() = RuntimeEnvironment.getApplication()
+    private fun audio(label: String? = null) = Format.Builder().setSampleMimeType("audio/ac3")
+        .setLanguage("ru").setChannelCount(6).setLabel(label).build()
+    private fun group(id: String, format: Format, selected: Boolean, support: Int = C.FORMAT_HANDLED) =
+        Tracks.Group(TrackGroup(id, format), false, intArrayOf(support), booleanArrayOf(selected))
+    private fun dialog() = ShadowAlertDialog.getLatestAlertDialog()
+    private fun click(index: Int) { shadowOf(dialog()).clickOnItem(index) }
+
+    @Test fun dubbingLabelsDistinguishOtherwiseIdenticalAudioAndRetainLocalizedDetails() {
+        val provider = PlayerTrackNames(context.resources)
+        val fallback = DefaultTrackNameProvider(context.resources).getTrackName(audio())
+        assertEquals("LostFilm · $fallback", provider.getTrackName(audio("LostFilm")))
+        assertEquals("AlexFilm · $fallback", provider.getTrackName(audio("AlexFilm")))
+    }
+    @Test fun absentBlankAndDuplicateLabelsKeepMedia3Fallback() {
+        val provider = PlayerTrackNames(context.resources)
+        val format = audio()
+        val fallback = DefaultTrackNameProvider(context.resources).getTrackName(format)
+        for (label in listOf(null, "", " \n\t ", fallback)) assertEquals(fallback, provider.getTrackName(audio(label)))
+        val noLanguage = audio("LostFilm").buildUpon().setLanguage(null).build()
+        assertEquals(DefaultTrackNameProvider(context.resources).getTrackName(noLanguage), provider.getTrackName(noLanguage))
+        assertTrue(provider.getTrackName(audio(" LostFilm\n\t HD ")).startsWith("LostFilm HD · "))
+    }
+
+    private class Fixture {
+        var tracks = Tracks(ImmutableList.of(
+            Tracks.Group(TrackGroup("first", Format.Builder().setSampleMimeType("audio/ac3").setLanguage("ru").setChannelCount(6).setLabel("LostFilm").build()), false, intArrayOf(C.FORMAT_HANDLED), booleanArrayOf(true)),
+            Tracks.Group(TrackGroup("second", Format.Builder().setSampleMimeType("audio/ac3").setLanguage("ru").setChannelCount(6).setLabel("AlexFilm").build()), false, intArrayOf(C.FORMAT_HANDLED), booleanArrayOf(false))))
+        var selection = TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT
+        var speed = 1f
+        var writes = 0
+        val player = Proxy.newProxyInstance(Player::class.java.classLoader, arrayOf(Player::class.java)) { _, method, args ->
+            when (method.name) {
+                "isCommandAvailable" -> true
+                "getCurrentTracks" -> tracks
+                "getTrackSelectionParameters" -> selection
+                "setTrackSelectionParameters" -> { selection = args!![0] as TrackSelectionParameters; writes++; null }
+                "getPlaybackParameters" -> PlaybackParameters(speed)
+                "setPlaybackSpeed" -> { speed = args!![0] as Float; null }
+                else -> throw AssertionError("Unexpected player call ${method.name}")
+            }
+        } as Player
+    }
+    @Test fun settingsButtonOpensNamedAudioAndSelectionPreservesVideoAndSubtitleOverrides() {
+        val f = Fixture()
+        val video = TrackGroup("video", Format.Builder().setSampleMimeType("video/avc").build())
+        val text = TrackGroup("subtitles", Format.Builder().setSampleMimeType("text/vtt").build())
+        f.selection = f.selection.buildUpon().addOverride(TrackSelectionOverride(video, 0))
+            .addOverride(TrackSelectionOverride(text, 0)).build()
+        var controlsPaused = false
+        val settings = PlayerSettings(context, opened = { controlsPaused = true },
+            dismissed = { controlsPaused = false }) { f.player }
+        val view = PlayerView(context)
+        settings.bind(view)
+        assertTrue(view.findViewById<View>(androidx.media3.ui.R.id.exo_settings).performClick())
+        click(1)
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertTrue("Moving into Audio keeps the controls timer paused", controlsPaused)
+        val rows = dialog().listView.adapter
+        assertTrue(rows.getItem(1).toString().contains("LostFilm"))
+        assertTrue(rows.getItem(2).toString().contains("AlexFilm"))
+        click(2)
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertFalse(controlsPaused)
+        assertEquals(1, f.writes)
+        assertTrue(f.selection.overrides.containsKey(f.tracks.groups[1].mediaTrackGroup))
+        assertTrue(f.selection.overrides.containsKey(video))
+        assertTrue(f.selection.overrides.containsKey(text))
+        assertFalse(f.selection.disabledTrackTypes.contains(C.TRACK_TYPE_AUDIO))
+        settings.dismiss()
+    }
+    @Test fun autoClearsOnlyAudioOverrideAndCancellationDoesNotChangePlayer() {
+        val f = Fixture()
+        val text = TrackGroup("subtitles", Format.Builder().setSampleMimeType("text/vtt").build())
+        f.selection = f.selection.buildUpon().addOverride(TrackSelectionOverride(f.tracks.groups[0].mediaTrackGroup, 0))
+            .addOverride(TrackSelectionOverride(text, 0)).build()
+        val settings = PlayerSettings(context) { f.player }
+        settings.showAudio()
+        dialog().getButton(AlertDialog.BUTTON_NEGATIVE).performClick()
+        assertEquals(0, f.writes)
+        settings.showAudio(); click(0)
+        assertEquals(setOf(text), f.selection.overrides.keys)
+    }
+    @Test fun unsupportedAndStaleTracksAreNotSelectedAndOldPlayerIsNeverModified() {
+        val f = Fixture()
+        f.tracks = Tracks(ImmutableList.of(f.tracks.groups[0], group("unsupported", audio("DTS"), false, C.FORMAT_UNSUPPORTED_SUBTYPE)))
+        var current: Player? = f.player
+        val settings = PlayerSettings(context) { current }
+        settings.showAudio()
+        assertEquals(2, dialog().listView.adapter.count)
+        f.tracks = Tracks.EMPTY
+        click(1)
+        assertEquals(0, f.writes)
+        settings.showAudio(); current = null; click(0)
+        assertEquals(0, f.writes)
+    }
+    @Test fun playbackSpeedStillWorksAndDismissClosesOpenDialog() {
+        val f = Fixture()
+        val settings = PlayerSettings(context) { f.player }
+        settings.showSpeed(); click(5)
+        assertEquals(1.5f, f.speed)
+        settings.showAudio(); val opened = dialog()
+        settings.dismiss()
+        assertFalse(opened.isShowing)
+        assertEquals(0, f.writes)
+    }
+}

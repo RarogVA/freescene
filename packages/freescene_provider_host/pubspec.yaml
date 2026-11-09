@@ -1,0 +1,17 @@
+name: freescene_provider_host
+description: Native session and web playback extension contracts.
+version: 1.0.0
+publish_to: none
+environment:
+  sdk: ^3.13.5
+dependencies:
+  flutter:
+    sdk: flutter
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: local.freescene.provider_host
+        pluginClass: FreesceneProviderHostPlugin
+      macos:
+        pluginClass: FreesceneProviderHostPlugin

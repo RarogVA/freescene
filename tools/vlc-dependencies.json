@@ -1,0 +1,186 @@
+{
+  "vlcVersion": "3.0.21",
+  "vlcSource": {
+    "archive": "vlc-3.0.21.tar.xz",
+    "url": "https://download.videolan.org/pub/videolan/vlc/3.0.21/vlc-3.0.21.tar.xz",
+    "sha256": "24dbbe1d7dfaeea0994d5def0bbde200177347136dbfe573f5b6a4cee25afbb0"
+  },
+  "packages": [
+    {
+      "id": "ffmpeg",
+      "name": "FFmpeg",
+      "version": "4.4.4",
+      "license": "LGPL-2.1-or-later",
+      "modules": [
+        "avcodec",
+        "swscale"
+      ],
+      "archive": "ffmpeg-4.4.4.tar.xz",
+      "sha512": "253799eccd129dad331db85def5352178ae22303e42af47fc013a6adfd4b60d1e59ff5f9ac6118fe3b403affa56ea1f3ba658042f526a914fba27050c3065daf",
+      "url": "https://ffmpeg.org/releases/ffmpeg-4.4.4.tar.xz"
+    },
+    {
+      "id": "gsm",
+      "name": "GSM",
+      "version": "1.0.13",
+      "license": "TU-Berlin-permissive",
+      "modules": [
+        "avcodec",
+        "swscale"
+      ],
+      "archive": "libgsm_1.0.13.tar.gz",
+      "sha512": "0d0cf9e1e81e64cd84f588c1e4f0cb74b849d45e41fdebf860f63588084c73c7c5198bfe73a6c976bda5735ee516661d3db00afbb5cc5886a7ee3a7b31d673aa",
+      "url": "https://download.videolan.org/pub/contrib/gsm/libgsm_1.0.13.tar.gz"
+    },
+    {
+      "id": "lame",
+      "name": "LAME",
+      "version": "3.100",
+      "license": "LGPL-2.0-or-later",
+      "modules": [
+        "avcodec",
+        "swscale"
+      ],
+      "archive": "lame-3.100.tar.gz",
+      "sha512": "0844b9eadb4aacf8000444621451277de365041cc1d97b7f7a589da0b7a23899310afd4e4d81114b9912aa97832621d20588034715573d417b2923948c08634b",
+      "url": "https://download.videolan.org/pub/contrib/lame/lame-3.100.tar.gz"
+    },
+    {
+      "id": "openjpeg",
+      "name": "OpenJPEG",
+      "version": "2.3.0",
+      "license": "BSD-2-Clause",
+      "modules": [
+        "avcodec",
+        "swscale"
+      ],
+      "archive": "openjpeg-v2.3.0.tar.gz",
+      "sha512": "0a9d427be4a820b1d759fca4b50e293721b45fe4885aa61ca1ae09e099f75ed93520448090c780d62f51076d575cc03618cd6d5181bdb6b34e4fc07b4cfdd568",
+      "url": "https://download.videolan.org/pub/contrib/openjpeg/openjpeg-v2.3.0.tar.gz"
+    },
+    {
+      "id": "zlib",
+      "name": "zlib",
+      "version": "1.2.13",
+      "license": "Zlib",
+      "modules": [
+        "avcodec",
+        "swscale",
+        "mp4",
+        "mkv",
+        "freetype"
+      ],
+      "archive": "zlib-1.2.13.tar.xz",
+      "sha512": "9e7ac71a1824855ae526506883e439456b74ac0b811d54e94f6908249ba8719bec4c8d7672903c5280658b26cb6b5e93ecaaafe5cdc2980c760fa196773f0725",
+      "url": "https://download.videolan.org/pub/contrib/zlib/zlib-1.2.13.tar.xz"
+    },
+    {
+      "id": "freetype2",
+      "name": "FreeType",
+      "version": "2.12.1",
+      "license": "FTL",
+      "modules": [
+        "freetype"
+      ],
+      "archive": "freetype-2.12.1.tar.xz",
+      "sha512": "6482de1748dc2cc01e033d21a3b492dadb1f039d13d9179685fdcf985e24d7f587cbca4c27ed8a7fdb7d9ad59612642ac5f4db062443154753295363f45c052f",
+      "url": "https://download.videolan.org/pub/contrib/freetype2/freetype-2.12.1.tar.xz"
+    },
+    {
+      "id": "fribidi",
+      "name": "GNU FriBidi",
+      "version": "1.0.12",
+      "license": "LGPL-2.1-or-later",
+      "modules": [
+        "freetype"
+      ],
+      "archive": "fribidi-1.0.12.tar.xz",
+      "sha512": "cd624f519b270303e89139ced4020115abe3b6a0d774ba57f17fa69c6036edebd76c635a42c468786e76c6ffb0c7d63b435cd2663bc2fba08dec405840dd8e49",
+      "url": "https://download.videolan.org/pub/contrib/fribidi/fribidi-1.0.12.tar.xz"
+    },
+    {
+      "id": "harfbuzz",
+      "name": "HarfBuzz",
+      "version": "3.4.0",
+      "license": "MIT",
+      "modules": [
+        "freetype"
+      ],
+      "archive": "harfbuzz-3.4.0.tar.xz",
+      "sha512": "f300d041aa4af8f7957d5b352af399b9e411804a33ac710b3728247e23a02b867514537cc2b6fcf00746e71ac7a5a2a4b1392253bb5a888baa39b8a0193144c0",
+      "url": "https://download.videolan.org/pub/contrib/harfbuzz/harfbuzz-3.4.0.tar.xz"
+    },
+    {
+      "id": "ebml",
+      "name": "libebml",
+      "version": "1.4.3",
+      "license": "LGPL-2.1-or-later",
+      "modules": [
+        "mkv"
+      ],
+      "archive": "libebml-1.4.3.tar.xz",
+      "sha512": "6a7a544f3f5a273eaab8c71aa692492cbfb671b3d73f03ab76438843a9a7a9379f9cffdae0e1452cf064e43c10ad82424645504a23d7f3336eabcd38f2621d0a",
+      "url": "https://download.videolan.org/pub/contrib/ebml/libebml-1.4.3.tar.xz"
+    },
+    {
+      "id": "matroska",
+      "name": "libmatroska",
+      "version": "1.6.3",
+      "license": "LGPL-2.1-or-later",
+      "modules": [
+        "mkv"
+      ],
+      "archive": "libmatroska-1.6.3.tar.xz",
+      "sha512": "271557c4f8836411782991c069a16cd49d7f9b6f209d1f96f6694f0e8bdfdcda3bbf76512c328555252a8c3e45c5adfcfab1e738304bb2ea85786a6f45af3f41",
+      "url": "https://download.videolan.org/pub/contrib/matroska/libmatroska-1.6.3.tar.xz"
+    },
+    {
+      "id": "speexdsp",
+      "name": "SpeexDSP",
+      "version": "1.2.1",
+      "license": "BSD-3-Clause",
+      "modules": [
+        "speex_resampler"
+      ],
+      "archive": "speexdsp-1.2.1.tar.gz",
+      "sha512": "41b5f37b48db5cb8c5a0f6437a4a8266d2627a5b7c1088de8549fe0bf0bb3105b7df8024fe207eef194096e0726ea73e2b53e0a4293d8db8e133baa0f8a3bad3",
+      "url": "https://download.videolan.org/pub/contrib/speexdsp/speexdsp-1.2.1.tar.gz"
+    },
+    {
+      "id": "gettext",
+      "name": "GNU gettext libintl",
+      "version": "0.19.8.1",
+      "license": "LGPL-2.1-or-later",
+      "modules": [
+        "core"
+      ],
+      "archive": "gettext-0.19.8.1.tar.gz",
+      "sha512": "073042fa2dc48804c58e76f036130a669e19612c25427b0ab14d0b366b549a63751bf3af03bfd0745d7c4f72497a4b2aab26a3cc6de83189ce111679073878e1",
+      "url": "https://download.videolan.org/pub/contrib/gettext/gettext-0.19.8.1.tar.gz"
+    },
+    {
+      "id": "dvbpsi",
+      "name": "libdvbpsi",
+      "version": "1.3.3",
+      "license": "LGPL-2.1-or-later",
+      "modules": [
+        "ts"
+      ],
+      "archive": "libdvbpsi-1.3.3.tar.bz2",
+      "sha512": "70f9e783a947e026ea50afe98ad2b3bfce075bd8d76932f73a6253b077a3a180aa632e9a1fff20308e2f0f3f881d727b4e4aad9b8da2b384edf9a3a0f9eacc69",
+      "url": "https://download.videolan.org/pub/libdvbpsi/1.3.3/libdvbpsi-1.3.3.tar.bz2"
+    }
+  ],
+  "upstreamBinary": {
+    "archive": "vlc-3.0.21-arm64.dmg",
+    "url": "https://download.videolan.org/pub/videolan/vlc/3.0.21/macosx/vlc-3.0.21-arm64.dmg",
+    "sha256": "15dd65bf6489da9ec6a67f5585c74c40a58993acff41a82958a916dd74178044"
+  },
+  "upstreamBinaries": {
+    "x86_64": {
+      "archive": "vlc-3.0.21-intel64.dmg",
+      "url": "https://download.videolan.org/pub/videolan/vlc/3.0.21/macosx/vlc-3.0.21-intel64.dmg",
+      "sha256": "d431fd051c3dc7af02bd313c6d05d90cf604b70ed3ec5bba6fd4c49ef3e638d9"
+    }
+  }
+}

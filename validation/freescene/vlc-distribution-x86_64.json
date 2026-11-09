@@ -1,0 +1,727 @@
+{
+  "passed": true,
+  "vlcVersion": "3.0.21",
+  "scope": "Exact 46-module x86_64 subset, libvlc/libvlccore, static contrib closure and source distribution",
+  "upstreamBinary": {
+    "archive": "vlc-3.0.21-intel64.dmg",
+    "url": "https://download.videolan.org/pub/videolan/vlc/3.0.21/macosx/vlc-3.0.21-intel64.dmg",
+    "sha256": "d431fd051c3dc7af02bd313c6d05d90cf604b70ed3ec5bba6fd4c49ef3e638d9"
+  },
+  "vlcSource": {
+    "archive": "vlc-3.0.21.tar.xz",
+    "url": "https://download.videolan.org/pub/videolan/vlc/3.0.21/vlc-3.0.21.tar.xz",
+    "sha256": "24dbbe1d7dfaeea0994d5def0bbde200177347136dbfe573f5b6a4cee25afbb0"
+  },
+  "staticDependencies": [
+    {
+      "id": "ffmpeg",
+      "name": "FFmpeg",
+      "version": "4.4.4",
+      "license": "LGPL-2.1-or-later",
+      "modules": [
+        "avcodec",
+        "swscale"
+      ],
+      "archive": "ffmpeg-4.4.4.tar.xz",
+      "sha512": "253799eccd129dad331db85def5352178ae22303e42af47fc013a6adfd4b60d1e59ff5f9ac6118fe3b403affa56ea1f3ba658042f526a914fba27050c3065daf",
+      "url": "https://ffmpeg.org/releases/ffmpeg-4.4.4.tar.xz"
+    },
+    {
+      "id": "gsm",
+      "name": "GSM",
+      "version": "1.0.13",
+      "license": "TU-Berlin-permissive",
+      "modules": [
+        "avcodec",
+        "swscale"
+      ],
+      "archive": "libgsm_1.0.13.tar.gz",
+      "sha512": "0d0cf9e1e81e64cd84f588c1e4f0cb74b849d45e41fdebf860f63588084c73c7c5198bfe73a6c976bda5735ee516661d3db00afbb5cc5886a7ee3a7b31d673aa",
+      "url": "https://download.videolan.org/pub/contrib/gsm/libgsm_1.0.13.tar.gz"
+    },
+    {
+      "id": "lame",
+      "name": "LAME",
+      "version": "3.100",
+      "license": "LGPL-2.0-or-later",
+      "modules": [
+        "avcodec",
+        "swscale"
+      ],
+      "archive": "lame-3.100.tar.gz",
+      "sha512": "0844b9eadb4aacf8000444621451277de365041cc1d97b7f7a589da0b7a23899310afd4e4d81114b9912aa97832621d20588034715573d417b2923948c08634b",
+      "url": "https://download.videolan.org/pub/contrib/lame/lame-3.100.tar.gz"
+    },
+    {
+      "id": "openjpeg",
+      "name": "OpenJPEG",
+      "version": "2.3.0",
+      "license": "BSD-2-Clause",
+      "modules": [
+        "avcodec",
+        "swscale"
+      ],
+      "archive": "openjpeg-v2.3.0.tar.gz",
+      "sha512": "0a9d427be4a820b1d759fca4b50e293721b45fe4885aa61ca1ae09e099f75ed93520448090c780d62f51076d575cc03618cd6d5181bdb6b34e4fc07b4cfdd568",
+      "url": "https://download.videolan.org/pub/contrib/openjpeg/openjpeg-v2.3.0.tar.gz"
+    },
+    {
+      "id": "zlib",
+      "name": "zlib",
+      "version": "1.2.13",
+      "license": "Zlib",
+      "modules": [
+        "avcodec",
+        "swscale",
+        "mp4",
+        "mkv",
+        "freetype"
+      ],
+      "archive": "zlib-1.2.13.tar.xz",
+      "sha512": "9e7ac71a1824855ae526506883e439456b74ac0b811d54e94f6908249ba8719bec4c8d7672903c5280658b26cb6b5e93ecaaafe5cdc2980c760fa196773f0725",
+      "url": "https://download.videolan.org/pub/contrib/zlib/zlib-1.2.13.tar.xz"
+    },
+    {
+      "id": "freetype2",
+      "name": "FreeType",
+      "version": "2.12.1",
+      "license": "FTL",
+      "modules": [
+        "freetype"
+      ],
+      "archive": "freetype-2.12.1.tar.xz",
+      "sha512": "6482de1748dc2cc01e033d21a3b492dadb1f039d13d9179685fdcf985e24d7f587cbca4c27ed8a7fdb7d9ad59612642ac5f4db062443154753295363f45c052f",
+      "url": "https://download.videolan.org/pub/contrib/freetype2/freetype-2.12.1.tar.xz"
+    },
+    {
+      "id": "fribidi",
+      "name": "GNU FriBidi",
+      "version": "1.0.12",
+      "license": "LGPL-2.1-or-later",
+      "modules": [
+        "freetype"
+      ],
+      "archive": "fribidi-1.0.12.tar.xz",
+      "sha512": "cd624f519b270303e89139ced4020115abe3b6a0d774ba57f17fa69c6036edebd76c635a42c468786e76c6ffb0c7d63b435cd2663bc2fba08dec405840dd8e49",
+      "url": "https://download.videolan.org/pub/contrib/fribidi/fribidi-1.0.12.tar.xz"
+    },
+    {
+      "id": "harfbuzz",
+      "name": "HarfBuzz",
+      "version": "3.4.0",
+      "license": "MIT",
+      "modules": [
+        "freetype"
+      ],
+      "archive": "harfbuzz-3.4.0.tar.xz",
+      "sha512": "f300d041aa4af8f7957d5b352af399b9e411804a33ac710b3728247e23a02b867514537cc2b6fcf00746e71ac7a5a2a4b1392253bb5a888baa39b8a0193144c0",
+      "url": "https://download.videolan.org/pub/contrib/harfbuzz/harfbuzz-3.4.0.tar.xz"
+    },
+    {
+      "id": "ebml",
+      "name": "libebml",
+      "version": "1.4.3",
+      "license": "LGPL-2.1-or-later",
+      "modules": [
+        "mkv"
+      ],
+      "archive": "libebml-1.4.3.tar.xz",
+      "sha512": "6a7a544f3f5a273eaab8c71aa692492cbfb671b3d73f03ab76438843a9a7a9379f9cffdae0e1452cf064e43c10ad82424645504a23d7f3336eabcd38f2621d0a",
+      "url": "https://download.videolan.org/pub/contrib/ebml/libebml-1.4.3.tar.xz"
+    },
+    {
+      "id": "matroska",
+      "name": "libmatroska",
+      "version": "1.6.3",
+      "license": "LGPL-2.1-or-later",
+      "modules": [
+        "mkv"
+      ],
+      "archive": "libmatroska-1.6.3.tar.xz",
+      "sha512": "271557c4f8836411782991c069a16cd49d7f9b6f209d1f96f6694f0e8bdfdcda3bbf76512c328555252a8c3e45c5adfcfab1e738304bb2ea85786a6f45af3f41",
+      "url": "https://download.videolan.org/pub/contrib/matroska/libmatroska-1.6.3.tar.xz"
+    },
+    {
+      "id": "speexdsp",
+      "name": "SpeexDSP",
+      "version": "1.2.1",
+      "license": "BSD-3-Clause",
+      "modules": [
+        "speex_resampler"
+      ],
+      "archive": "speexdsp-1.2.1.tar.gz",
+      "sha512": "41b5f37b48db5cb8c5a0f6437a4a8266d2627a5b7c1088de8549fe0bf0bb3105b7df8024fe207eef194096e0726ea73e2b53e0a4293d8db8e133baa0f8a3bad3",
+      "url": "https://download.videolan.org/pub/contrib/speexdsp/speexdsp-1.2.1.tar.gz"
+    },
+    {
+      "id": "gettext",
+      "name": "GNU gettext libintl",
+      "version": "0.19.8.1",
+      "license": "LGPL-2.1-or-later",
+      "modules": [
+        "core"
+      ],
+      "archive": "gettext-0.19.8.1.tar.gz",
+      "sha512": "073042fa2dc48804c58e76f036130a669e19612c25427b0ab14d0b366b549a63751bf3af03bfd0745d7c4f72497a4b2aab26a3cc6de83189ce111679073878e1",
+      "url": "https://download.videolan.org/pub/contrib/gettext/gettext-0.19.8.1.tar.gz"
+    },
+    {
+      "id": "dvbpsi",
+      "name": "libdvbpsi",
+      "version": "1.3.3",
+      "license": "LGPL-2.1-or-later",
+      "modules": [
+        "ts"
+      ],
+      "archive": "libdvbpsi-1.3.3.tar.bz2",
+      "sha512": "70f9e783a947e026ea50afe98ad2b3bfce075bd8d76932f73a6253b077a3a180aa632e9a1fff20308e2f0f3f881d727b4e4aad9b8da2b384edf9a3a0f9eacc69",
+      "url": "https://download.videolan.org/pub/libdvbpsi/1.3.3/libdvbpsi-1.3.3.tar.bz2"
+    }
+  ],
+  "binaries": [
+    {
+      "path": "lib/libvlc.dylib",
+      "sourceSHA256": "21a5cbaca8b4b87cb4a0c7779882b8e1423850b9e4fbdcbbe6445e299295e44e",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "lib/libvlccore.dylib",
+      "sourceSHA256": "bd86357647252a317f18970f9cdadfc0a7f72ee2b5fe0d83120b3f658a847258",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+        "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices"
+      ]
+    },
+    {
+      "path": "plugins/libfilesystem_plugin.dylib",
+      "sourceSHA256": "20fa3f696a5217889ebbf070dbbee79f62ec5087b77faf0e214ce25339911f99",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libhttp_plugin.dylib",
+      "sourceSHA256": "38835aea69dec716d7643cc95fb7d88de69b335d66154b68fe2064811fd3e48b",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libhttps_plugin.dylib",
+      "sourceSHA256": "d300c0eeadaf4bb8fcaad89a1ebc8180dc66caa073738fd29de1c54679e41485",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libsecuretransport_plugin.dylib",
+      "sourceSHA256": "f335d1d2eef5f0b954d857d15d977244ee6801eeede5bfd0d891098b43f0e097",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/System/Library/Frameworks/Security.framework/Versions/A/Security",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation"
+      ]
+    },
+    {
+      "path": "plugins/libmp4_plugin.dylib",
+      "sourceSHA256": "50ccba0c1e8e9a844f347473e8c5633727dbd949aaccf35df279108c84791b6e",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libmkv_plugin.dylib",
+      "sourceSHA256": "a7977c31866b99c1a05ed6a4f004af66e519208af4d253bbabf15f07b9c65d94",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/usr/lib/libc++.1.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libavi_plugin.dylib",
+      "sourceSHA256": "8f9c9dae34a1a62edaf7b67c4a9f7c94a5148af9bf8a1770942696f25ab5d9fd",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libts_plugin.dylib",
+      "sourceSHA256": "4f5ed2165ac8d600a0a79f90b28a076bf9a16a2a943558f4a5d4c71866046f19",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libavcodec_plugin.dylib",
+      "sourceSHA256": "a5d6ea3a33836e5ae0e28233ceb2b4b0c5bd5038dc89f8a20d88316e96e41b4a",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+        "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+        "/System/Library/Frameworks/Security.framework/Versions/A/Security"
+      ]
+    },
+    {
+      "path": "plugins/libvideotoolbox_plugin.dylib",
+      "sourceSHA256": "4f1b9fa2601048144b6a257fc2cda1fae3cd1c79f879bdbd2b4aea8d8e1f3bf9",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+        "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/VideoToolbox",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/usr/lib/libobjc.A.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libvout_macosx_plugin.dylib",
+      "sourceSHA256": "d2a52dc5f8f0cdc53338e0853e21bfe6e8b6b7dc81cc7d8e46e151c978baf6f8",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL",
+        "/System/Library/Frameworks/Cocoa.framework/Versions/A/Cocoa",
+        "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit",
+        "/System/Library/Frameworks/ApplicationServices.framework/Versions/A/ApplicationServices",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+        "/usr/lib/libobjc.A.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libcaopengllayer_plugin.dylib",
+      "sourceSHA256": "f02b39eec0fdf39b34733b17147c85c46d0c9a89b604023268e1bc93add17988",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL",
+        "/System/Library/Frameworks/Cocoa.framework/Versions/A/Cocoa",
+        "/System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore",
+        "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+        "/usr/lib/libobjc.A.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libauhal_plugin.dylib",
+      "sourceSHA256": "7214870a5f5ce7830472c89ac87b074144e6cc5c9a8e6717f97d0ef18de60009",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/System/Library/Frameworks/CoreAudio.framework/Versions/A/CoreAudio",
+        "/System/Library/Frameworks/AudioUnit.framework/Versions/A/AudioUnit",
+        "/System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox",
+        "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation"
+      ]
+    },
+    {
+      "path": "plugins/libaudio_format_plugin.dylib",
+      "sourceSHA256": "15fba74be53315f76ac8a0641e5c198de560eb9c3bde75e80dadf75c8d3d8577",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libfloat_mixer_plugin.dylib",
+      "sourceSHA256": "b12d0b0717f69c3c286c914e0f9b119dc8cbdfacd7acb00c8d674369ca85450c",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libinteger_mixer_plugin.dylib",
+      "sourceSHA256": "5ce6b5d79bc28d665378b8b3b3030dee227d14f13c6b5195d388704ea96c2e99",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libtrivial_channel_mixer_plugin.dylib",
+      "sourceSHA256": "5f92f903c6709611157203ccb7124dd52597a50002b7e7b40370f76b95bc3845",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libsimple_channel_mixer_plugin.dylib",
+      "sourceSHA256": "572e9033ec19ca3b694065d2a7e9c137603cfc7a82cd66372a9f1500c9cc7734",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libugly_resampler_plugin.dylib",
+      "sourceSHA256": "2d0313d222b31dade940846e9d3f5f5a877f6d73a6c69af1f67d6ff9c14f5e9f",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libspeex_resampler_plugin.dylib",
+      "sourceSHA256": "afe40f0838ce2fe5419925e2eca8af7299de2bfcaac9ba382024a5a45b4a3a09",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libglconv_cvpx_plugin.dylib",
+      "sourceSHA256": "ece95c6cd54bc6008c75b957c98917779216757d240bcd374adb2a8c02b5aec6",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/System/Library/Frameworks/IOSurface.framework/Versions/A/IOSurface",
+        "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation"
+      ]
+    },
+    {
+      "path": "plugins/libswscale_plugin.dylib",
+      "sourceSHA256": "806f46ac656967851695f5d3f0301371ee011fa86f5b9e1e33c63a1e67307ef6",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia"
+      ]
+    },
+    {
+      "path": "plugins/libi420_rgb_plugin.dylib",
+      "sourceSHA256": "aece9c2e0e6bdca813f7450fcb591e002703f8a6cfd1ab3b739f5c1975fcbc2d",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libi420_yuy2_plugin.dylib",
+      "sourceSHA256": "562586854e2c4724dbf88a0ab7bf184e212501be6ad0fabe7d187009b7caa94e",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libi422_i420_plugin.dylib",
+      "sourceSHA256": "ff4db91e0a53df3f64ad11bc9b249c0e5ee5f53866db4ab9290bc09ce46ebc32",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libyuy2_i420_plugin.dylib",
+      "sourceSHA256": "35570198e9fe485cec5f160d483445229fe4d3d8e2fcd8cff4888ce25de4e1aa",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libi420_nv12_plugin.dylib",
+      "sourceSHA256": "aacd24ff2cd605ded89279af7f82250c2b580b711bc01cb70f92ca76204f0880",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libi420_10_p010_plugin.dylib",
+      "sourceSHA256": "30601b144ce2ea85ee900040c79d249dedf1c2922281156fd09adac820a8d976",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libpacketizer_h264_plugin.dylib",
+      "sourceSHA256": "964d3a358a64a854511bcb83348c7a2629b283bdcbf6a56c7a9d6c09a00f584d",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libpacketizer_hevc_plugin.dylib",
+      "sourceSHA256": "6d85296d8d6d2a8fdf0eb5f1c4ef100f59f789697b135254274ce74f0ce91323",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libpacketizer_mpeg4audio_plugin.dylib",
+      "sourceSHA256": "6722493e3bef1636a6f21f144690903f797a4262697208cab99f0f9596179009",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libpacketizer_mpeg4video_plugin.dylib",
+      "sourceSHA256": "bde516fa2ef4b21ebaad79b4d57d716934ed9ba398ad5c410f101d699ff36451",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libpacketizer_mpegvideo_plugin.dylib",
+      "sourceSHA256": "0876247291ff28fc128c1fc1465b75606ea5f2f741135f181bc1151b2b29c79e",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libpacketizer_mpegaudio_plugin.dylib",
+      "sourceSHA256": "9a45eb9c4ce827835965ac9aff9ce3dcef1bc83b242a72883ac750d14bda9b1d",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libpacketizer_a52_plugin.dylib",
+      "sourceSHA256": "c4bba01a54f6964bd9d05f5e2b0cc6ba6cd40a73f4f450d4d0851aa8958a8f95",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libpacketizer_dts_plugin.dylib",
+      "sourceSHA256": "7c9fa4c8cb4ea9f7ba91f35fef9ce92290888d1e293a0c976522eb23dd419a3f",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libpacketizer_flac_plugin.dylib",
+      "sourceSHA256": "e669f90d3c6f4163afa5d592162c03c1942c91f5c1a44bcd4bbcea0872e57dae",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libpacketizer_copy_plugin.dylib",
+      "sourceSHA256": "40877403d749e02fba56496a663b821687de0503041e09969c004626b8d95928",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libsubsdec_plugin.dylib",
+      "sourceSHA256": "396fcab415be06ef09f78074c91098fc304dc1a28ef3ff8656165f99757876af",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libsubtitle_plugin.dylib",
+      "sourceSHA256": "53ac945b8ba9d03fa01687b49fd52d5126014fd5ba945e8186265fa7d9f2b9c6",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libsubstx3g_plugin.dylib",
+      "sourceSHA256": "782e3e743949938693a6418f2f679c4313527a1077a46d34b5ffcdd26323ce0a",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libfreetype_plugin.dylib",
+      "sourceSHA256": "b0d952d342a0eac060afc8f7b69c87573e2f0a87264585f41b2be68699fad648",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/System/Library/Frameworks/ApplicationServices.framework/Versions/A/ApplicationServices",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation"
+      ]
+    },
+    {
+      "path": "plugins/libcache_read_plugin.dylib",
+      "sourceSHA256": "0d2f662a2485eb3b1c706995491de6bc56a72e320f6c7be837897365b984b6d9",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libcache_block_plugin.dylib",
+      "sourceSHA256": "01a52d33a19d23c8a6f0cca03cd6482efef3d2e4b0d19f00eb85e755cad4b4d8",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libvdummy_plugin.dylib",
+      "sourceSHA256": "f8f83a475ff51e3444101012958bd6ab864fba72b720c591dd908ac361879583",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    },
+    {
+      "path": "plugins/libadummy_plugin.dylib",
+      "sourceSHA256": "a91b7481b7b6028eff9238b3eba52d1dff12df0f60e802fc6250704fc3ce3c6b",
+      "architecture": "x86_64",
+      "dynamicDependencies": [
+        "@rpath/libvlccore.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib"
+      ]
+    }
+  ],
+  "upstreamConfigure": [
+    "/Users/d-fu/vlc-3.0/extras/package/macosx/../../../configure  '--prefix=/Users/d-fu/vlc-3.0/build-intel64/vlc_install_dir' '--enable-macosx' '--enable-merge-ffmpeg' '--enable-osx-notifications' '--enable-faad' '--enable-flac' '--enable-theora' '--enable-shout' '--enable-ncurses' '--enable-twolame' '--enable-realrtsp' '--enable-libass' '--enable-macosx-avfoundation' '--disable-skins2' '--disable-xcb' '--disable-caca' '--disable-pulse' '--disable-sdl-image' '--disable-vnc' '--build=x86_64-apple-darwin19' '--host=x86_64-apple-darwin19' '--with-macosx-version-min=10.7' '--with-macosx-sdk=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk' '--with-breakpad=https://mac.crashes.videolan.org' 'build_alias=x86_64-apple-darwin19' 'host_alias=x86_64-apple-darwin19' 'CC=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang' 'CFLAGS=-g -arch x86_64' 'LDFLAGS=-arch x86_64' 'CXX=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++' 'CXXFLAGS=-g -arch x86_64' 'OBJC=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang' 'OBJCFLAGS=-g -arch x86_64'"
+  ],
+  "ffmpegConfigure": [
+    "--extra-ldflags=' -L/Users/d-fu/vlc-3.0/contrib/x86_64-apple-darwin19/lib -Wl,-syslibroot,/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk -mmacosx-version-min=10.7 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk -DMACOSX_DEPLOYMENT_TARGET=10.7 -arch x86_64' --cc=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang --pkg-config=pkg-config --disable-doc --disable-encoder=vorbis --disable-decoder=opus --enable-libgsm --disable-debug --disable-avdevice --disable-devices --disable-avfilter --disable-filters --disable-protocol=concat --disable-bsfs --disable-bzlib --disable-libvpx --disable-avresample --enable-bsf=vp9_superframe --disable-swresample --disable-iconv --disable-avisynth --disable-nvenc --disable-linux-perf --disable-videotoolbox --disable-securetransport --enable-libopenjpeg --enable-libmp3lame --arch=x86_64 --target-os=darwin --extra-cflags='-Werror=partial-availability -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk -mmacosx-version-min=10.7 -DMACOSX_DEPLOYMENT_TARGET=10.7 -arch x86_64 -fno-stack-check -I/Users/d-fu/vlc-3.0/contrib/x86_64-apple-darwin19/include -g -O2' --disable-lzma --cpu=core2 --enable-pthreads --nm=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/nm --ar=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar --ranlib=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib --prefix=/Users/d-fu/vlc-3.0/contrib/x86_64-apple-darwin19 --enable-static --disable-shared"
+  ],
+  "excluded": [
+    "GPL VLC modules",
+    "libsamplerate",
+    "x264/x265",
+    "GPL/nonfree FFmpeg options",
+    "VLC application UI, Lua, Sparkle, Qt, gettext tools"
+  ],
+  "evidence": "Official DMG byte match; VLC source module headers and Makefile link graph; pinned contrib recipes and source hashes; embedded runtime strings/configure flags; all Mach-O dynamic dependencies",
+  "limits": "Some static versions come from upstream contrib pins rather than exported version APIs. Bit-for-bit reproducibility on a different Xcode is not asserted.",
+  "modifications": "No source changes to VLC/contrib; packaging changes rpath with install_name_tool and replaces code signatures with ad hoc signatures",
+  "sourceCompanion": "FreeScene-VLC-sources.tar.gz",
+  "architecture": "x86_64"
+}
