@@ -1198,7 +1198,7 @@ class _SourceTableState extends State<SourceTable> {
         );
         return Container(
           key: ValueKey('source-${source.row.provider.name}-${source.row.id}'),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
           decoration: BoxDecoration(
             color: tableColor,
             border: Border(bottom: Divider.createBorderSide(context)),
@@ -1212,8 +1212,14 @@ class _SourceTableState extends State<SourceTable> {
                     child: LayoutBuilder(
                       builder: (context, box) => box.maxWidth >= 620
                           ? Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(child: details),
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: details,
+                                  ),
+                                ),
                                 const SizedBox(width: 16),
                                 SizedBox(width: 300, child: metadata),
                               ],

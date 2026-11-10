@@ -124,8 +124,14 @@ class AndroidSourceCard extends StatelessWidget {
                         ? name
                         : box.maxWidth >= 620
                         ? Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(child: name),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: name,
+                                ),
+                              ),
                               const SizedBox(width: 16),
                               SizedBox(width: 300, child: metadata),
                             ],
