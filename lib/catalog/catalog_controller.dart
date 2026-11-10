@@ -1,10 +1,15 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 
 import 'catalog_models.dart';
 import 'favorites.dart';
+import 'source_policy.dart';
 import 'watch_queue.dart';
 
 class ProviderSources {
+  final _seen = <String>{};
+  int _excluded = 0;
   List<CatalogSource> items = [];
   int total = 0, next = 0;
   bool loading = false, hasMore = false;
@@ -242,25 +247,39 @@ class CatalogController extends ChangeNotifier {
   ) async {
     final state = providerStates[provider]!;
     try {
-      final page = await repository.providerSources(
-        title,
-        provider,
-        start: start,
-      );
-      if (_disposed || generation != _detailsGeneration) return;
-      final existing = sources
-          .map((s) => '${s.row.provider.name}/${s.row.id}')
-          .toSet();
-      final added = page.items
-          .where((s) => existing.add('${s.row.provider.name}/${s.row.id}'))
-          .toList();
-      state.items.addAll(added);
-      sources = [...sources, ...added];
-      state.total = page.total;
-      state.next = page.next;
-      // Stop a provider repeating an entire page despite advancing its cursor.
-      // Empty filtered pages can still advance to subsequent relevant results.
-      state.hasMore = page.hasMore && (page.items.isEmpty || added.isNotEmpty);
+      // Fill past a few entirely excluded pages without holding this request
+      // open through an arbitrarily large catalogue. Normal paging can continue.
+      for (var scanned = 0; scanned < 3; scanned++) {
+        final page = await repository.providerSources(
+          title,
+          provider,
+          start: start,
+        );
+        if (_disposed || generation != _detailsGeneration) return;
+        String key(CatalogSource s) => '${s.row.provider.name}/${s.row.id}';
+        final fresh = page.items.where((s) => state._seen.add(key(s))).toList();
+        final accepted = fresh
+            .where((s) => includeCatalogSource(title.kind, s))
+            .toList();
+        state._excluded += fresh.length - accepted.length;
+        final existing = sources.map(key).toSet();
+        final added = accepted.where((s) => existing.add(key(s))).toList();
+        state.items.addAll(added);
+        sources = [...sources, ...added];
+        state.total = math.max(
+          state.items.length,
+          page.total - state._excluded,
+        );
+        state.next = page.next;
+        // Track raw IDs too: excluded rows must neither stop pagination nor
+        // let a provider repeating the same page keep loading forever.
+        state.hasMore =
+            page.hasMore &&
+            page.next > start &&
+            (page.items.isEmpty || fresh.isNotEmpty);
+        if (added.isNotEmpty || !state.hasMore) break;
+        start = state.next;
+      }
     } catch (e) {
       if (!_disposed && generation == _detailsGeneration) state.error = e;
     } finally {
