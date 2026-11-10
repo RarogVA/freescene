@@ -452,6 +452,16 @@ class _FreeSceneAppState extends State<FreeSceneApp> {
   Future<void> _useCatalogSource(CatalogSource source, bool watch) async {
     final identity = watchedIdentity(_catalog!.selected, source);
     final resolved = await _catalog!.repository.resolve(source);
+    if (!watch && resolved.row.download == DownloadKind.external) {
+      if (resolved.uri == null) {
+        throw const FormatException('Download source is unavailable');
+      }
+      await widget.nativeService!.call('openDownload', {
+        'url': resolved.uri.toString(),
+        'provider': resolved.row.provider.name,
+      });
+      return;
+    }
     if (!watch &&
         resolved.row.provider == ProviderSetup.current.downloadProvider) {
       final qualities = await _torrents!.videoQualities(resolved.row.id);
@@ -769,6 +779,7 @@ class _FreeSceneAppState extends State<FreeSceneApp> {
                             )
                           : _catalog != null && _catalogKind != null
                           ? CatalogPageView(
+                              compactSourceActions: _sidebarCollapsed,
                               key: ValueKey(
                                 'catalog-view-$_catalogViewGeneration',
                               ),

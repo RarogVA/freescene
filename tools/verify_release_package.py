@@ -253,6 +253,11 @@ def verify_release(release, version, build_number):
             require(os.statvfs(mount).f_flag & os.ST_RDONLY, 'DMG volume is not read-only')
             link = mount / 'Applications'
             require(link.is_symlink() and os.readlink(link) == '/Applications', 'DMG Applications link is invalid')
+            repair = mount / 'Исправить запуск.command'
+            require(repair.is_file() and not repair.is_symlink() and
+                    repair.read_bytes() == (ROOT/'tools/fix_macos_launch.command').read_bytes(),
+                    'DMG launch-repair script is missing or differs from the source')
+            require(repair.stat().st_mode & 0o111, 'DMG launch-repair script must be executable')
             installation = (mount / 'Установка.txt').read_text(encoding='utf-8')
             platform='Apple Silicon' if architecture=='arm64' else 'Intel x86_64'
             require(f'FreeScene {version} — macOS 13+, {platform}' in installation and 'Preview' not in installation,
@@ -260,6 +265,7 @@ def verify_release(release, version, build_number):
             verification['dmgCheck'] = {
                 **verify_bundle(mount / 'FreeScene.app', version, build_number, signing, baseline, 'dmg', temporary, architecture),
                 'readOnlyMount': True, 'applicationsLink': True, 'stableInstallationText': True,
+                'launchRepairScriptVerified': True,
                 'diskImageVerification': 'hdiutil verify passed',
             }
         finally:

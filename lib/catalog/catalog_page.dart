@@ -32,10 +32,11 @@ class CatalogPageView extends StatelessWidget {
     this.onToggleFavorites,
     this.onToggleQueue,
     this.onTrailer,
+    this.compactSourceActions = false,
     super.key,
   });
   final CatalogController controller;
-  final bool english;
+  final bool english, compactSourceActions;
   final Widget? kindSwitch;
   final Future<void> Function(CatalogSource, bool watch)? onUseSource;
   final VoidCallback? onToggleFavorites;
@@ -512,6 +513,7 @@ class CatalogPageView extends StatelessWidget {
 
   Widget _details(BuildContext context, CatalogTitle title) => SourceTable(
     title: title,
+    compactActions: compactSourceActions,
     key: ValueKey('${title.kind}-${title.id}'),
     sources: controller.sources,
     providers: controller.providerStates.keys.toList(),
@@ -760,13 +762,14 @@ class SourceTable extends StatefulWidget {
     this.onUseSource,
     this.introduction,
     this.footer,
+    this.compactActions = false,
     super.key,
   });
   final Widget? introduction, footer;
   final CatalogTitle? title;
   final List<CatalogSource> sources;
   final List<SourceProvider>? providers;
-  final bool english, game, series;
+  final bool english, game, series, compactActions;
   final Future<void> Function(CatalogSource, bool)? onUseSource;
   @override
   State<SourceTable> createState() => _SourceTableState();
@@ -838,41 +841,63 @@ class _SourceTableState extends State<SourceTable> {
     final key = '${source.row.provider.name}/${source.row.id}';
     final colors = Theme.of(context).colorScheme;
     final style = OutlinedButton.styleFrom(
-      minimumSize: const Size(48, 48),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      minimumSize: const Size(0, 32),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       foregroundColor: colors.onSurface,
       side: BorderSide(color: colors.outlineVariant),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
     );
-    Widget action(bool watch) => OutlinedButton.icon(
-      key: ValueKey('source-${watch ? 'watch' : 'download'}-$key'),
-      style: style,
-      onPressed:
-          busy != null ||
-              (watch ? !source.canWatch : !source.row.canDownload) ||
-              (source.uri == null && source.topic == null) ||
-              widget.onUseSource == null
-          ? null
-          : () => _use(source, watch),
-      icon: busy == key && busyWatch == watch
+    Widget action(bool watch) {
+      final label = watch
+          ? tr('Смотреть', 'Watch')
+          : widget.game
+          ? tr('Скачать для macOS', 'Download for macOS')
+          : tr('Скачать', 'Download');
+      final enabled =
+          busy == null &&
+          (watch ? source.canWatch : source.row.canDownload) &&
+          (source.uri != null || source.topic != null) &&
+          widget.onUseSource != null;
+      final icon = busy == key && busyWatch == watch
           ? const SizedBox(
               width: 20,
               height: 20,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : Icon(watch ? Icons.play_arrow : Icons.download_outlined, size: 20),
-      label: Text(
-        watch
-            ? tr('Смотреть', 'Watch')
-            : widget.game
-            ? tr('Скачать для macOS', 'Download for macOS')
-            : tr('Скачать', 'Download'),
-      ),
-    );
-    return Wrap(
-      spacing: 8,
-      runSpacing: 6,
-      children: [if (!widget.game) action(true), action(false)],
+          : Icon(watch ? Icons.play_arrow : Icons.download_outlined, size: 20);
+      final actionKey = ValueKey('source-${watch ? 'watch' : 'download'}-$key');
+      if (widget.compactActions) {
+        return Tooltip(
+          message: label,
+          child: OutlinedButton(
+            key: actionKey,
+            style: style.copyWith(
+              fixedSize: const WidgetStatePropertyAll(Size.square(32)),
+              padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+              shape: const WidgetStatePropertyAll(CircleBorder()),
+            ),
+            onPressed: enabled ? () => _use(source, watch) : null,
+            child: Semantics(label: label, child: icon),
+          ),
+        );
+      }
+      return OutlinedButton.icon(
+        key: actionKey,
+        style: style,
+        onPressed: enabled ? () => _use(source, watch) : null,
+        icon: icon,
+        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!widget.game) ...[action(true), const SizedBox(height: 4)],
+        action(false),
+      ],
     );
   }
 
@@ -1195,96 +1220,90 @@ class _SourceTableState extends State<SourceTable> {
         final metadata = SourceMetadata(
           source: source,
           english: widget.english,
+          singleLine: true,
+          scrollable: false,
         );
         return Container(
           key: ValueKey('source-${source.row.provider.name}-${source.row.id}'),
-          padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: tableColor,
             border: Border(bottom: Divider.createBorderSide(context)),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, box) => box.maxWidth >= 620
-                          ? Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(top: 6),
-                                    child: details,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                SizedBox(width: 300, child: metadata),
-                              ],
-                            )
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                details,
-                                const SizedBox(height: 8),
-                                metadata,
-                              ],
-                            ),
+              SizedBox(
+                width: widget.compactActions
+                    ? 32
+                    : widget.game
+                    ? 176
+                    : 124,
+                child: _actions(source),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, box) => Row(
+                    children: [
+                      Expanded(child: details),
+                      const SizedBox(width: 12),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: box.maxWidth * .48,
+                        ),
+                        child: metadata,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (widget.series)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: SizedBox(
+                    width: width >= 600 ? 100 : 58,
+                    child: Text(
+                      sourceEpisodeDisplay(source),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (widget.series)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 12),
-                      child: SizedBox(
-                        width: width >= 600 ? 120 : 70,
-                        child: Text(sourceEpisodeDisplay(source)),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(child: _actions(source)),
-                  if (!widget.game) ...[
-                    const SizedBox(width: 8),
-                    IconButton(
-                      key: ValueKey('source-watched-$key'),
-                      tooltip: tr('Просмотрено', 'Watched'),
-                      isSelected:
-                          title != null &&
-                          watched?.sourceWatched(title, source) == true,
-                      selectedIcon: Icon(
-                        Icons.visibility_outlined,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      icon: const Icon(Icons.visibility_outlined),
-                      onPressed: title == null || watched == null
-                          ? null
-                          : () async {
-                              try {
-                                await watched.toggle(title, source);
-                              } catch (_) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        tr(
-                                          'Не удалось сохранить отметку',
-                                          'Could not save watched status',
-                                        ),
-                                      ),
+                ),
+              if (!widget.game) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  key: ValueKey('source-watched-$key'),
+                  tooltip: tr('Просмотрено', 'Watched'),
+                  isSelected:
+                      title != null &&
+                      watched?.sourceWatched(title, source) == true,
+                  selectedIcon: Icon(
+                    Icons.visibility_outlined,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  icon: const Icon(Icons.visibility_outlined),
+                  onPressed: title == null || watched == null
+                      ? null
+                      : () async {
+                          try {
+                            await watched.toggle(title, source);
+                          } catch (_) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    tr(
+                                      'Не удалось сохранить отметку',
+                                      'Could not save watched status',
                                     ),
-                                  );
-                                }
-                              }
-                            },
-                    ),
-                  ],
-                ],
-              ),
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                ),
+              ],
             ],
           ),
         );

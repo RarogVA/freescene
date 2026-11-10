@@ -42,7 +42,7 @@ extension SourceKindTorrent on SourceKind {
   bool get isTorrent => this == SourceKind.torrent || this == SourceKind.magnet;
 }
 
-enum DownloadKind { torrent, magnet, file, unavailable }
+enum DownloadKind { torrent, magnet, file, external, unavailable }
 
 /// Unknown counts stay null. Catalogue counts never become live connections.
 class PeerCounts {

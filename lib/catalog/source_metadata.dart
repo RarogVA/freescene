@@ -46,16 +46,17 @@ String? compactQuality(String? value) {
   return classes[nearest];
 }
 
-/// Desktop/TV group metadata in two rows; phones use one scrollable row.
+/// Metadata can form one fitted row for remote/mouse use or a scrollable phone row.
 class SourceMetadata extends StatelessWidget {
   const SourceMetadata({
     required this.source,
     required this.english,
     this.singleLine = false,
+    this.scrollable = true,
     super.key,
   });
   final CatalogSource source;
-  final bool english, singleLine;
+  final bool english, singleLine, scrollable;
   @override
   Widget build(BuildContext context) {
     final row = source.row;
@@ -76,6 +77,7 @@ class SourceMetadata extends StatelessWidget {
     );
     Widget line(List<Widget> items) => Align(
       alignment: Alignment.centerLeft,
+      widthFactor: 1,
       child: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
@@ -125,6 +127,7 @@ class SourceMetadata extends StatelessWidget {
     ];
     if (singleLine) {
       final items = [...format, ...details];
+      if (!scrollable) return line(items);
       return SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(

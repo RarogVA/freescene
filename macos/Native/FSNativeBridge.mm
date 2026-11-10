@@ -736,6 +736,19 @@ static FSNativeBridge *bridge;
         result(nil); return;
     }
     if (self.closing) { result([FlutterError errorWithCode:@"closing" message:@"FreeScene is closing" details:nil]); return; }
+    if ([call.method isEqual:@"openDownload"]) {
+        NSDictionary *args=[call.arguments isKindOfClass:NSDictionary.class] ? call.arguments : @{};
+        NSString *value=[args[@"url"] isKindOfClass:NSString.class] ? args[@"url"] : @"";
+        NSString *provider=[args[@"provider"] isKindOfClass:NSString.class] ? args[@"provider"] : @"";
+        NSURL *url=[NSURL URLWithString:value];
+        if(!FSProviderURLAllowed(url,provider,@"download")) {
+            result([FlutterError errorWithCode:@"providerURL" message:@"Unsupported provider download URL" details:nil]);return;
+        }
+        if(![NSWorkspace.sharedWorkspace openURL:url]) {
+            result([FlutterError errorWithCode:@"download_open" message:@"Could not open download in browser" details:nil]);return;
+        }
+        result(nil);return;
+    }
     if ([call.method isEqual:@"openProvider"]) {
         NSURL *url=[NSURL URLWithString:call.arguments[@"url"] ?: @""];
         NSString *provider=call.arguments[@"provider"] ?: @"", *kind=call.arguments[@"kind"] ?: @"";

@@ -60,6 +60,94 @@ class AndroidSourceCard extends StatelessWidget {
     final watched = WatchedScope.of(context);
     final marked =
         title != null && watched?.sourceWatched(title!, source) == true;
+    final watchedButton = Tooltip(
+      message: tr('Просмотрено', 'Watched'),
+      child: RemoteButton(
+        id: 'watched-${row.provider.name}-${row.id}',
+        focus: focus,
+        radius: 24,
+        selected: marked,
+        selectedForeground: colors.primary,
+        onPressed: title == null || watched == null
+            ? null
+            : () async {
+                try {
+                  await watched.toggle(title!, source);
+                } catch (_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          tr(
+                            'Не удалось сохранить отметку',
+                            'Could not save watched status',
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                }
+              },
+        child: Icon(Icons.visibility_outlined, size: 22),
+      ),
+    );
+    if (focus.enabled) {
+      return RemoteButton(
+        key: ValueKey('source-card-${row.provider.name}-${row.id}'),
+        id: 'source-${row.provider.name}-${row.id}',
+        focus: focus,
+        onPressed: onPlay,
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: LayoutBuilder(
+          builder: (context, box) => Row(
+            children: [
+              Expanded(
+                child: Tooltip(
+                  message: [
+                    row.title,
+                    source.audio,
+                    source.channel,
+                  ].whereType<String>().join('\n'),
+                  child: Text(
+                    row.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: box.maxWidth * .55),
+                child: SourceMetadata(
+                  source: source,
+                  english: english,
+                  singleLine: true,
+                  scrollable: false,
+                ),
+              ),
+              if (series) ...[
+                const SizedBox(width: 12),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: box.maxWidth * .16),
+                  child: Text(
+                    sourceEpisodeDisplay(source),
+                    key: ValueKey(
+                      'source-episode-${row.provider.name}-${row.id}',
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+              const SizedBox(width: 8),
+              watchedButton,
+            ],
+          ),
+        ),
+      );
+    }
     Widget action(
       String id,
       IconData icon,
@@ -112,39 +200,13 @@ class AndroidSourceCard extends StatelessWidget {
                     ),
                 ],
               );
-              final metadata = SourceMetadata(source: source, english: english);
               return Row(
                 children: [
                   if (row.provider.descriptor?.showThumbnail == true) ...[
                     _preview(context, box.maxWidth >= 600 ? 120 : 72),
                     const SizedBox(width: 12),
                   ],
-                  Expanded(
-                    child: !focus.enabled
-                        ? name
-                        : box.maxWidth >= 620
-                        ? Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: name,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              SizedBox(width: 300, child: metadata),
-                            ],
-                          )
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              name,
-                              const SizedBox(height: 8),
-                              metadata,
-                            ],
-                          ),
-                  ),
+                  Expanded(child: name),
                   if (series && box.maxWidth >= 620)
                     Padding(
                       padding: const EdgeInsets.only(left: 16),
@@ -159,10 +221,8 @@ class AndroidSourceCard extends StatelessWidget {
               );
             },
           ),
-          if (!focus.enabled) ...[
-            const SizedBox(height: 8),
-            SourceMetadata(source: source, english: english, singleLine: true),
-          ],
+          const SizedBox(height: 8),
+          SourceMetadata(source: source, english: english, singleLine: true),
           if (series)
             LayoutBuilder(
               builder: (context, box) => box.maxWidth >= 620
@@ -199,37 +259,7 @@ class AndroidSourceCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Tooltip(
-                message: tr('Просмотрено', 'Watched'),
-                child: RemoteButton(
-                  id: 'watched-${row.provider.name}-${row.id}',
-                  focus: focus,
-                  radius: 24,
-                  selected: marked,
-                  selectedForeground: colors.primary,
-                  onPressed: title == null || watched == null
-                      ? null
-                      : () async {
-                          try {
-                            await watched.toggle(title!, source);
-                          } catch (_) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    tr(
-                                      'Не удалось сохранить отметку',
-                                      'Could not save watched status',
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                  child: Icon(Icons.visibility_outlined, size: 22),
-                ),
-              ),
+              watchedButton,
             ],
           ),
         ],
