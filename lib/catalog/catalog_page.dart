@@ -10,11 +10,11 @@ import 'queue_button.dart';
 import 'favorites.dart';
 import 'source_seasons.dart' as seasons;
 import 'cached_poster.dart';
-import 'availability_indicator.dart';
+import 'source_metadata.dart';
+import 'watched.dart';
 import 'source_filter.dart';
 import 'source_format.dart';
 export 'source_format.dart' show catalogBytes, sourceEpisodeDisplay;
-import '../navigation/back_swipe_guard.dart';
 import '../domain/availability.dart';
 
 String catalogError(Object error, bool english) => error is ProviderError
@@ -486,13 +486,7 @@ class CatalogPageView extends StatelessWidget {
                                     ),
                                   ),
                                   const SizedBox(height: 4),
-                                  Text(
-                                    [
-                                      if (item.year != null) '${item.year}',
-                                      if (item.rating != null)
-                                        '★ ${item.rating!.toStringAsFixed(1)}',
-                                    ].join(' · '),
-                                  ),
+                                  TitleMetadata(title: item, english: english),
                                 ],
                               ),
                             ),
@@ -517,6 +511,7 @@ class CatalogPageView extends StatelessWidget {
   }
 
   Widget _details(BuildContext context, CatalogTitle title) => SourceTable(
+    title: title,
     key: ValueKey('${title.kind}-${title.id}'),
     sources: controller.sources,
     providers: controller.providerStates.keys.toList(),
@@ -761,12 +756,14 @@ class SourceTable extends StatefulWidget {
     required this.game,
     required this.series,
     this.providers,
+    this.title,
     this.onUseSource,
     this.introduction,
     this.footer,
     super.key,
   });
   final Widget? introduction, footer;
+  final CatalogTitle? title;
   final List<CatalogSource> sources;
   final List<SourceProvider>? providers;
   final bool english, game, series;
@@ -776,33 +773,8 @@ class SourceTable extends StatefulWidget {
 }
 
 class _SourceTableState extends State<SourceTable> {
-  final horizontal = ScrollController();
-  final headerHorizontal = ScrollController();
-  bool _syncingHorizontal = false;
-  @override
-  void initState() {
-    super.initState();
-    horizontal.addListener(() => _syncHorizontal(horizontal, headerHorizontal));
-    headerHorizontal.addListener(
-      () => _syncHorizontal(headerHorizontal, horizontal),
-    );
-  }
-
-  void _syncHorizontal(ScrollController from, ScrollController to) {
-    if (_syncingHorizontal || !from.hasClients || !to.hasClients) return;
-    final target = from.offset.clamp(
-      to.position.minScrollExtent,
-      to.position.maxScrollExtent,
-    );
-    if ((to.offset - target).abs() < 0.5) return;
-    _syncingHorizontal = true;
-    to.jumpTo(target);
-    _syncingHorizontal = false;
-  }
-
   final sourceSearch = TextEditingController();
   int? season, episode;
-  bool withSeeds = false;
   final hiddenProviders = <SourceProvider>{};
   Set<SourceProvider> get providers =>
       widget.providers?.toSet() ??
@@ -826,8 +798,6 @@ class _SourceTableState extends State<SourceTable> {
 
   @override
   void dispose() {
-    horizontal.dispose();
-    headerHorizontal.dispose();
     sourceSearch.dispose();
     super.dispose();
   }
@@ -866,69 +836,48 @@ class _SourceTableState extends State<SourceTable> {
 
   Widget _actions(CatalogSource source) {
     final key = '${source.row.provider.name}/${source.row.id}';
-    final style = IconButton.styleFrom(
-      fixedSize: const Size.square(40),
-      shape: const CircleBorder(),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.standard,
+    final colors = Theme.of(context).colorScheme;
+    final style = OutlinedButton.styleFrom(
+      minimumSize: const Size(48, 48),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      foregroundColor: colors.onSurface,
+      side: BorderSide(color: colors.outlineVariant),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
     );
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton.outlined(
-          key: ValueKey('source-download-$key'),
-          tooltip: widget.game
-              ? tr('Скачать для macOS', 'Download for macOS')
-              : tr('Скачать', 'Download'),
-          style: style,
-          onPressed:
-              busy != null ||
-                  !source.row.canDownload ||
-                  (source.uri == null && source.topic == null) ||
-                  widget.onUseSource == null
-              ? null
-              : () => _use(source, false),
-          icon: busy == key && busyWatch == false
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.download_outlined),
-        ),
-        if (!widget.game) ...[
-          const SizedBox(height: 4),
-          IconButton.filledTonal(
-            key: ValueKey('source-watch-$key'),
-            tooltip: tr('Смотреть', 'Watch'),
-            style: style,
-            onPressed:
-                busy != null ||
-                    !source.canWatch ||
-                    (source.uri == null && source.topic == null) ||
-                    widget.onUseSource == null
-                ? null
-                : () => _use(source, true),
-            icon: busy == key && busyWatch == true
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.play_arrow),
-          ),
-        ],
-      ],
+    Widget action(bool watch) => OutlinedButton.icon(
+      key: ValueKey('source-${watch ? 'watch' : 'download'}-$key'),
+      style: style,
+      onPressed:
+          busy != null ||
+              (watch ? !source.canWatch : !source.row.canDownload) ||
+              (source.uri == null && source.topic == null) ||
+              widget.onUseSource == null
+          ? null
+          : () => _use(source, watch),
+      icon: busy == key && busyWatch == watch
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(watch ? Icons.play_arrow : Icons.download_outlined, size: 20),
+      label: Text(
+        watch
+            ? tr('Смотреть', 'Watch')
+            : widget.game
+            ? tr('Скачать для macOS', 'Download for macOS')
+            : tr('Скачать', 'Download'),
+      ),
+    );
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children: [if (!widget.game) action(true), action(false)],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final showQuality = widget.sources.any(
-      (s) => s.row.provider.descriptor?.qualityInPlayer != true,
-    );
-    final columns = [0, if (showQuality) 1, 2, 3, 4, 5, if (widget.series) 6];
-    final filter = SourceFilter(withSeeds: withSeeds);
     String normalized(String text) => text
         .toLowerCase()
         .replaceAll('ё', 'е')
@@ -939,7 +888,6 @@ class _SourceTableState extends State<SourceTable> {
         .where(
           (source) =>
               !hiddenProviders.contains(source.row.provider) &&
-              filter.matches(source) &&
               normalized(source.row.title).contains(query) &&
               (!widget.series ||
                   season == null ||
@@ -997,22 +945,17 @@ class _SourceTableState extends State<SourceTable> {
         ascending = false;
       }
     });
-    return _buildSourceScroll(context, sources, columns, showQuality, sort);
+    return _buildSourceScroll(context, sources, sort);
   }
 
   Widget _buildSourceScroll(
     BuildContext context,
     List<CatalogSource> sources,
-    List<int> columns,
-    bool showQuality,
     void Function(int, bool) sort,
   ) => LayoutBuilder(
     builder: (context, constraints) {
       final inset = widget.introduction == null ? 0.0 : 24.0;
       final width = constraints.maxWidth - inset * 2;
-      final widths = _sourceColumnWidths(width - 64, columns);
-      final tableWidth = widths.values.fold(0.0, (sum, width) => sum + width);
-      final overflowing = tableWidth > width - 64 + 0.5;
       final filters = <({double width, Widget child})>[
         (
           width: 240,
@@ -1113,14 +1056,6 @@ class _SourceTableState extends State<SourceTable> {
             ),
           ),
         (
-          width: 104,
-          child: FilterChip(
-            label: Text(tr('Есть сиды', 'Has seeds')),
-            selected: withSeeds,
-            onSelected: (value) => setState(() => withSeeds = value),
-          ),
-        ),
-        (
           width: 40,
           child: IconButton.filledTonal(
             key: const ValueKey('source-reset'),
@@ -1128,7 +1063,6 @@ class _SourceTableState extends State<SourceTable> {
             onPressed: () => setState(() {
               sourceSearch.clear();
               season = episode = null;
-              withSeeds = false;
               hiddenProviders.clear();
             }),
             icon: const Icon(Icons.filter_alt_off_outlined, size: 20),
@@ -1137,31 +1071,6 @@ class _SourceTableState extends State<SourceTable> {
       ];
       final background = Theme.of(context).scaffoldBackgroundColor;
       final tableColor = Theme.of(context).colorScheme.surfaceContainerLow;
-      final labels = <int, String>{
-        0: tr('Название', 'Title'),
-        1: tr('Качество', 'Quality'),
-        2: tr('Провайдер', 'Provider'),
-        3: tr('Размер', 'Size'),
-        4: tr('Длительность', 'Duration'),
-        5: tr('Доступность', 'Availability'),
-        6: tr('Сезон / серия', 'Season / episode'),
-      };
-      Widget horizontalView({required bool header, required Widget child}) =>
-          BackSwipeGuard(
-            enabled: () => overflowing,
-            child: ScrollConfiguration(
-              behavior: ScrollConfiguration.of(context)
-                  .copyWith(scrollbars: false),
-              child: SingleChildScrollView(
-                key: ValueKey(
-                  header ? 'source-columns-scroll' : 'source-rows-scroll',
-                ),
-                controller: header ? headerHorizontal : horizontal,
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(width: tableWidth, child: child),
-              ),
-            ),
-          );
       final header = ColoredBox(
         color: background,
         child: Column(
@@ -1232,245 +1141,149 @@ class _SourceTableState extends State<SourceTable> {
               ),
             ),
             const SizedBox(height: 8),
-            Material(
-              color: tableColor,
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Row(
-                key: const ValueKey('source-column-header'),
-                children: [
-                  const SizedBox(width: 64, height: 56),
-                  Expanded(
-                    child: horizontalView(
-                      header: true,
-                      child: Row(
-                        children: [
-                          for (final column in columns)
-                            SizedBox(
-                              width: widths[column],
-                              height: 56,
-                              child: InkWell(
-                                onTap: column == 0
-                                    ? null
-                                    : () => sort(column, !ascending),
-                                child: Padding(
-                                  padding: EdgeInsets.only(
-                                    left: column == 0 ? 16 : 12,
-                                    right: column == columns.last ? 16 : 12,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          labels[column]!,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleSmall,
-                                        ),
-                                      ),
-                                      if (sortColumn == column)
-                                        Icon(
-                                          ascending
-                                              ? Icons.arrow_upward
-                                              : Icons.arrow_downward,
-                                          size: 14,
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
+            if (widget.series)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => sort(6, !ascending),
+                  icon: Icon(
+                    sortColumn == 6 && ascending
+                        ? Icons.arrow_upward
+                        : Icons.arrow_downward,
+                    size: 14,
                   ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-      final table = Material(
-        color: tableColor,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 64,
-              child: Column(
-                children: [
-                  for (final source in sources)
-                    Container(
-                      key: ValueKey(
-                        'source-actions-${source.row.provider.name}-${source.row.id}',
-                      ),
-                      height: 100,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: Divider.createBorderSide(context, width: 1),
-                        ),
-                      ),
-                      child: _actions(source),
-                    ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Scrollbar(
-                controller: horizontal,
-                thumbVisibility: overflowing,
-                child: horizontalView(
-                  header: false,
-                  child: DataTable(
-                    key: const ValueKey('source-data-table'),
-                    showBottomBorder: true,
-                    sortColumnIndex: columns.contains(sortColumn)
-                        ? columns.indexOf(sortColumn!)
-                        : null,
-                    sortAscending: ascending,
-                    headingRowHeight: 0,
-                    dataRowMinHeight: 100,
-                    dataRowMaxHeight: 100,
-                    horizontalMargin: 16,
-                    columnSpacing: 24,
-                    columns: [
-                      for (final column in columns)
-                        DataColumn(
-                          label: const SizedBox.shrink(),
-                          columnWidth: FixedColumnWidth(widths[column]!),
-                          numeric: column == 3 || column == 4,
-                        ),
-                    ],
-                    rows: [
-                      for (final source in sources)
-                        DataRow(
-                          key: ValueKey(
-                            'source-${source.row.provider.name}-${source.row.id}',
-                          ),
-                          cells: [
-                            DataCell(
-                              Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _TruncatedSourceTitle(
-                                    key: ValueKey(
-                                      'source-name-${source.row.provider.name}/${source.row.id}',
-                                    ),
-                                    title: source.row.title,
-                                  ),
-                                  if (source.audio != null)
-                                    Text(
-                                      source.audio!,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall,
-                                    ),
-                                  if (source.channel != null)
-                                    Text(
-                                      source.channel!,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall,
-                                    ),
-                                  if (source.restriction != null ||
-                                      failures.containsKey(
-                                        '${source.row.provider.name}/${source.row.id}',
-                                      ))
-                                    Text(
-                                      source.restriction != null
-                                          ? ProviderFailure(
-                                              source.row.provider,
-                                              source.restriction!,
-                                            ).label(widget.english)
-                                          : failures['${source.row.provider.name}/${source.row.id}']!,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .error,
-                                          ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            if (showQuality)
-                              DataCell(
-                                Text(
-                                  source
-                                              .row
-                                              .provider
-                                              .descriptor
-                                              ?.qualityInPlayer ==
-                                          true
-                                      ? ''
-                                      : source.row.quality ?? '—',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            DataCell(
-                              Text(
-                                source.row.provider.label,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            DataCell(
-                              Text(
-                                catalogBytes(source.row.sizeBytes),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            DataCell(
-                              Text(
-                                sourceDuration(source.row.durationSeconds),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            DataCell(
-                              AvailabilityIndicator(
-                                source: source.row,
-                                english: widget.english,
-                              ),
-                            ),
-                            if (widget.series)
-                              DataCell(
-                                Text(
-                                  sourceEpisodeDisplay(source),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                          ],
-                        ),
-                    ],
-                  ),
+                  label: Text(tr('Сезон / серия', 'Season / episode')),
                 ),
               ),
-            ),
           ],
         ),
       );
+      Widget sourceRow(CatalogSource source) {
+        final key = '${source.row.provider.name}/${source.row.id}';
+        final watched = WatchedScope.of(context);
+        final title = widget.title;
+        final details = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _TruncatedSourceTitle(
+              key: ValueKey('source-name-$key'),
+              title: source.row.title,
+            ),
+            for (final text in [source.audio, source.channel])
+              if (text != null && text.isNotEmpty)
+                Text(
+                  text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+            if (source.restriction != null || failures.containsKey(key))
+              Text(
+                source.restriction != null
+                    ? ProviderFailure(
+                        source.row.provider,
+                        source.restriction!,
+                      ).label(widget.english)
+                    : failures[key]!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+          ],
+        );
+        final metadata = SourceMetadata(
+          source: source,
+          english: widget.english,
+        );
+        return Container(
+          key: ValueKey('source-${source.row.provider.name}-${source.row.id}'),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: tableColor,
+            border: Border(bottom: Divider.createBorderSide(context)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, box) => box.maxWidth >= 620
+                          ? Row(
+                              children: [
+                                Expanded(child: details),
+                                const SizedBox(width: 16),
+                                SizedBox(width: 300, child: metadata),
+                              ],
+                            )
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                details,
+                                const SizedBox(height: 8),
+                                metadata,
+                              ],
+                            ),
+                    ),
+                  ),
+                  if (widget.series)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: SizedBox(
+                        width: width >= 600 ? 120 : 70,
+                        child: Text(sourceEpisodeDisplay(source)),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(child: _actions(source)),
+                  if (!widget.game) ...[
+                    const SizedBox(width: 8),
+                    IconButton(
+                      key: ValueKey('source-watched-$key'),
+                      tooltip: tr('Просмотрено', 'Watched'),
+                      isSelected:
+                          title != null &&
+                          watched?.sourceWatched(title, source) == true,
+                      selectedIcon: Icon(
+                        Icons.visibility_outlined,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      icon: const Icon(Icons.visibility_outlined),
+                      onPressed: title == null || watched == null
+                          ? null
+                          : () async {
+                              try {
+                                await watched.toggle(title, source);
+                              } catch (_) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        tr(
+                                          'Не удалось сохранить отметку',
+                                          'Could not save watched status',
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        );
+      }
+
       return Padding(
         padding: EdgeInsets.symmetric(horizontal: inset),
         child: CustomScrollView(
@@ -1484,7 +1297,12 @@ class _SourceTableState extends State<SourceTable> {
               SliverToBoxAdapter(child: widget.introduction),
             if (widget.sources.isNotEmpty) ...[
               PinnedHeaderSliver(child: header),
-              SliverToBoxAdapter(child: table),
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => sourceRow(sources[index]),
+                  childCount: sources.length,
+                ),
+              ),
             ],
             if (widget.footer != null)
               SliverToBoxAdapter(
@@ -1498,48 +1316,6 @@ class _SourceTableState extends State<SourceTable> {
       );
     },
   );
-}
-
-Map<int, double> _sourceColumnWidths(double available, List<int> columns) {
-  const desired = {
-    0: 360.0,
-    1: 120.0,
-    2: 120.0,
-    3: 104.0,
-    4: 132.0,
-    5: 140.0,
-    6: 150.0,
-  };
-  const minimum = {
-    0: 120.0,
-    1: 88.0,
-    2: 88.0,
-    3: 80.0,
-    4: 104.0,
-    5: 112.0,
-    6: 120.0,
-  };
-  final widths = {for (final column in columns) column: desired[column]!};
-  var deficit =
-      widths.values.fold(0.0, (sum, width) => sum + width) - available;
-  if (deficit < 0) {
-    widths[0] = widths[0]! - deficit;
-    return widths;
-  }
-  final titleShrink = deficit.clamp(0.0, widths[0]! - minimum[0]!);
-  widths[0] = widths[0]! - titleShrink;
-  deficit -= titleShrink;
-  final capacity = columns
-      .skip(1)
-      .fold(0.0, (sum, column) => sum + widths[column]! - minimum[column]!);
-  if (deficit > 0 && capacity > 0) {
-    final fraction = (deficit / capacity).clamp(0.0, 1.0);
-    for (final column in columns.skip(1)) {
-      widths[column] =
-          widths[column]! - (widths[column]! - minimum[column]!) * fraction;
-    }
-  }
-  return widths;
 }
 
 class _TruncatedSourceTitle extends StatelessWidget {

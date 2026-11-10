@@ -65,6 +65,31 @@ class TorrentPlayerTest {
         assertTrue(activity.commands.contains("pause"))
         assertEquals(if (TvWindow.isTv(activity)) "closeStream" else "pause", activity.commands.last())
     }
+    @Test fun movieHidesEpisodeStepsAndSeriesStepsOpenAdjacentFiles() {
+        for (series in listOf(false, true)) {
+            val controller = Robolectric.buildActivity(FixtureTorrentPlayer::class.java,
+                Intent(RuntimeEnvironment.getApplication(), FixtureTorrentPlayer::class.java)
+                    .putExtra("torrentId", "a".repeat(40)).putExtra("series", series))
+                .create().start().resume().visible()
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(10))
+            val activity = controller.get()
+            val dialog = ShadowAlertDialog.getLatestAlertDialog()
+            dialog.listView.performItemClick(null, 0, 0)
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
+            val next = activity.findViewById<android.view.View>(androidx.media3.ui.R.id.exo_next)
+            val previous = activity.findViewById<android.view.View>(androidx.media3.ui.R.id.exo_prev)
+            assertEquals(if (series) android.view.View.VISIBLE else android.view.View.GONE, next.visibility)
+            assertEquals(if (series) android.view.View.VISIBLE else android.view.View.GONE, previous.visibility)
+            assertTrue(activity.findViewById<android.view.View>(androidx.media3.ui.R.id.exo_rew) is android.widget.ImageButton)
+            assertTrue(activity.findViewById<android.view.View>(androidx.media3.ui.R.id.exo_ffwd) is android.widget.ImageButton)
+            if (series) {
+                assertFalse(previous.isEnabled);assertTrue(next.isEnabled)
+                next.performClick()
+                assertEquals("http://127.0.0.1:8000/fixture/1", activity.media)
+            }
+            controller.pause().stop().destroy()
+        }
+    }
     @Test fun tvDoesNotExposeBackgroundDownloadCommands() {
         org.junit.Assume.assumeTrue(BuildConfig.FLAVOR == "tv")
         val activity = Robolectric.buildActivity(android.app.Activity::class.java).setup().get()

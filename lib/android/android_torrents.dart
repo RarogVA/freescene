@@ -14,14 +14,18 @@ class AndroidTorrents {
       'request': {'method': method, ...args},
     }) as Map,
   );
-  Future<void> open(CatalogSource source, {String? title}) =>
-      AndroidRuntime.channel.invokeMethod<void>('torrentOpen', {
-        'title': title ?? source.row.title,
-        if (source.torrentBytes != null)
-          'bytes': Uint8List.fromList(source.torrentBytes!),
-        if (source.uri?.scheme == 'magnet') 'magnet': source.uri.toString(),
-        'origin': {'provider': source.row.provider.name},
-      });
+  Future<void> open(
+    CatalogSource source, {
+    String? title,
+    Map<String, Object?> playback = const {},
+  }) => AndroidRuntime.channel.invokeMethod<void>('torrentOpen', {
+    ...playback,
+    'title': title ?? source.row.title,
+    if (source.torrentBytes != null)
+      'bytes': Uint8List.fromList(source.torrentBytes!),
+    if (source.uri?.scheme == 'magnet') 'magnet': source.uri.toString(),
+    'origin': {'provider': source.row.provider.name},
+  });
   Future<String> add(CatalogSource source) async {
     final result = await AndroidRuntime.channel
         .invokeMapMethod<String, dynamic>('torrentAdd', {
@@ -37,6 +41,13 @@ class AndroidTorrents {
       ((await command('status'))['tasks'] as List)
           .map((v) => TorrentTask(Map<String, dynamic>.from(v as Map)))
           .toList();
-  Future<void> play(String id, {String? title}) => AndroidRuntime.channel
-      .invokeMethod<void>('torrentPlay', {'id': id, 'title': title});
+  Future<void> play(
+    String id, {
+    String? title,
+    Map<String, Object?> playback = const {},
+  }) => AndroidRuntime.channel.invokeMethod<void>('torrentPlay', {
+    'id': id,
+    'title': title,
+    ...playback,
+  });
 }

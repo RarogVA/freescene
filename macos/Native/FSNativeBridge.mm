@@ -109,6 +109,7 @@ static NSString *FSL(NSString *ru) {
 }
 @end
 
+#import "FSWatched.h"
 #import "FSProviderView.h"
 #import "FSVideoSelection.h"
 #import "FSAboutWindow.h"
@@ -159,6 +160,7 @@ static NSString *FSL(NSString *ru) {
 @property NSInteger trackCount;
 @property NSUInteger requestGeneration;
 @property FSProviderView *providerView;
+@property FSWatchedClock *watchedClock;
 @property(copy) void (^playbackPauseChanged)(NSString *, BOOL);
 @property(copy) void (^playbackClosed)(NSString *);
 @property(copy) void (^retryRequested)(NSString *);
@@ -317,6 +319,8 @@ static NSString *FSL(NSString *ru) {
     [self open:location title:title task:task userAgent:userAgent referrer:nil];
 }
 - (void)open:(NSString *)location title:(NSString *)title task:(NSString *)task userAgent:(NSString *)userAgent referrer:(NSString *)referrer {
+    [self.watchedClock sample:NO at:NSProcessInfo.processInfo.systemUptime];
+    if(!(task && [task isEqual:self.taskID]) && !(location.length && [location isEqual:self.location]))self.watchedClock=nil;
     if(self.sourceWillChange)self.sourceWillChange();
     self.loadingTrailer=NO;self.retryMedia=nil;self.mediaUserAgent=userAgent;self.mediaReferrer=referrer;
     self.play.enabled=YES;self.retryButton.enabled=YES;
@@ -432,6 +436,7 @@ static NSString *FSL(NSString *ru) {
     auto state=libvlc_media_player_get_state(self.player);
     [self applyScale];
     BOOL playing=state==libvlc_Playing;
+    [self.watchedClock sample:playing && !self.userPaused && !self.seeking at:NSProcessInfo.processInfo.systemUptime];
     [self.play symbol:self.userPaused ? @"play.fill" : @"pause.fill" label:self.userPaused ? FSL(@"Продолжить") : FSL(@"Пауза")];
     if (playing) self.started=YES;
     if (self.location.length) self.status.stringValue=state==libvlc_Error ? FSL(@"Ошибка воспроизведения или ожидания данных. Повторите попытку.") : state==libvlc_Ended ? FSL(@"Воспроизведение завершено") : state==libvlc_Buffering || state==libvlc_Opening ? FSL(@"Буферизация…") : playing ? @"" : FSL(@"Пауза");
@@ -459,6 +464,7 @@ static NSString *FSL(NSString *ru) {
 - (void)windowDidResignKey:(NSNotification *)note { [self.video cancelInput]; }
 - (void)windowDidFailToExitFullScreen:(NSWindow *)window { [self.providerView.fullscreen finishEscape]; }
 - (void)windowWillClose:(NSNotification *)note {
+    self.watchedClock=nil;
     if(self.sourceWillChange)self.sourceWillChange();
     self.loadingTrailer=NO;self.retryMedia=nil;
     [self endProvider];
@@ -686,6 +692,12 @@ static FSNativeBridge *bridge;
         }];
     });
 }
+- (void)trackPlayer:(FSPlayer *)player arguments:(NSDictionary *)args {
+    player.watchedClock=nil;
+    if([args[@"watchedSource"] isKindOfClass:NSString.class] && [args[@"watchedTitle"] isKindOfClass:NSString.class]) {
+        FSWatchedClock *clock=[FSWatchedClock new];clock.source=args[@"watchedSource"];clock.title=args[@"watchedTitle"];player.watchedClock=clock;
+    }
+}
 - (void)handle:(FlutterMethodCall *)call result:(FlutterResult)result {
     if (self.closing) {
         result([call.method isEqual:@"status"] ? @{@"shuttingDown":@YES} : [FlutterError errorWithCode:@"app_closing" message:nil details:nil]);
@@ -694,6 +706,11 @@ static FSNativeBridge *bridge;
     if([call.method isEqual:@"requestAppPermissionsIfNeeded"] || [call.method isEqual:@"requestAppPermissions"]) {
         if(!self.permissions)self.permissions=[FSPermissions new];
         [self.permissions requestAgain:[call.method isEqual:@"requestAppPermissions"] completion:^(NSDictionary *value){result(value);}];return;
+    }
+    if ([call.method isEqual:@"watchedSnapshot"]) { result(FSWatchedSnapshot());return; }
+    if ([call.method isEqual:@"setWatched"]) {
+        if(FSSetWatched(call.arguments[@"watchedSource"],call.arguments[@"watchedTitle"],[call.arguments[@"watched"] boolValue]))result(nil);
+        else result([FlutterError errorWithCode:@"watched_save" message:@"Could not save watched status" details:nil]);return;
     }
     if ([call.method isEqual:@"showAbout"]) { [[self ensureAbout] show]; result(nil); return; }
     if([call.method isEqual:@"showTrailer"]) {
@@ -737,6 +754,9 @@ static FSNativeBridge *bridge;
             [player openEmbed:url title:call.arguments[@"title"] ?: @"Video" player:index episodes:episodes context:context];
         }
         else [player open:url.absoluteString title:call.arguments[@"title"] ?: @"Video" task:nil];
+        [self trackPlayer:player arguments:call.arguments];
+        player.providerView.watchedClock=player.watchedClock;
+        player.providerView.providerName=call.arguments[@"providerName"] ?: provider;
         result(nil); return;
     }
     if ([call.method isEqualToString:@"showMainWindow"]) { [FSNativeBridge showMainWindow]; result(nil); return; }
@@ -761,7 +781,7 @@ static FSNativeBridge *bridge;
     }
     if ([call.method isEqualToString:@"preparePlayer"]) {
         FSPlayer *p=[self ensurePlayer]; if(!p) { result([FlutterError errorWithCode:@"player" message:@"libVLC could not start" details:nil]); return; }
-        [p open:@"" title:call.arguments[@"title"] task:call.arguments[@"id"]]; result(nil); return;
+        [p open:@"" title:call.arguments[@"title"] task:call.arguments[@"id"]]; [self trackPlayer:p arguments:call.arguments]; result(nil); return;
     }
     if ([call.method isEqualToString:@"choosePlayerVideo"]) {
         FSPlayer *p=self.player;NSString *task=call.arguments[@"id"] ?: @"";

@@ -21,10 +21,10 @@ class PlayerCloseButton(context: Context) : ImageButton(context) {
         backgroundTintList = ColorStateList(states,
             intArrayOf(PlayerColors.accent, PlayerColors.accent, PlayerColors.raised))
         imageTintList = ColorStateList(states,
-            intArrayOf(PlayerColors.onAccent, PlayerColors.onAccent, PlayerColors.text))
+            intArrayOf(PlayerColors.onAccent, PlayerColors.onAccent, PlayerColors.accent))
         if (TvWindow.isTv(context)) {
             TvButtonFocus.apply(this, circle = true)
-            imageTintList = ColorStateList.valueOf(PlayerColors.text)
+            imageTintList = ColorStateList.valueOf(PlayerColors.accent)
         }
         val inset = (12 * resources.displayMetrics.density).toInt()
         setPadding(inset, inset, inset, inset)

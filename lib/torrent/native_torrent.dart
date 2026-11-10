@@ -163,23 +163,30 @@ class TorrentController extends ChangeNotifier {
     required String url,
     required String title,
     required String provider,
+    String? providerName,
     required String kind,
+    Map<String, String> identity = const {},
     int? webPlayer,
     List<Map<String, String>> webEpisodes = const [],
   }) async {
     ++_watchEpoch;
     _pendingWatch = null;
     await service.call('openProvider', {
+      ...identity,
       'url': url,
       'title': title,
       'provider': provider,
+      'providerName': providerName ?? provider,
       'kind': kind,
       'webPlayer': ?webPlayer,
       if (webEpisodes.isNotEmpty) 'webEpisodes': webEpisodes,
     });
   }
 
-  Future<void> watch(String id) async {
+  Future<void> watch(
+    String id, {
+    Map<String, String> identity = const {},
+  }) async {
     final epoch = ++_watchEpoch;
     _pendingWatch = null;
     final task = tasks.where((t) => t.id == id).firstOrNull;
@@ -196,7 +203,11 @@ class TorrentController extends ChangeNotifier {
       });
       return;
     }
-    await service.call('preparePlayer', {'id': id, 'title': task.title});
+    await service.call('preparePlayer', {
+      'id': id,
+      'title': task.title,
+      ...identity,
+    });
     if (_disposed || epoch != _watchEpoch) return;
     _pendingWatch = id;
     try {

@@ -52,6 +52,7 @@
 @property(copy) void (^closed)(void);
 @end
 @implementation FSClosingWebSpy
+- (WKWebViewConfiguration *)configuration { return [WKWebViewConfiguration new]; }
 - (void)stopLoading { [self.events addObject:@"stop"]; }
 - (void)pauseAllMediaPlaybackWithCompletionHandler:(void (^)(void))completion { [self.events addObject:@"pause"]; }
 - (void)closeAllMediaPresentationsWithCompletionHandler:(void (^)(void))completion { [self.events addObject:@"exit"];self.closed=completion; }
@@ -73,7 +74,7 @@ int main() { @autoreleasepool {
     provider.loadStarted=NSDate.timeIntervalSinceReferenceDate-60;
     [provider inspectPlayer];assert(web.inspection && provider.inspectingPlayer);
     web.inspection(@YES,nil);
-    assert(provider.loadingCover.hidden && !provider.message.stringValue.length && !provider.inspectingPlayer);
+    assert(provider.loadingCover.hidden && [provider.message.stringValue hasPrefix:@"Официальный плеер"] && !provider.inspectingPlayer);
     provider.loadingCover.hidden=NO;
     [provider inspectPlayer];web.inspection(@NO,nil);
     assert(!provider.loadingCover.hidden && provider.message.stringValue.length && !provider.inspectingPlayer);

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../catalog/availability_indicator.dart';
+import '../catalog/source_metadata.dart';
+import '../catalog/watched.dart';
 import '../catalog/catalog_models.dart';
 import '../catalog/cached_poster.dart';
 import '../catalog/poster_cache.dart';
 import '../catalog/source_format.dart';
 import 'remote_focus.dart';
 
-/// A whole source is one remote target; metadata wraps on narrow screens.
+/// Source metadata and remote/touch actions share one card boundary.
 class AndroidSourceCard extends StatelessWidget {
   const AndroidSourceCard({
     required this.source,
@@ -16,11 +17,13 @@ class AndroidSourceCard extends StatelessWidget {
     required this.series,
     required this.onPlay,
     this.onDownload,
+    this.title,
     this.posterCache,
     this.previewDecodeWidth = 240,
     super.key,
   });
   final CatalogSource source;
+  final CatalogTitle? title;
   final RemoteFocus focus;
   final bool english, series;
   final VoidCallback? onPlay, onDownload;
@@ -53,22 +56,40 @@ class AndroidSourceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final row = source.row;
-    final card = RemoteButton(
-      id: 'source-${row.provider.name}-${row.id}',
+    final colors = Theme.of(context).colorScheme;
+    final watched = WatchedScope.of(context);
+    final marked =
+        title != null && watched?.sourceWatched(title!, source) == true;
+    Widget action(
+      String id,
+      IconData icon,
+      String label,
+      VoidCallback? onPressed,
+    ) => RemoteButton(
+      id: id,
       focus: focus,
-      onPressed: onPlay,
-      alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.all(16),
-      child: LayoutBuilder(
-        builder: (context, constraints) => Row(
-          children: [
-            if (row.provider.descriptor?.showThumbnail == true)
-              _preview(context, constraints.maxWidth >= 600 ? 160 : 88)
-            else
-              const Icon(Icons.play_arrow, size: 28),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
+      onPressed: onPressed,
+      radius: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [Icon(icon, size: 20), const SizedBox(width: 6), Text(label)],
+      ),
+    );
+    return Container(
+      key: ValueKey('source-card-${row.provider.name}-${row.id}'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, box) {
+              final name = Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Tooltip(
@@ -80,42 +101,7 @@ class AndroidSourceCard extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 20,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(row.provider.label),
-                      if (row.provider.descriptor?.qualityInPlayer != true)
-                        Text(
-                          '${tr('Качество', 'Quality')}: ${row.quality ?? '—'}',
-                        ),
-                      Text(
-                        '${tr('Длительность', 'Duration')}: ${sourceDuration(row.durationSeconds)}',
-                      ),
-                      Text(
-                        '${tr('Размер', 'Size')}: ${catalogBytes(row.sizeBytes)}',
-                      ),
-                      if (series)
-                        Text(
-                          '${tr('Сезон / серия', 'Season / episode')}: ${sourceEpisodeDisplay(source)}',
-                        ),
-                      if (row.isTorrent)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('${tr('Доступность', 'Availability')}: '),
-                            AvailabilityIndicator(
-                              source: row,
-                              english: english,
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
-                  if (source.channel != null || source.audio != null) ...[
-                    const SizedBox(height: 6),
+                  if (source.channel != null || source.audio != null)
                     Text(
                       [
                         source.channel,
@@ -124,31 +110,124 @@ class AndroidSourceCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ],
                 ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (onDownload == null) return card;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        RemoteButton(
-          id: 'download-${row.provider.name}-${row.id}',
-          focus: focus,
-          onPressed: onDownload,
-          radius: 28,
-          child: Tooltip(
-            message: tr('Скачать', 'Download'),
-            child: const Icon(Icons.download),
+              );
+              final metadata = SourceMetadata(source: source, english: english);
+              return Row(
+                children: [
+                  if (row.provider.descriptor?.showThumbnail == true) ...[
+                    _preview(context, box.maxWidth >= 600 ? 120 : 72),
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    child: !focus.enabled
+                        ? name
+                        : box.maxWidth >= 620
+                        ? Row(
+                            children: [
+                              Expanded(child: name),
+                              const SizedBox(width: 16),
+                              SizedBox(width: 300, child: metadata),
+                            ],
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              name,
+                              const SizedBox(height: 8),
+                              metadata,
+                            ],
+                          ),
+                  ),
+                  if (series && box.maxWidth >= 620)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16),
+                      child: SizedBox(
+                        width: 100,
+                        child: Text(
+                          '${tr('Сезон / серия', 'Season / episode')}\n${sourceEpisodeDisplay(source)}',
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(child: card),
-      ],
+          if (!focus.enabled) ...[
+            const SizedBox(height: 8),
+            SourceMetadata(source: source, english: english, singleLine: true),
+          ],
+          if (series)
+            LayoutBuilder(
+              builder: (context, box) => box.maxWidth >= 620
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        '${tr('Сезон / серия', 'Season / episode')}: ${sourceEpisodeDisplay(source)}',
+                      ),
+                    ),
+            ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    action(
+                      'source-${row.provider.name}-${row.id}',
+                      Icons.play_arrow,
+                      tr('Смотреть', 'Watch'),
+                      onPlay,
+                    ),
+                    if (onDownload != null)
+                      action(
+                        'download-${row.provider.name}-${row.id}',
+                        Icons.download_outlined,
+                        tr('Скачать', 'Download'),
+                        onDownload,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Tooltip(
+                message: tr('Просмотрено', 'Watched'),
+                child: RemoteButton(
+                  id: 'watched-${row.provider.name}-${row.id}',
+                  focus: focus,
+                  radius: 24,
+                  selected: marked,
+                  selectedForeground: colors.primary,
+                  onPressed: title == null || watched == null
+                      ? null
+                      : () async {
+                          try {
+                            await watched.toggle(title!, source);
+                          } catch (_) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    tr(
+                                      'Не удалось сохранить отметку',
+                                      'Could not save watched status',
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  child: Icon(Icons.visibility_outlined, size: 22),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

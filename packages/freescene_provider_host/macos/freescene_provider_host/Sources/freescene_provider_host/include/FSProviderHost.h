@@ -6,6 +6,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nullable) WKWebsiteDataStore *store;
 @property(nullable,copy) NSString *selectionScript;
 @property(nullable,copy) NSString *contentRules;
+@property(nullable,copy) NSString *progressRootSelector;
+// Optional trusted JS function (frameWindow), installed before page scripts.
+@property(nullable,copy) NSString *mediaPreparationScript;
 @property(copy) BOOL (^sameTitle)(NSURL *target, NSURL *source);
 @property(copy) BOOL (^navigation)(NSURL *target, NSURL *source, BOOL mainFrame);
 @end

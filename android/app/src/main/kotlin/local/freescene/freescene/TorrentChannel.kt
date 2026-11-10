@@ -29,8 +29,12 @@ class TorrentChannel(private val activity: Activity) {
                                 TorrentEngine.submit(activity, JSONObject().put("method", "closeStream").put("id", id))
                                 result.success(null)
                             } else try {
+                                PlayerColors.configure(activity, call.argument<Boolean>("playerDark") != false)
                                 activity.startActivity(Intent(activity, PlayerActivity::class.java).putExtra("torrentId", id)
-                                    .putExtra("title", call.argument<String>("title")))
+                                    .putExtra("title", call.argument<String>("title"))
+                                .putExtra("watchedSource", call.argument<String>("watchedSource"))
+                                .putExtra("watchedTitle", call.argument<String>("watchedTitle"))
+                                .putExtra("series", call.argument<Boolean>("series") ?: false))
                                 result.success(null)
                             } catch (failure: Exception) {
                                 TorrentEngine.submit(activity, JSONObject().put("method", "closeStream").put("id", id))
@@ -54,8 +58,12 @@ class TorrentChannel(private val activity: Activity) {
                     val id = call.argument<String>("id")
                     require(TorrentPolicy.id(id))
                     TorrentService.start(activity)
-                    activity.startActivity(Intent(activity, PlayerActivity::class.java).putExtra("torrentId", id)
-                        .putExtra("title", call.argument<String>("title")))
+                    PlayerColors.configure(activity, call.argument<Boolean>("playerDark") != false)
+                                activity.startActivity(Intent(activity, PlayerActivity::class.java).putExtra("torrentId", id)
+                        .putExtra("title", call.argument<String>("title"))
+                                .putExtra("watchedSource", call.argument<String>("watchedSource"))
+                                .putExtra("watchedTitle", call.argument<String>("watchedTitle"))
+                                .putExtra("series", call.argument<Boolean>("series") ?: false))
                     result.success(null)
                 }
                 "torrentCommand" -> {

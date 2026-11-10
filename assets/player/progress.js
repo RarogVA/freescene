@@ -1,5 +1,9 @@
-(config => {
-  if (window.__freescenePlayback) return;
+(function install(config, target, inheritedSink) {
+  const window = target || globalThis;
+  const document = window.document;
+  const getComputedStyle = window.getComputedStyle.bind(window);
+  if (window.__freescenePlayback?.document === document) return;
+  let sink = window.FreeScenePlayback || inheritedSink;
   const topFrame = window === window.top;
   let enabled = topFrame;
   let restored = false;
@@ -14,13 +18,14 @@
   };
   const report = force => {
     const video = selected;
-    if (!enabled || !video || !video.isConnected || video.seeking || !restored) return;
+    if (!enabled || !video || !video.isConnected || !restored) return;
     if (!Number.isFinite(video.duration) || video.duration <= 0) return; // Live streams have no bookmark.
     if (!force && Date.now() - lastSent < 1000) return;
     lastSent = Date.now();
-    window.FreeScenePlayback?.postMessage(JSON.stringify({
+    sink?.postMessage(JSON.stringify({
       position: Math.round(video.currentTime * 1000),
-      duration: Math.round(video.duration * 1000), ended: video.ended
+      duration: Math.round(video.duration * 1000), ended: video.ended,
+      playing: !video.paused && !video.ended && !video.seeking && video.readyState >= 3
     }));
   };
   const refresh = () => {
@@ -36,7 +41,7 @@
     const video = videos[0];
     if (video && video !== selected) {
       selected = video;
-      for (const event of ['timeupdate', 'pause', 'ended', 'seeked']) {
+      for (const event of ['timeupdate', 'pause', 'ended', 'seeking', 'seeked', 'waiting', 'playing']) {
         video.addEventListener(event, () => { if (video === selected) report(event !== 'timeupdate'); });
       }
     }
@@ -52,10 +57,18 @@
     // Enable only the visible branch selected by the provider adapter. This also
     // reaches nested cross-origin players and frames inserted after page load.
     for (const frame of root.querySelectorAll('iframe')) {
-      if (visible(frame)) frame.contentWindow?.postMessage({type: 'freescene-playback-enable'}, '*');
+      if (visible(frame)) {
+        try {
+          if (frame.contentDocument) {
+            install(config, frame.contentWindow, sink);
+            frame.contentWindow.__freescenePlayback?.activate(sink);
+          }
+        } catch (_) {}
+        frame.contentWindow?.postMessage({type: 'freescene-playback-enable'}, '*');
+      }
     }
   };
-  window.__freescenePlayback = {flush: () => report(true)};
+  window.__freescenePlayback = {flush: () => report(true), document, activate(parentSink) {sink ||= parentSink; enabled = true; refresh();}};
   window.addEventListener('message', event => {
     if (event.source === window.parent && window !== window.parent && event.data?.type === 'freescene-playback-enable') {
       enabled = true;

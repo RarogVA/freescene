@@ -32,11 +32,13 @@ open class WebPlayerActivity : Activity() {
     private lateinit var scale: PlayerScaleControl
     private lateinit var controls: Button
     private lateinit var status: TextView
+    private lateinit var providerNotice: TextView
     private lateinit var pointer: RemotePointer
     private lateinit var provider: String
     private lateinit var source: String
     private var playerIndex = 0
     private var idleControls: TvIdleControls? = null
+    private val watchedClock = WatchedClock { WatchedHistory(this).set(intent.getStringExtra("watchedSource"), intent.getStringExtra("watchedTitle"), true) }
     private val history by lazy { PlaybackHistory(this) }
     private var preparedSource: String? = null
     private var resumePosition = -1L
@@ -50,6 +52,7 @@ open class WebPlayerActivity : Activity() {
     }
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
+        PlayerColors.restore(this)
         provider = intent.getStringExtra("provider") ?: ""
         source = state?.getString("source") ?: intent.getStringExtra("url") ?: ""
         preparedSource = state?.getString("preparedSource")
@@ -87,7 +90,7 @@ open class WebPlayerActivity : Activity() {
             setMargins(inset, inset, inset, inset)
         })
         bar.addView(PlayerTitleView(this, intent.getStringExtra("title")), LinearLayout.LayoutParams(0, close.diameter, 1f))
-        if (episodes.size > 1) button(text("Серии", "Episodes")) { chooseEpisode() }
+        if (intent.getBooleanExtra("series", false) && episodes.size > 1) button(text("Серии", "Episodes")) { chooseEpisode() }
         scale = PlayerScaleControl(this, state?.getInt("scaleMode") ?: 0,
             opened = { idleControls?.stop() },
             dismissed = { if (active) { TvWindow.applyPlayer(this); idleControls?.start() } },
@@ -113,12 +116,21 @@ open class WebPlayerActivity : Activity() {
             returnToToolbar = { controls.requestFocus() }
         }
         controls.nextFocusDownId = pointer.id
-        status = TextView(this).apply { setTextColor(PlayerColors.text); gravity = Gravity.CENTER; setBackgroundColor(Color.BLACK) }
+        status = TextView(this).apply { setTextColor(PlayerColors.text); gravity = Gravity.BOTTOM or Gravity.START; setPadding(24, 12, 24, 24); setBackgroundColor(Color.TRANSPARENT) }
+        providerNotice = TextView(this).apply {
+            val name = intent.getStringExtra("providerName")?.take(128) ?: provider
+            text = text("Официальный плеер «$name»", "Official player “$name”")
+            gravity = Gravity.CENTER; setTextColor(PlayerColors.text)
+            setBackgroundColor(android.graphics.Color.argb(210, 34, 36, 41))
+            setPadding(12, 6, 12, 6); visibility = View.GONE
+        }
+        content.addView(providerNotice, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
         setContentView(content)
         if (tv) close.requestFocus()
         var previousFocus: View? = close
         idleControls = TvIdleControls(true) { visible ->
             pointer.cursorVisible = visible
+            if (::providerNotice.isInitialized) providerNotice.visibility = if (visible && status.visibility == View.GONE) View.VISIBLE else View.GONE
             if (visible) {
                 bar.visibility = View.VISIBLE
                 if (tv) {
@@ -175,9 +187,10 @@ open class WebPlayerActivity : Activity() {
         releaseWeb()
         val epoch = generation
         if (!active || isFinishing) return
+        providerNotice.visibility = View.GONE
         status.text = text("Загрузка…", "Loading…")
         status.visibility = View.VISIBLE
-        surface.addView(status, FrameLayout.LayoutParams(-1, -1))
+        surface.addView(status, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
         prepareSession { available ->
             if (!active || isFinishing || epoch != generation) return@prepareSession
             if (!available) { failed(); return@prepareSession }
@@ -197,11 +210,11 @@ open class WebPlayerActivity : Activity() {
                 PlayerPresentation.install(browser, scale.mode)
                 val progressScript = WebPlaybackProgress.script(browser, provider, resumePosition, resumeDuration)
                 val progressKey = PlaybackHistory.webKey(provider, source)
-                WebPlaybackProgress { point, ended ->
+                WebPlaybackProgress(received = { point, ended ->
                     if (active && epoch == generation && browser === web) {
                         history.save(progressKey, point.position, point.duration, ended)
                     }
-                }.install(browser, progressScript)
+                }, playing = { playing -> if (active && epoch == generation && browser === web) watchedClock.sample(playing) }).install(browser, progressScript)
                 CookieManager.getInstance().setAcceptThirdPartyCookies(browser, true)
                 browser.setDownloadListener { _, _, _, _, _ -> /* External downloads are not a player action. */ }
                 browser.webChromeClient = object : WebChromeClient() {
@@ -227,7 +240,7 @@ open class WebPlayerActivity : Activity() {
                         if (!WebPolicy.navigation(provider, url, source, true)) { failed(); return }
                         v.evaluateJavascript(PlayerPresentation.script(this@WebPlayerActivity, scale.mode), null)
                         v.evaluateJavascript(progressScript, null)
-                        if (ProviderHost.web?.script(provider, playerIndex) == null) status.visibility = View.GONE
+                        if (ProviderHost.web?.script(provider, playerIndex) == null) { status.visibility = View.GONE; providerNotice.visibility = barVisibility() }
                     }
                     override fun onReceivedError(v: WebView, r: WebResourceRequest, error: WebResourceError) {
                         if (r.isForMainFrame && epoch == generation) failed()
@@ -254,14 +267,16 @@ open class WebPlayerActivity : Activity() {
         val browser = web ?: return
         browser.evaluateJavascript(ProviderHost.web?.script(provider, playerIndex) ?: return) { result ->
             if (!active || epoch != generation) return@evaluateJavascript
-            if (result == "true") status.visibility = View.GONE
+            if (result == "true") { status.visibility = View.GONE; providerNotice.visibility = barVisibility() }
             else main.postDelayed({ inspect(epoch, attempt + 1) }, 500)
         }
     }
+    private fun barVisibility() = if (close.isShown) View.VISIBLE else View.GONE
     private fun failed() {
+        if (::providerNotice.isInitialized) providerNotice.visibility = View.GONE
         if (!::status.isInitialized || isFinishing) return
         status.text = text("Не удалось загрузить плеер. Повторите или выберите другой источник.", "Player unavailable. Retry or choose another source.")
-        if (status.parent == null) surface.addView(status, FrameLayout.LayoutParams(-1, -1))
+        if (status.parent == null) surface.addView(status, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
         status.visibility = View.VISIBLE; status.bringToFront(); idleControls?.interact()
         if (TvWindow.isTv(this)) close.requestFocus()
     }
@@ -271,6 +286,7 @@ open class WebPlayerActivity : Activity() {
         callback?.onCustomViewHidden()
     }
     private fun releaseWeb() {
+        watchedClock.sample(false)
         ++generation; main.removeCallbacksAndMessages(null)
         hideCustom()
         web?.let { v ->

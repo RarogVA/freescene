@@ -1,3 +1,5 @@
+import 'catalog/watched.dart';
+
 import 'package:freescene_provider_api/freescene_provider_api.dart';
 
 import 'dart:async';
@@ -146,6 +148,8 @@ class FreeSceneApp extends StatefulWidget {
 }
 
 class _FreeSceneAppState extends State<FreeSceneApp> {
+  late final watched = WatchedController(NativeTorrentService.channel)..start();
+
   late Preferences _preferences = widget.initialPreferences;
   _Page _page = _Page.movies;
   _Page _lastCatalogPage = _Page.movies;
@@ -215,6 +219,7 @@ class _FreeSceneAppState extends State<FreeSceneApp> {
 
   @override
   void dispose() {
+    watched.dispose();
     if (widget.nativeService != null) {
       NativeTorrentService.channel.setMethodCallHandler(null);
     }
@@ -445,6 +450,7 @@ class _FreeSceneAppState extends State<FreeSceneApp> {
   }
 
   Future<void> _useCatalogSource(CatalogSource source, bool watch) async {
+    final identity = watchedIdentity(_catalog!.selected, source);
     final resolved = await _catalog!.repository.resolve(source);
     if (!watch &&
         resolved.row.provider == ProviderSetup.current.downloadProvider) {
@@ -469,9 +475,11 @@ class _FreeSceneAppState extends State<FreeSceneApp> {
         throw const FormatException('Playback source is unavailable');
       }
       await _torrents!.watchProvider(
+        identity: identity,
         url: resolved.uri.toString(),
         title: resolved.row.title,
         provider: resolved.row.provider.name,
+        providerName: resolved.row.provider.label,
         kind: resolved.row.watch.name,
         webPlayer: resolved.webPlayer,
         webEpisodes: resolved.webEpisodes.map((e) => e.toJson()).toList(),
@@ -481,7 +489,7 @@ class _FreeSceneAppState extends State<FreeSceneApp> {
     final id = await importCatalogSource(_torrents!, resolved);
     if (!mounted) return;
     if (watch) {
-      await _torrents!.watch(id);
+      await _torrents!.watch(id, identity: identity);
     } else {
       _downloadAdded();
     }
@@ -567,218 +575,222 @@ class _FreeSceneAppState extends State<FreeSceneApp> {
   @override
   Widget build(BuildContext context) {
     final dark = _preferences.appearance == AppAppearance.dark;
-    return MaterialApp(
-      title: 'FreeScene',
-      navigatorKey: _navigator,
-      scaffoldMessengerKey: _messenger,
-      debugShowCheckedModeBanner: false,
-      locale: Locale(_preferences.language.name),
-      supportedLocales: const [Locale('ru'), Locale('en')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: FreeSceneTheme.create(dark),
-      builder: (context, child) => LayoutBuilder(
-        builder: (context, constraints) {
-          final factor = _preferences.scale / 100;
-          final size = Size(
-            constraints.maxWidth / factor,
-            constraints.maxHeight / factor,
-          );
-          return FittedBox(
-            fit: BoxFit.fill,
-            child: SizedBox.fromSize(
-              size: size,
-              child: MediaQuery(
-                data: MediaQuery.of(context).copyWith(size: size),
-                child: child!,
+    return WatchedScope(
+      controller: watched,
+      child: MaterialApp(
+        title: 'FreeScene',
+        navigatorKey: _navigator,
+        scaffoldMessengerKey: _messenger,
+        debugShowCheckedModeBanner: false,
+        locale: Locale(_preferences.language.name),
+        supportedLocales: const [Locale('ru'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        theme: FreeSceneTheme.create(dark),
+        builder: (context, child) => LayoutBuilder(
+          builder: (context, constraints) {
+            final factor = _preferences.scale / 100;
+            final size = Size(
+              constraints.maxWidth / factor,
+              constraints.maxHeight / factor,
+            );
+            return FittedBox(
+              fit: BoxFit.fill,
+              child: SizedBox.fromSize(
+                size: size,
+                child: MediaQuery(
+                  data: MediaQuery.of(context).copyWith(size: size),
+                  child: child!,
+                ),
               ),
-            ),
-          );
-        },
-      ),
-      home: Scaffold(
-        body: Row(
-          children: [
-            AnimatedContainer(
-              key: const ValueKey('sidebar'),
-              duration: const Duration(milliseconds: 240),
-              curve: Curves.easeInOutCubic,
-              width: _sidebarCollapsed ? 76 : 200,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxWidth < 180;
-                  final dense = constraints.maxHeight < 600;
-                  return SingleChildScrollView(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
-                      child: IntrinsicHeight(
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 24),
-                            _sidebarButton(
-                              context,
-                              key: const ValueKey('sidebar-home'),
-                              compact: compact,
-                              dense: dense,
-                              label: text('Домой', 'Home'),
-                              leading: const Icon(Icons.home_outlined),
-                              onTap: _goHome,
-                            ),
-                            const Spacer(),
-                            for (final entry in [
-                              (
-                                _Page.downloads,
-                                Icons.download_outlined,
-                                text('Загрузки', 'Downloads'),
-                              ),
-                              (
-                                _Page.settings,
-                                Icons.settings_outlined,
-                                text('Настройки', 'Settings'),
-                              ),
-                            ])
+            );
+          },
+        ),
+        home: Scaffold(
+          body: Row(
+            children: [
+              AnimatedContainer(
+                key: const ValueKey('sidebar'),
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeInOutCubic,
+                width: _sidebarCollapsed ? 76 : 200,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 180;
+                    final dense = constraints.maxHeight < 600;
+                    return SingleChildScrollView(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: IntrinsicHeight(
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 24),
                               _sidebarButton(
                                 context,
-                                key: ValueKey('sidebar-${entry.$1.name}'),
+                                key: const ValueKey('sidebar-home'),
                                 compact: compact,
                                 dense: dense,
-                                label: entry.$3,
-                                leading: Icon(entry.$2),
-                                selected: _page == entry.$1,
-                                onTap: () => _selectPage(entry.$1),
+                                label: text('Домой', 'Home'),
+                                leading: const Icon(Icons.home_outlined),
+                                onTap: _goHome,
                               ),
-                            _sidebarButton(
-                              context,
-                              key: const ValueKey('sidebar-toggle'),
-                              compact: compact,
-                              dense: dense,
-                              label: _sidebarCollapsed
-                                  ? text('Развернуть', 'Expand')
-                                  : text('Свернуть', 'Collapse'),
-                              leading: Icon(
-                                _sidebarCollapsed
-                                    ? Icons.keyboard_double_arrow_right
-                                    : Icons.keyboard_double_arrow_left,
-                              ),
-                              onTap: () => _update(
-                                _preferences.copyWith(
-                                  sidebarCollapsed: !_sidebarCollapsed,
+                              const Spacer(),
+                              for (final entry in [
+                                (
+                                  _Page.downloads,
+                                  Icons.download_outlined,
+                                  text('Загрузки', 'Downloads'),
+                                ),
+                                (
+                                  _Page.settings,
+                                  Icons.settings_outlined,
+                                  text('Настройки', 'Settings'),
+                                ),
+                              ])
+                                _sidebarButton(
+                                  context,
+                                  key: ValueKey('sidebar-${entry.$1.name}'),
+                                  compact: compact,
+                                  dense: dense,
+                                  label: entry.$3,
+                                  leading: Icon(entry.$2),
+                                  selected: _page == entry.$1,
+                                  onTap: () => _selectPage(entry.$1),
+                                ),
+                              _sidebarButton(
+                                context,
+                                key: const ValueKey('sidebar-toggle'),
+                                compact: compact,
+                                dense: dense,
+                                label: _sidebarCollapsed
+                                    ? text('Развернуть', 'Expand')
+                                    : text('Свернуть', 'Collapse'),
+                                leading: Icon(
+                                  _sidebarCollapsed
+                                      ? Icons.keyboard_double_arrow_right
+                                      : Icons.keyboard_double_arrow_left,
+                                ),
+                                onTap: () => _update(
+                                  _preferences.copyWith(
+                                    sidebarCollapsed: !_sidebarCollapsed,
+                                  ),
                                 ),
                               ),
-                            ),
-                            _sidebarButton(
-                              context,
-                              key: const ValueKey('about-branding'),
-                              compact: compact,
-                              dense: dense,
-                              label: 'FreeScene',
-                              onTap: _showAbout,
-                              leading: Image.asset(
-                                'assets/branding/app-icon.png',
-                                width: 30,
-                                height: 30,
+                              _sidebarButton(
+                                context,
+                                key: const ValueKey('about-branding'),
+                                compact: compact,
+                                dense: dense,
+                                label: 'FreeScene',
+                                onTap: _showAbout,
+                                leading: Image.asset(
+                                  'assets/branding/app-icon.png',
+                                  width: 30,
+                                  height: 30,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                          ],
+                              const SizedBox(height: 12),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-            const VerticalDivider(width: 1),
-            Expanded(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        _catalogFilterButton(),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ValueListenableBuilder<TextEditingValue>(
-                            valueListenable: _search,
-                            builder: (context, value, _) => TextField(
-                              key: const ValueKey('catalog-search'),
-                              controller: _search,
-                              enabled: _catalog != null && _catalogKind != null,
-                              onChanged: _searchChanged,
-                              onSubmitted: (value) =>
-                                  _searchChanged(value, immediate: true),
-                              decoration: InputDecoration(
-                                hintText: text('Поиск', 'Search'),
-                                prefixIcon: const Icon(Icons.search),
-                                suffixIcon: value.text.isEmpty
-                                    ? null
-                                    : IconButton(
-                                        key: const ValueKey(
-                                          'catalog-search-clear',
+              const VerticalDivider(width: 1),
+              Expanded(
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          _catalogFilterButton(),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ValueListenableBuilder<TextEditingValue>(
+                              valueListenable: _search,
+                              builder: (context, value, _) => TextField(
+                                key: const ValueKey('catalog-search'),
+                                controller: _search,
+                                enabled:
+                                    _catalog != null && _catalogKind != null,
+                                onChanged: _searchChanged,
+                                onSubmitted: (value) =>
+                                    _searchChanged(value, immediate: true),
+                                decoration: InputDecoration(
+                                  hintText: text('Поиск', 'Search'),
+                                  prefixIcon: const Icon(Icons.search),
+                                  suffixIcon: value.text.isEmpty
+                                      ? null
+                                      : IconButton(
+                                          key: const ValueKey(
+                                            'catalog-search-clear',
+                                          ),
+                                          tooltip: text(
+                                            'Очистить поиск',
+                                            'Clear search',
+                                          ),
+                                          onPressed: () {
+                                            _search.clear();
+                                            _searchChanged('', immediate: true);
+                                          },
+                                          icon: const Icon(Icons.close),
                                         ),
-                                        tooltip: text(
-                                          'Очистить поиск',
-                                          'Clear search',
-                                        ),
-                                        onPressed: () {
-                                          _search.clear();
-                                          _searchChanged('', immediate: true);
-                                        },
-                                        icon: const Icon(Icons.close),
-                                      ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(24),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                  ),
+                                  isDense: true,
                                 ),
-                                isDense: true,
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (_catalogKind != null && _catalog == null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                      child: Align(
-                        alignment: Alignment.center,
-                        child: _catalogSwitch(),
+                        ],
                       ),
                     ),
-                  Expanded(
-                    child: _page == _Page.settings
-                        ? _settings()
-                        : _page == _Page.downloads && _torrents != null
-                        ? DownloadsPage(
-                            controller: _torrents!,
-                            english: _preferences.english,
-                            onBack: () => _selectPage(_lastCatalogPage),
-                          )
-                        : _catalog != null && _catalogKind != null
-                        ? CatalogPageView(
-                            key: ValueKey(
-                              'catalog-view-$_catalogViewGeneration',
-                            ),
-                            onToggleFavorites: _toggleFavoritesView,
-                            onToggleQueue: _toggleQueueView,
-                            onTrailer: widget.nativeService == null
-                                ? null
-                                : _showTrailer,
-                            controller: _catalog!,
-                            english: _preferences.english,
-                            kindSwitch: _catalogSwitch(),
-                            onUseSource: _torrents == null
-                                ? null
-                                : _useCatalogSource,
-                          )
-                        : _emptyPage(),
-                  ),
-                ],
+                    if (_catalogKind != null && _catalog == null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                        child: Align(
+                          alignment: Alignment.center,
+                          child: _catalogSwitch(),
+                        ),
+                      ),
+                    Expanded(
+                      child: _page == _Page.settings
+                          ? _settings()
+                          : _page == _Page.downloads && _torrents != null
+                          ? DownloadsPage(
+                              controller: _torrents!,
+                              english: _preferences.english,
+                              onBack: () => _selectPage(_lastCatalogPage),
+                            )
+                          : _catalog != null && _catalogKind != null
+                          ? CatalogPageView(
+                              key: ValueKey(
+                                'catalog-view-$_catalogViewGeneration',
+                              ),
+                              onToggleFavorites: _toggleFavoritesView,
+                              onToggleQueue: _toggleQueueView,
+                              onTrailer: widget.nativeService == null
+                                  ? null
+                                  : _showTrailer,
+                              controller: _catalog!,
+                              english: _preferences.english,
+                              kindSwitch: _catalogSwitch(),
+                              onUseSource: _torrents == null
+                                  ? null
+                                  : _useCatalogSource,
+                            )
+                          : _emptyPage(),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

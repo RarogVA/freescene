@@ -38,7 +38,7 @@ open class PlayerActivity : Activity() {
     private var backPressed = false
     private var backHidesControls = false
     override fun onResume() { super.onResume(); TvWindow.applyPlayer(this); if (resumeDialog == null) idleControls?.start() }
-    override fun onPause() { saveProgress(); idleControls?.stop(); super.onPause() }
+    override fun onPause() { watchedClock.sample(false); saveProgress(); idleControls?.stop(); super.onPause() }
     override fun onWindowFocusChanged(focused: Boolean) {
         super.onWindowFocusChanged(focused)
         if (focused) TvWindow.applyPlayer(this)
@@ -57,8 +57,23 @@ open class PlayerActivity : Activity() {
     private var position = 0L
     private var playing = true
     private val history by lazy { PlaybackHistory(this) }
+    private val watchedClock = WatchedClock { WatchedHistory(this).set(intent.getStringExtra("watchedSource"), intent.getStringExtra("watchedTitle"), true) }
+    private val watchTime = object : Runnable {
+        override fun run() {
+            if (stopped) return
+            watchedClock.sample(player?.isPlaying == true)
+            val waiting = !playbackFailed && (player == null || player?.playbackState == Player.STATE_BUFFERING || preparing)
+            loadingTrack?.busy(waiting)
+            if (waiting && !wasWaiting) view.showController()
+            wasWaiting = waiting
+            handler.postDelayed(this, 500)
+        }
+    }
     private var playbackKey: String? = null
     private var playbackReady = false
+    private var playbackFailed = false
+    private var loadingTrack: PlayerLoadingTrack? = null
+    private var wasWaiting = false
     private var resumeDialog: AlertDialog? = null
     private val handler = Handler(Looper.getMainLooper())
     private val savePlayback = object : Runnable {
@@ -86,16 +101,17 @@ open class PlayerActivity : Activity() {
                 if (stopped || isFinishing) return@request
                 val tasks = result.getOrNull()?.optJSONArray("tasks")
                 val task = (0 until (tasks?.length() ?: 0)).map { tasks!!.getJSONObject(it) }.find { it.optString("id") == torrentId }
-                if (task == null) status.text = "Загрузка недоступна. Вернитесь и повторите."
+                if (task == null) { playbackFailed = true; status.text = "Загрузка недоступна. Вернитесь и повторите." }
                 else {
                     if (intent.getStringExtra("title").isNullOrBlank()) titleBar.text = task.optString("name", "FreeScene")
                     val files = task.optJSONArray("files")
                     videos = (0 until (files?.length() ?: 0)).map { files!!.getJSONObject(it) }.filter { it.optBoolean("video") }
-                    episodes.visibility = if (videos.size > 1 && close.visibility == View.VISIBLE) View.VISIBLE else View.GONE
+                    updateEpisodeControls()
+                    episodes.visibility = if (intent.getBooleanExtra("series", false) && videos.size > 1 && close.visibility == View.VISIBLE) View.VISIBLE else View.GONE
                     when {
-                        task.optString("error").isNotBlank() -> status.text = task.optString("error")
+                        task.optString("error").isNotBlank() -> { playbackFailed = true; status.text = task.optString("error") }
                         !task.optBoolean("metadata") -> status.text = "Получение списка файлов…"
-                        videos.isEmpty() -> status.text = "В раздаче нет поддерживаемого видео"
+                        videos.isEmpty() -> { playbackFailed = true; status.text = "В раздаче нет поддерживаемого видео" }
                         player?.playerError != null -> Unit // Keep the decoder error visible until retry/exit.
                         player == null && !preparing && chooser == null && resumeDialog == null -> {
                             if (fileIndex >= 0 || videos.size == 1) openFile(videos.find { it.optInt("index") == fileIndex } ?: videos.first(), reset = false)
@@ -145,11 +161,13 @@ open class PlayerActivity : Activity() {
             preparing = false
             if (stopped || isFinishing) return@request
             result.onSuccess { playMedia(it.getString("url"), "torrent:$torrentId:$fileIndex") }
-                .onFailure { status.text = it.message ?: "Не удалось открыть файл" }
+                .onFailure { playbackFailed = true; status.text = it.message ?: "Не удалось открыть файл" }
         }
     }
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
+        PlayerColors.restore(this)
+        watchedClock.elapsed = state?.getLong("watchedElapsed") ?: 0
         if (!TorrentPolicy.id(torrentId) && !PlaybackPolicy.allowed(intent.getStringExtra("url"))) { finish(); return }
         position = state?.getLong("position") ?: 0
         fileIndex = state?.getInt("torrentFile", -1) ?: torrentId?.let { history.torrentFile(it) } ?: -1
@@ -161,6 +179,8 @@ open class PlayerActivity : Activity() {
             setShutterBackgroundColor(android.graphics.Color.BLACK)
             controllerShowTimeoutMs = if (TvWindow.isTv(this@PlayerActivity)) 0 else 4000
             setShowSubtitleButton(true)
+            setShowPreviousButton(false)
+            setShowNextButton(false)
             setControllerAnimationEnabled(false)
             if (TvWindow.isTv(this@PlayerActivity)) {
                 controllerAutoShow = false
@@ -192,7 +212,17 @@ open class PlayerActivity : Activity() {
             val inset = (12 * resources.displayMetrics.density).toInt()
             setMargins(inset, inset, inset, inset)
         })
-        root.addView(status, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+        root.addView(status, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply {
+            val inset = (16 * resources.displayMetrics.density).toInt()
+            setMargins(inset, 0, inset, (100 * resources.displayMetrics.density).toInt())
+        })
+        status.gravity = Gravity.START
+        status.setTextColor(PlayerColors.text)
+        status.setShadowLayer(3f, 0f, 1f, android.graphics.Color.BLACK)
+        view.findViewById<androidx.media3.ui.DefaultTimeBar>(androidx.media3.ui.R.id.exo_progress)?.apply {
+            setPlayedColor(PlayerColors.accent); setScrubberColor(PlayerColors.accent)
+            loadingTrack = PlayerLoadingTrack(this)
+        }
         episodes = PlayerCloseButton(this).apply {
             contentDescription = "Сезоны и серии"
             setImageResource(android.R.drawable.ic_menu_sort_by_size)
@@ -211,6 +241,7 @@ open class PlayerActivity : Activity() {
         fun styleControls(node: View) {
             if (node is ImageButton || node is android.widget.Button) {
                 TvButtonFocus.apply(node, fill = android.graphics.Color.TRANSPARENT)
+                if (node is ImageButton) node.imageTintList = android.content.res.ColorStateList.valueOf(PlayerColors.accent)
             }
             if (node is ViewGroup) for (i in 0 until node.childCount) styleControls(node.getChildAt(i))
         }
@@ -221,7 +252,7 @@ open class PlayerActivity : Activity() {
             titleBar.visibility = if (visible) View.VISIBLE else View.INVISIBLE
             close.visibility = titleBar.visibility
             scale.button.visibility = titleBar.visibility
-            episodes.visibility = if (visible && videos.size > 1) View.VISIBLE else View.GONE
+            episodes.visibility = if (visible && intent.getBooleanExtra("series", false) && videos.size > 1) View.VISIBLE else View.GONE
         })
         var previousFocus: View? = close
         idleControls = TvIdleControls(TvWindow.isTv(this)) { visible ->
@@ -258,6 +289,7 @@ open class PlayerActivity : Activity() {
         stopped = false
         if (!isFinishing) startPlayer()
         handler.postDelayed(savePlayback, 5000)
+        handler.post(watchTime)
     }
     protected open fun startPlayer() {
         if (torrentId != null) {
@@ -265,7 +297,7 @@ open class PlayerActivity : Activity() {
             request("prepareStream") { result ->
                 if (stopped || isFinishing) return@request
                 result.onSuccess { startTorrentService(); handler.post(poll) }
-                    .onFailure { status.text = it.message ?: "Не удалось открыть раздачу" }
+                    .onFailure { playbackFailed = true; status.text = it.message ?: "Не удалось открыть раздачу" }
             }
         } else {
             val url = intent.getStringExtra("url")!!
@@ -293,6 +325,19 @@ open class PlayerActivity : Activity() {
             cancelled = { finish() },
             dismissed = { resumeDialog = null; resumeControls() })
     }
+    private fun updateEpisodeControls() {
+        val series = intent.getBooleanExtra("series", false) && videos.size > 1
+        view.setShowPreviousButton(series)
+        view.setShowNextButton(series)
+        val index = videos.indexOfFirst { it.optInt("index") == fileIndex }
+        for ((id, offset) in listOf(androidx.media3.ui.R.id.exo_prev to -1, androidx.media3.ui.R.id.exo_next to 1)) {
+            view.findViewById<View>(id)?.apply {
+                isEnabled = series && index >= 0 && index + offset in videos.indices
+                alpha = if (isEnabled) 1f else .35f
+                setOnClickListener { videos.getOrNull(index + offset)?.let { openFile(it, reset = true) } }
+            }
+        }
+    }
     private fun saveProgress() {
         val current = player ?: return
         val key = playbackKey ?: return
@@ -302,6 +347,7 @@ open class PlayerActivity : Activity() {
     }
     protected open fun startTorrentService() { TorrentService.start(this) }
     protected open fun startMedia(url: String) {
+        playbackFailed = false
         if (!PlaybackPolicy.allowed(url) && !TorrentEngine.trustedStream(url)) { status.text = "Недопустимый адрес видео"; return }
         val lowRam = (getSystemService(ACTIVITY_SERVICE) as ActivityManager).isLowRamDevice
         val load = DefaultLoadControl.Builder().setTargetBufferBytes(PlaybackPolicy.bufferBytes(lowRam))
@@ -319,18 +365,22 @@ open class PlayerActivity : Activity() {
                 if (lowRam) it.trackSelectionParameters = it.trackSelectionParameters.buildUpon()
                     .setMaxVideoSize(1920, 1080).build()
                 it.addListener(object : Player.Listener {
+                    override fun onIsPlayingChanged(isPlaying: Boolean) { watchedClock.sample(isPlaying) }
                     override fun onTracksChanged(tracks: Tracks) {
                         audioWarning = PlayerAudio.warning(tracks, resources.configuration.locales[0].language == "ru")
                         if (it.playbackState == Player.STATE_READY && it.playerError == null)
                             status.text = audioWarning.orEmpty()
                     }
                     override fun onPlaybackStateChanged(state: Int) {
-                        if (state == Player.STATE_READY) playbackReady = true
+                        if (state == Player.STATE_READY) { playbackReady = true; playbackFailed = false }
+                        if (state == Player.STATE_BUFFERING) status.text = if (resources.configuration.locales[0].language == "ru") "Буферизация…" else "Buffering…"
                         if (state == Player.STATE_ENDED) saveProgress()
                         if (state == Player.STATE_READY && it.playerError == null)
                             status.text = audioWarning.orEmpty()
                     }
                     override fun onPlayerError(error: PlaybackException) {
+                        playbackFailed = true
+                        loadingTrack?.stop()
                         status.text = if (resources.configuration.locales[0].language == "ru")
                             "Видео недоступно. Вернитесь и выберите другой источник."
                             else "Video unavailable. Go back and choose another source."
@@ -353,7 +403,9 @@ open class PlayerActivity : Activity() {
             }
     }
     override fun onStop() {
+        watchedClock.sample(false)
         saveProgress()
+        loadingTrack?.stop()
         stopped = true
         resumeDialog?.dismiss(); resumeDialog = null
         if (::scale.isInitialized) scale.dismiss()
@@ -378,6 +430,7 @@ open class PlayerActivity : Activity() {
         out.putBoolean("playing", player?.playWhenReady ?: playing)
         out.putString("playbackKey", playbackKey)
         if (::scale.isInitialized) out.putInt("scaleMode", scale.mode)
+        out.putLong("watchedElapsed", watchedClock.elapsed)
         super.onSaveInstanceState(out)
     }
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {

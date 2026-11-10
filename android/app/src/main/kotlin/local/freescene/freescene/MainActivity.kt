@@ -61,6 +61,8 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "freescene/android")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "watchedSnapshot" -> result.success(WatchedHistory(this).snapshot())
+                    "setWatched" -> { WatchedHistory(this).set(call.argument<String>("watchedSource"), call.argument<String>("watchedTitle"), call.argument<Boolean>("watched") == true); result.success(null) }
                     "torrentOpen" -> torrents.call(call, result)
                     "torrentAdd", "torrentPlay", "torrentImport" -> if (TvWindow.isTv(this)) torrents.call(call, result)
                         else downloadNotifications.run(result) { torrents.call(call, result) }
@@ -71,6 +73,7 @@ class MainActivity : FlutterActivity() {
                         updates.request(call.method, result)
                     "updateInstall" -> downloadNotifications.run(result) { updates.install(this, result) }
                     "playWeb" -> {
+                        PlayerColors.configure(this, call.argument<Boolean>("playerDark") != false)
                         val provider = call.argument<String>("provider")
                         val url = call.argument<String>("url")
                         val index = call.argument<Int>("webPlayer") ?: 0
@@ -86,6 +89,10 @@ class MainActivity : FlutterActivity() {
                             }
                             startActivity(Intent(this, WebPlayerActivity::class.java)
                                 .putExtra("title", call.argument<String>("title"))
+                                .putExtra("watchedSource", call.argument<String>("watchedSource"))
+                                .putExtra("watchedTitle", call.argument<String>("watchedTitle"))
+                                .putExtra("series", call.argument<Boolean>("series") ?: false)
+                                .putExtra("providerName", call.argument<String>("providerName"))
                                 .putExtra("provider", provider).putExtra("url", url).putExtra("webPlayer", index)
                                 .putExtra("episodes", JSONArray(safeEpisodes).toString()))
                             result.success(null)
@@ -102,11 +109,15 @@ class MainActivity : FlutterActivity() {
                         "version" to BuildConfig.VERSION_NAME
                     ))
                     "play" -> {
+                        PlayerColors.configure(this, call.argument<Boolean>("playerDark") != false)
                         val url = call.argument<String>("url")
                         if (!PlaybackPolicy.allowed(url)) result.error("invalid_url", "HTTPS media required", null)
                         else {
                             startActivity(Intent(this, PlayerActivity::class.java)
                                 .putExtra("url", url).putExtra("title", call.argument<String>("title"))
+                                .putExtra("watchedSource", call.argument<String>("watchedSource"))
+                                .putExtra("watchedTitle", call.argument<String>("watchedTitle"))
+                                .putExtra("series", call.argument<Boolean>("series") ?: false)
                                 .putExtra("playbackId", call.argument<String>("playbackId"))
                                 .putExtra("referrer", call.argument<String>("referrer"))
                                 .putExtra("mimeType", call.argument<String>("mimeType")))

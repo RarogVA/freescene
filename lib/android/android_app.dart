@@ -1,3 +1,5 @@
+import '../catalog/watched.dart';
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
@@ -153,6 +155,8 @@ class AndroidApp extends StatefulWidget {
 }
 
 class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
+  late final watched = WatchedController(AndroidRuntime.channel)..refresh();
+
   final navigator = GlobalKey<NavigatorState>();
   late final remote = RemoteFocus(enabled: widget.runtime.tv);
   late final traversal = RemoteTraversalPolicy(
@@ -284,6 +288,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) watched.refresh();
     if (state == AppLifecycleState.resumed && !modal) {
       remote.restore(remote.last);
       offerUpdate();
@@ -295,6 +300,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    watched.dispose();
     ++playbackEpoch;
     trailerClient?.close();
     WidgetsBinding.instance.removeObserver(this);
@@ -584,6 +590,8 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
     if (playing) return;
     final epoch = ++playbackEpoch;
     final target = remote.last;
+    final identity = watchedIdentity(catalog.selected, source);
+    final isSeries = catalog.selected?.kind == CatalogKind.series;
     setState(() => playing = true);
     try {
       if (widget.play != null) {
@@ -595,11 +603,27 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
             catalog.selected?.title(preferences.english) ?? source.row.title;
         if (resolved.row.isTorrent) {
           if (widget.runtime.tv) {
-            await const AndroidTorrents().open(resolved, title: title);
+            await const AndroidTorrents().open(
+              resolved,
+              title: title,
+              playback: {
+                ...identity,
+                'series': isSeries,
+                'playerDark': preferences.appearance == AppAppearance.dark,
+              },
+            );
           } else {
             final id = await const AndroidTorrents().add(resolved);
             if (!mounted || epoch != playbackEpoch) return;
-            await const AndroidTorrents().play(id, title: title);
+            await const AndroidTorrents().play(
+              id,
+              title: title,
+              playback: {
+                ...identity,
+                'series': isSeries,
+                'playerDark': preferences.appearance == AppAppearance.dark,
+              },
+            );
           }
           return;
         }
@@ -610,7 +634,11 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
         if (!mounted || epoch != playbackEpoch) return;
         if (playback.kind == SourceKind.embed) {
           await AndroidRuntime.channel.invokeMethod<void>('playWeb', {
+            'playerDark': preferences.appearance == AppAppearance.dark,
+            ...identity,
+            'series': isSeries,
             'provider': playback.provider,
+            'providerName': source.row.provider.label,
             'title': title,
             'url': playback.url.toString(),
             'webPlayer': playback.webPlayer ?? 0,
@@ -624,8 +652,11 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
           throw const FormatException('Invalid media URL');
         }
         await AndroidRuntime.channel.invokeMethod<void>('play', {
+          'playerDark': preferences.appearance == AppAppearance.dark,
           'url': url.toString(),
           'title': title,
+          ...identity,
+          'series': isSeries,
           'playbackId':
               'source:${resolved.row.provider.name}:${resolved.row.id}',
           'mimeType': playback.mimeType,
@@ -666,6 +697,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
       if (!mounted || epoch != playbackEpoch) return;
       if (media.webProvider != null) {
         await AndroidRuntime.channel.invokeMethod<void>('playWeb', {
+          'playerDark': preferences.appearance == AppAppearance.dark,
           'provider': media.webProvider,
           'title':
               '${tr('Трейлер', 'Trailer')} · ${title.title(preferences.english)}',
@@ -674,6 +706,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
         return;
       }
       await AndroidRuntime.channel.invokeMethod<void>('play', {
+        'playerDark': preferences.appearance == AppAppearance.dark,
         'url': media.url.toString(),
         'referrer': media.referrer?.toString(),
         'title':
@@ -707,108 +740,112 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    navigatorKey: navigator,
-    debugShowCheckedModeBanner: false,
-    title: 'FreeScene',
-    theme: androidTheme(
-      dark: preferences.appearance == AppAppearance.dark,
-      tv: widget.runtime.tv,
-    ),
-    locale: Locale(preferences.language.name),
-    supportedLocales: const [Locale('ru'), Locale('en')],
-    localizationsDelegates: GlobalMaterialLocalizations.delegates,
-    // Single-line dialog inputs must let the remote leave vertically. Keep
-    // left/right available for moving the caret and adjusting sliders.
-    builder: (context, child) => !widget.runtime.tv
-        ? child!
-        : Shortcuts(
-            shortcuts: const {
-              SingleActivator(
-                LogicalKeyboardKey.arrowUp,
-              ): DirectionalFocusIntent(
-                TraversalDirection.up,
-                ignoreTextFields: false,
+  Widget build(BuildContext context) => WatchedScope(
+    controller: watched,
+    child: MaterialApp(
+      navigatorKey: navigator,
+      debugShowCheckedModeBanner: false,
+      title: 'FreeScene',
+      theme: androidTheme(
+        dark: preferences.appearance == AppAppearance.dark,
+        tv: widget.runtime.tv,
+      ),
+      locale: Locale(preferences.language.name),
+      supportedLocales: const [Locale('ru'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      // Single-line dialog inputs must let the remote leave vertically. Keep
+      // left/right available for moving the caret and adjusting sliders.
+      builder: (context, child) => !widget.runtime.tv
+          ? child!
+          : Shortcuts(
+              shortcuts: const {
+                SingleActivator(
+                  LogicalKeyboardKey.arrowUp,
+                ): DirectionalFocusIntent(
+                  TraversalDirection.up,
+                  ignoreTextFields: false,
+                ),
+                SingleActivator(
+                  LogicalKeyboardKey.arrowDown,
+                ): DirectionalFocusIntent(
+                  TraversalDirection.down,
+                  ignoreTextFields: false,
+                ),
+                SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
+                SingleActivator(LogicalKeyboardKey.gameButtonA):
+                    ActivateIntent(),
+              },
+              child: FocusTraversalGroup(
+                policy: RemoteDialogTraversalPolicy(),
+                child: child!,
               ),
-              SingleActivator(
-                LogicalKeyboardKey.arrowDown,
-              ): DirectionalFocusIntent(
-                TraversalDirection.down,
-                ignoreTextFields: false,
-              ),
-              SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
-              SingleActivator(LogicalKeyboardKey.gameButtonA): ActivateIntent(),
-            },
-            child: FocusTraversalGroup(
-              policy: RemoteDialogTraversalPolicy(),
-              child: child!,
             ),
-          ),
-    home: Builder(
-      builder: (context) => PopScope(
-        canPop: false,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) unawaited(back());
-        },
-        child: Shortcuts(
-          shortcuts: {
-            if (widget.runtime.tv) ...{
-              const SingleActivator(LogicalKeyboardKey.select):
-                  const ActivateIntent(),
-              const SingleActivator(LogicalKeyboardKey.gameButtonA):
-                  const ActivateIntent(),
-            },
-            const SingleActivator(LogicalKeyboardKey.escape):
-                const _BackIntent(),
-            const SingleActivator(LogicalKeyboardKey.goBack):
-                const _BackIntent(),
+      home: Builder(
+        builder: (context) => PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) unawaited(back());
           },
-          child: Actions(
-            actions: {
-              _BackIntent: CallbackAction<_BackIntent>(
-                onInvoke: (_) {
-                  unawaited(back());
-                  return null;
-                },
-              ),
+          child: Shortcuts(
+            shortcuts: {
+              if (widget.runtime.tv) ...{
+                const SingleActivator(LogicalKeyboardKey.select):
+                    const ActivateIntent(),
+                const SingleActivator(LogicalKeyboardKey.gameButtonA):
+                    const ActivateIntent(),
+              },
+              const SingleActivator(LogicalKeyboardKey.escape):
+                  const _BackIntent(),
+              const SingleActivator(LogicalKeyboardKey.goBack):
+                  const _BackIntent(),
             },
-            child: Scaffold(
-              body: SafeArea(
-                top: !widget.runtime.tv,
-                bottom: !widget.runtime.tv,
-                left: !widget.runtime.tv,
-                right: !widget.runtime.tv,
-                child: FocusTraversalGroup(
-                  policy: widget.runtime.tv
-                      ? traversal
-                      : ReadingOrderTraversalPolicy(),
-                  child: Row(
-                    children: [
-                      if (widget.runtime.tv) ...[
-                        _rail(),
-                        const VerticalDivider(width: 1),
-                      ],
-                      Expanded(
-                        child: Column(
-                          children: [
-                            if (screen == 'catalog') _toolbar(),
-                            Expanded(
-                              child: screen == 'settings'
-                                  ? _settings()
-                                  : screen == 'downloads'
-                                  ? AndroidDownloads(
-                                      focus: remote,
-                                      back: () => unawaited(back()),
-                                      english: preferences.english,
-                                    )
-                                  : catalog.selected == null
-                                  ? _catalog()
-                                  : _details(),
-                            ),
-                          ],
+            child: Actions(
+              actions: {
+                _BackIntent: CallbackAction<_BackIntent>(
+                  onInvoke: (_) {
+                    unawaited(back());
+                    return null;
+                  },
+                ),
+              },
+              child: Scaffold(
+                body: SafeArea(
+                  top: !widget.runtime.tv,
+                  bottom: !widget.runtime.tv,
+                  left: !widget.runtime.tv,
+                  right: !widget.runtime.tv,
+                  child: FocusTraversalGroup(
+                    policy: widget.runtime.tv
+                        ? traversal
+                        : ReadingOrderTraversalPolicy(),
+                    child: Row(
+                      children: [
+                        if (widget.runtime.tv) ...[
+                          _rail(),
+                          const VerticalDivider(width: 1),
+                        ],
+                        Expanded(
+                          child: Column(
+                            children: [
+                              if (screen == 'catalog') _toolbar(),
+                              Expanded(
+                                child: screen == 'settings'
+                                    ? _settings()
+                                    : screen == 'downloads'
+                                    ? AndroidDownloads(
+                                        focus: remote,
+                                        back: () => unawaited(back()),
+                                        english: preferences.english,
+                                      )
+                                    : catalog.selected == null
+                                    ? _catalog()
+                                    : _details(),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1331,15 +1368,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                       ),
                     ),
                   ),
-                  Text(
-                    [
-                      if (title.year != null) '${title.year}',
-                      if (title.rating != null)
-                        '★ ${title.rating!.toStringAsFixed(1)}',
-                    ].join(' · '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  TitleMetadata(title: title, english: preferences.english),
                 ],
               ),
             ),
@@ -1735,6 +1764,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                     padding: const EdgeInsets.only(bottom: 8),
                     child: AndroidSourceCard(
                       source: source,
+                      title: title,
                       posterCache: widget.posterCache,
                       previewDecodeWidth: budget.posterWidth,
                       focus: remote,
