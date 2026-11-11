@@ -8,6 +8,7 @@ import androidx.media3.common.MimeTypes
 /** Shared by the channel boundary and player activity, including restored intents. */
 object PlaybackPolicy {
     fun referrer(media: String?, value: String?): String? = ProviderHost.web?.referrer(media, value)
+    fun userAgent(media: String?): String? = ProviderHost.web?.userAgent(media)
 
     fun mediaItem(url: String, mimeType: String?): MediaItem {
         require(allowed(url))

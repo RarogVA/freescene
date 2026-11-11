@@ -766,7 +766,12 @@ static FSNativeBridge *bridge;
         if ([kind isEqual:@"embed"]) {
             [player openEmbed:url title:call.arguments[@"title"] ?: @"Video" player:index episodes:episodes context:context];
         }
-        else [player open:url.absoluteString title:call.arguments[@"title"] ?: @"Video" task:nil];
+        else {
+            id<FSProviderAdapter> adapter=FSProviderHost.adapter;
+            NSDictionary *headers=[adapter respondsToSelector:@selector(playbackHeadersForURL:provider:)] ? [adapter playbackHeadersForURL:url provider:provider] : nil;
+            [player open:url.absoluteString title:call.arguments[@"title"] ?: @"Video" task:nil
+                userAgent:headers[@"User-Agent"] referrer:headers[@"Referer"]];
+        }
         [self trackPlayer:player arguments:call.arguments];
         player.providerView.watchedClock=player.watchedClock;
         player.providerView.providerName=call.arguments[@"providerName"] ?: provider;

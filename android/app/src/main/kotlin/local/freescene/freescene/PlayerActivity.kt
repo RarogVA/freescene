@@ -221,6 +221,30 @@ open class PlayerActivity : Activity() {
         status.setShadowLayer(3f, 0f, 1f, android.graphics.Color.BLACK)
         view.findViewById<androidx.media3.ui.DefaultTimeBar>(androidx.media3.ui.R.id.exo_progress)?.apply {
             setPlayedColor(PlayerColors.accent); setScrubberColor(PlayerColors.accent)
+            if (TvWindow.isTv(this@PlayerActivity)) {
+                setKeyTimeIncrement(10000)
+                var lastRepeatTime: Long? = null
+                setOnKeyListener { _, key, event ->
+                    if (key != KeyEvent.KEYCODE_DPAD_LEFT && key != KeyEvent.KEYCODE_DPAD_RIGHT) false
+                    else {
+                        if (event.action == KeyEvent.ACTION_DOWN) {
+                            val repeated = event.repeatCount > 0
+                            if (!repeated) lastRepeatTime = null
+                            // Remote repeat rates differ. Advance at most twice a
+                            // second; grow the held step by a minute every 2 seconds.
+                            if (!repeated || lastRepeatTime == null || event.eventTime - lastRepeatTime!! >= 500) {
+                                val heldMs = (event.eventTime - event.downTime).coerceAtLeast(0)
+                                val minutes = (1 + heldMs / 2000).coerceAtMost(5)
+                                setKeyTimeIncrement(if (repeated) minutes * 60000 else 10000)
+                                onKeyDown(key, event) // Preserve Media3's scrub preview and bounds.
+                                setKeyTimeIncrement(10000) // Touch/accessibility never inherit acceleration.
+                                if (repeated) lastRepeatTime = event.eventTime
+                            }
+                        } else if (event.action == KeyEvent.ACTION_UP) lastRepeatTime = null
+                        true // Keep focus on the timeline at the start/end too.
+                    }
+                }
+            }
             loadingTrack = PlayerLoadingTrack(this)
         }
         episodes = PlayerCloseButton(this).apply {
@@ -353,7 +377,8 @@ open class PlayerActivity : Activity() {
         val load = DefaultLoadControl.Builder().setTargetBufferBytes(PlaybackPolicy.bufferBytes(lowRam))
             .setBufferDurationsMs(10000, 30000, 1000, 2000)
             .setPrioritizeTimeOverSizeThresholds(false).build()
-        val http = DefaultHttpDataSource.Factory().setReadTimeoutMs(60000).setConnectTimeoutMs(15000).setUserAgent("FreeScene/${BuildConfig.VERSION_NAME} Android")
+        val http = DefaultHttpDataSource.Factory().setReadTimeoutMs(60000).setConnectTimeoutMs(15000)
+            .setUserAgent(PlaybackPolicy.userAgent(url) ?: "FreeScene/${BuildConfig.VERSION_NAME} Android")
         PlaybackPolicy.referrer(intent.getStringExtra("url"), intent.getStringExtra("referrer"))?.let {
             http.setDefaultRequestProperties(mapOf("Referer" to it))
         }

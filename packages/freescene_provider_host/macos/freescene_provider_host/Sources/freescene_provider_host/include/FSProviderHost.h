@@ -19,6 +19,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)resolveTrailer:(NSDictionary *)reference userAgent:(NSString *)agent completion:(void (^)(NSURL * _Nullable media, NSURL * _Nullable referrer, NSString * _Nullable webProvider, NSString * _Nullable error))completion;
 - (void)cancelTrailers;
 - (void)stop;
+@optional
+// Provider-owned HTTP headers for native playback, never account credentials.
+- (nullable NSDictionary<NSString *, NSString *> *)playbackHeadersForURL:(NSURL *)url provider:(NSString *)provider;
 @end
 @interface FSProviderHost : NSObject
 + (nullable id<FSProviderAdapter>)adapter;

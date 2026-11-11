@@ -11,6 +11,7 @@ interface WebProvider {
     fun rootSelector(provider: String): String? = null
     fun historyKey(provider: String, source: String): String? = null
     fun referrer(media: String?, page: String?): String? = null
+    fun userAgent(media: String?): String? = null
 }
 object ProviderHost {
     @Volatile var web: WebProvider? = null
