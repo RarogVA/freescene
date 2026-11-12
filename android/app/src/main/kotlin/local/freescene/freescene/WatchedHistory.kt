@@ -24,9 +24,9 @@ class WatchedClock(private val marked: () -> Unit) {
     private var active = false
     fun sample(playing: Boolean, now: Long = SystemClock.elapsedRealtime()) {
         val previous = last
-        if (active && playing && previous != null && now - previous in 0..6000 && elapsed < 120000) {
+        if (active && previous != null && now - previous in 0..6000 && elapsed < 60000) {
             elapsed += now - previous
-            if (elapsed >= 120000) marked()
+            if (elapsed >= 60000) marked()
         }
         active = playing
         last = now

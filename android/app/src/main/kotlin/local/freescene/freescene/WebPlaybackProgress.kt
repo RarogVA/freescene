@@ -10,9 +10,14 @@ import androidx.webkit.WebViewFeature
 import org.json.JSONObject
 
 /** A data-only channel: a page can report time for this session, never choose a history key. */
-class WebPlaybackProgress(private val received: (PlaybackHistory.Point, Boolean) -> Unit, private val playing: (Boolean) -> Unit = {}) {
+class WebPlaybackProgress(private val received: (PlaybackHistory.Point, Boolean) -> Unit, private val playing: (Boolean) -> Unit = {}, private val controls: (JSONObject) -> Unit = {}) {
     private val main = Handler(Looper.getMainLooper())
     @JavascriptInterface fun postMessage(message: String) {
+        if (message.length > 16384) return
+        val data = try { JSONObject(message) } catch (_: Exception) { return }
+        if (data.optString("type") == "controls") {
+            main.post { controls(data) }; return
+        }
         val report = parse(message) ?: return
         val active = try { JSONObject(message).optBoolean("playing", false) } catch (_: Exception) { false }
         main.post { playing(active); received(report.first, report.second) }

@@ -1485,13 +1485,16 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
         final value = season ? sourceSeason : sourceEpisode;
         final name = season ? tr('Сезон', 'Season') : tr('Серия', 'Episode');
         return SizedBox(
-          width: bounds.maxWidth < 480 ? 92 : 112,
+          width: widget.runtime.tv ? 132 : (bounds.maxWidth < 480 ? 92 : 112),
           child: RemoteButton(
             id: season ? 'source-season' : 'source-episode',
             focus: remote,
             radius: 28,
             selected: value != null,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            padding: EdgeInsets.symmetric(
+              horizontal: widget.runtime.tv ? 14 : 8,
+              vertical: 10,
+            ),
             onPressed: () => unawaited(chooseSourceNumber(season: season)),
             child: Row(
               children: [

@@ -33,7 +33,8 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 open class PlayerActivity : Activity() {
     private var idleControls: TvIdleControls? = null
-    private var initialFocusDelivered = false
+    private var tvFocus: TvPlayerFocus? = null
+    private var controlsSuspended = false
     private val back = RemoteBack()
     private var backPressed = false
     private var backHidesControls = false
@@ -43,9 +44,7 @@ open class PlayerActivity : Activity() {
         super.onWindowFocusChanged(focused)
         if (focused) TvWindow.applyPlayer(this)
         if (focused && resumeDialog == null) idleControls?.start() else idleControls?.stop()
-        if (focused && TvWindow.isTv(this) && ::close.isInitialized && !initialFocusDelivered) {
-            initialFocusDelivered = close.requestFocus()
-        }
+        if (focused) restoreTvFocus()
     }
     private lateinit var view: PlayerView
     private var settings: PlayerSettings? = null
@@ -65,6 +64,8 @@ open class PlayerActivity : Activity() {
             val waiting = !playbackFailed && (player == null || player?.playbackState == Player.STATE_BUFFERING || preparing)
             loadingTrack?.busy(waiting)
             if (waiting && !wasWaiting) view.showController()
+            settings?.update()
+            restoreTvFocus()
             wasWaiting = waiting
             handler.postDelayed(this, 500)
         }
@@ -127,6 +128,7 @@ open class PlayerActivity : Activity() {
     }
     private fun chooseEpisode() {
         if (videos.isEmpty() || chooser != null) return
+        val initialSelection = player == null
         suspendControls()
         val labels = videos.map { it.optString("name") }
         val adapter = object : ArrayAdapter<String>(this, android.R.layout.simple_list_item_single_choice, labels) {
@@ -142,7 +144,7 @@ open class PlayerActivity : Activity() {
             .setNegativeButton("Назад") { _, _ -> if (player == null) finish() }
             .create().also { dialog ->
                 dialog.setOnCancelListener { if (player == null) finish() }
-                dialog.setOnDismissListener { chooser = null; resumeControls(); if (TvWindow.isTv(this)) episodes.requestFocus() }
+                dialog.setOnDismissListener { chooser = null; resumeControls(); if (TvWindow.isTv(this)) { if (initialSelection) view.findViewById<View>(androidx.media3.ui.R.id.exo_play_pause)?.requestFocus() else episodes.requestFocus() } }
                 dialog.show()
                 dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(PlayerColors.panel))
                 dialog.listView.setSelection(selected)
@@ -178,7 +180,7 @@ open class PlayerActivity : Activity() {
             setBackgroundColor(android.graphics.Color.BLACK)
             setShutterBackgroundColor(android.graphics.Color.BLACK)
             controllerShowTimeoutMs = if (TvWindow.isTv(this@PlayerActivity)) 0 else 4000
-            setShowSubtitleButton(true)
+            setShowSubtitleButton(TvWindow.isTv(this@PlayerActivity))
             setShowPreviousButton(false)
             setShowNextButton(false)
             setControllerAnimationEnabled(false)
@@ -186,7 +188,8 @@ open class PlayerActivity : Activity() {
                 controllerAutoShow = false
             }
         }
-        settings = PlayerSettings(this, opened = { suspendControls() }, dismissed = { resumeControls() }) {
+        settings = PlayerSettings(this, opened = { suspendControls() }, dismissed = { resumeControls() },
+            scaling = { scale.button.performClick() }) {
             view.player
         }.also { it.bind(view) }
         close = PlayerCloseButton(this).apply {
@@ -261,6 +264,7 @@ open class PlayerActivity : Activity() {
             val inset = (12 * resources.displayMetrics.density).toInt()
             setMargins(inset, inset, inset, inset)
         })
+        if (!TvWindow.isTv(this)) scale.button.visibility = View.GONE
         setContentView(root)
         fun styleControls(node: View) {
             if (node is ImageButton || node is android.widget.Button) {
@@ -270,36 +274,62 @@ open class PlayerActivity : Activity() {
             if (node is ViewGroup) for (i in 0 until node.childCount) styleControls(node.getChildAt(i))
         }
         styleControls(view)
-        if (TvWindow.isTv(this)) close.requestFocus()
+        if (TvWindow.isTv(this)) {
+            tvFocus = TvPlayerFocus(root) { view.findViewById<View>(androidx.media3.ui.R.id.exo_play_pause) }
+            view.findViewById<View>(androidx.media3.ui.R.id.exo_play_pause)?.setOnClickListener {
+                val current = player
+                if (current != null) androidx.media3.common.util.Util.handlePlayPauseButtonAction(current)
+                else { playing = !playing; prepareWaitingPlayButton() }
+            }
+        }
         view.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
             val visible = visibility == View.VISIBLE
+            if (visible) settings?.update()
             titleBar.visibility = if (visible) View.VISIBLE else View.INVISIBLE
             close.visibility = titleBar.visibility
-            scale.button.visibility = titleBar.visibility
+            scale.button.visibility = if (TvWindow.isTv(this)) titleBar.visibility else View.GONE
             episodes.visibility = if (visible && intent.getBooleanExtra("series", false) && videos.size > 1) View.VISIBLE else View.GONE
         })
-        var previousFocus: View? = close
         idleControls = TvIdleControls(TvWindow.isTv(this)) { visible ->
             if (visible) {
                 view.showController()
-                if (previousFocus?.isShown == true) previousFocus?.requestFocus() else close.requestFocus()
+                restoreTvFocus()
             } else {
-                previousFocus = root.findFocus()
+                tvFocus?.remember()
                 view.hideController()
                 root.requestFocus()
             }
         }
         view.showController()
     }
+    private fun prepareWaitingPlayButton() {
+        if (!TvWindow.isTv(this) || player != null || !::view.isInitialized) return
+        view.findViewById<ImageButton>(androidx.media3.ui.R.id.exo_play_pause)?.apply {
+            isEnabled = true; alpha = 1f
+            setImageResource(if (playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
+            contentDescription = getString(if (playing) androidx.media3.ui.R.string.exo_controls_pause_description
+                else androidx.media3.ui.R.string.exo_controls_play_description)
+        }
+    }
+    private fun restoreTvFocus() {
+        settings?.update()
+        if (stopped || controlsSuspended || resumeDialog != null || chooser != null || !hasWindowFocus() ||
+            !::view.isInitialized || idleControls?.visible == false || !view.isControllerFullyVisible) return
+        prepareWaitingPlayButton()
+        tvFocus?.restore()
+    }
     private fun suspendControls() {
+        controlsSuspended = true
         idleControls?.stop()
         view.controllerShowTimeoutMs = 0
     }
     private fun resumeControls() {
+        controlsSuspended = false
         if (stopped) return
         view.controllerShowTimeoutMs = if (TvWindow.isTv(this)) 0 else 4000
         view.showController()
         idleControls?.start()
+        restoreTvFocus()
     }
     private fun applyScale(mode: Int) {
         view.resizeMode = when (mode) {
@@ -482,6 +512,11 @@ open class PlayerActivity : Activity() {
             }
             return true
         }
-        return super.dispatchKeyEvent(event)
+        restoreTvFocus()
+        val handled = super.dispatchKeyEvent(event)
+        if (event.action == KeyEvent.ACTION_DOWN && event.keyCode in listOf(
+                KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT,
+                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN)) tvFocus?.moved()
+        return handled
     }
 }

@@ -81,8 +81,13 @@ class PlayerSettingsTest {
             dismissed = { controlsPaused = false }) { f.player }
         val view = PlayerView(context)
         settings.bind(view)
-        assertTrue(view.findViewById<View>(androidx.media3.ui.R.id.exo_settings).performClick())
-        click(1)
+        if (TvWindow.isTv(context)) {
+            assertNull(view.findViewById<View>(androidx.media3.ui.R.id.exo_settings))
+            assertTrue(view.findViewById<View>(androidx.media3.ui.R.id.exo_audio_track).performClick())
+        } else {
+            assertTrue(view.findViewById<View>(androidx.media3.ui.R.id.exo_settings).performClick())
+            click(0)
+        }
         shadowOf(android.os.Looper.getMainLooper()).idle()
         assertTrue("Moving into Audio keeps the controls timer paused", controlsPaused)
         val rows = dialog().listView.adapter
@@ -122,6 +127,46 @@ class PlayerSettingsTest {
         assertEquals(0, f.writes)
         settings.showAudio(); current = null; click(0)
         assertEquals(0, f.writes)
+    }
+    @Test fun mobileMenuGroupsAudioSpeedSubtitlesAndScale() {
+        org.junit.Assume.assumeTrue(BuildConfig.FLAVOR == "mobile")
+        val f = Fixture(); var scaled = false
+        val settings = PlayerSettings(context, scaling = { scaled = true }) { f.player }
+        settings.show()
+        assertEquals(4, dialog().listView.adapter.count)
+        click(3); assertTrue(scaled)
+        settings.showSubtitles(); click(0)
+        assertTrue(f.selection.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT))
+        settings.showSubtitles(); click(1)
+        assertFalse(f.selection.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT))
+    }
+    @Test fun tvAudioAndSpeedAreIndependentDirectActions() {
+        org.junit.Assume.assumeTrue(BuildConfig.FLAVOR == "tv")
+        val f = Fixture(); val settings = PlayerSettings(context) { f.player }
+        val view = PlayerView(context); settings.bind(view)
+        assertNull(view.findViewById<View>(androidx.media3.ui.R.id.exo_settings))
+        view.findViewById<View>(androidx.media3.ui.R.id.exo_playback_speed).performClick()
+        click(5); assertEquals(1.5f, f.speed)
+        view.findViewById<View>(androidx.media3.ui.R.id.exo_audio_track).performClick()
+        assertTrue(dialog().listView.adapter.getItem(1).toString().contains("LostFilm"))
+        settings.dismiss()
+    }
+    @Test fun subtitleMenuKeepsTheSelectedTrackWithinTheSameGroup() {
+        val f = Fixture()
+        val text = TrackGroup("subtitles",
+            Format.Builder().setSampleMimeType("text/vtt").setLanguage("en").build(),
+            Format.Builder().setSampleMimeType("text/vtt").setLanguage("ru").build())
+        f.tracks = Tracks(ImmutableList.of(Tracks.Group(text, false,
+            intArrayOf(C.FORMAT_HANDLED, C.FORMAT_HANDLED), booleanArrayOf(false, true))))
+        f.selection = f.selection.buildUpon().addOverride(TrackSelectionOverride(text, 1)).build()
+        val settings = PlayerSettings(context) { f.player }
+        settings.showSubtitles()
+        assertEquals(3, dialog().listView.checkedItemPosition)
+        click(2)
+        assertEquals(listOf(0), f.selection.overrides[text]?.trackIndices)
+        settings.showSubtitles()
+        assertEquals(2, dialog().listView.checkedItemPosition)
+        settings.dismiss()
     }
     @Test fun playbackSpeedStillWorksAndDismissClosesOpenDialog() {
         val f = Fixture()

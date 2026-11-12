@@ -15,6 +15,7 @@ int main(int argc,char **argv) { @autoreleasepool {
     NSWindow *window=[[NSWindow alloc] initWithContentRect:NSMakeRect(100,100,1100,700) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable|NSWindowStyleMaskResizable backing:NSBackingStoreBuffered defer:NO];
     window.title=@"FreeScene — Web player verification";
     FSProviderView *view=[[FSProviderView alloc] initWithURL:[NSURL URLWithString:address] frame:window.contentView.bounds player:0 episodes:@[] context:context];
+    view.watchedClock=[FSWatchedClock new];view.watchedClock.source=address;view.watchedClock.title=@"fixture-film";
     view.providerName=@"Fixture provider";[window.contentView addSubview:view];[window makeKeyAndOrderFront:nil];
     assert(until(^BOOL{return view.lastPlaybackReport>0 && [view.playbackState[@"duration"] doubleValue]>170;}));
     assert(view.playButton.enabled && view.position.enabled);
@@ -22,6 +23,15 @@ int main(int argc,char **argv) { @autoreleasepool {
     view.position.doubleValue=0.5;[view seek:nil];assert(until(^BOOL{return [view.playbackState[@"position"] doubleValue]>=90;}));
     [view togglePlayback:nil];assert(until(^BOOL{return [view.playbackState[@"paused"] boolValue];}));
     [view skipBack:nil];assert(until(^BOOL{return [view.playbackState[@"position"] doubleValue]<82;}));
+    assert(view.watchedClock.elapsed<10 && !FSWatchedSnapshot()[address]);
+    double elapsed=view.watchedClock.elapsed;
+    NSDate *pauseUntil=[NSDate dateWithTimeIntervalSinceNow:2];
+    while(pauseUntil.timeIntervalSinceNow>0)[NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.02]];
+    assert(fabs(view.watchedClock.elapsed-elapsed)<.1);
+    view.watchedClock.elapsed=59;
+    [view togglePlayback:nil];
+    assert(until(^BOOL{return [FSWatchedSnapshot()[address] isEqual:@"fixture-film"];},5));
+    [view togglePlayback:nil];assert(until(^BOOL{return [view.playbackState[@"paused"] boolValue];}));
     [view sendAction:@"volume" value:@0.25];assert(until(^BOOL{return [view.playbackState[@"volume"] doubleValue]==0.25;}));
     [view toggleNative:nil];assert(!view.nativeControls);[view toggleNative:nil];assert(view.nativeControls);
     assert([view.message.stringValue isEqual:@"Официальный плеер «Fixture provider»"]);

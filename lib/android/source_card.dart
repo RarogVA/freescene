@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../catalog/source_metadata.dart';
 import '../catalog/watched.dart';
+import '../catalog/truncated_text.dart';
 import '../catalog/catalog_models.dart';
 import '../catalog/cached_poster.dart';
 import '../catalog/poster_cache.dart';
@@ -92,58 +93,52 @@ class AndroidSourceCard extends StatelessWidget {
       ),
     );
     if (focus.enabled) {
-      return RemoteButton(
-        key: ValueKey('source-card-${row.provider.name}-${row.id}'),
-        id: 'source-${row.provider.name}-${row.id}',
-        focus: focus,
-        onPressed: onPlay,
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: LayoutBuilder(
-          builder: (context, box) => Row(
-            children: [
-              Expanded(
-                child: Tooltip(
-                  message: [
+      return OverflowTooltip(
+        child: RemoteButton(
+          key: ValueKey('source-card-${row.provider.name}-${row.id}'),
+          id: 'source-${row.provider.name}-${row.id}',
+          focus: focus,
+          onPressed: onPlay,
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: LayoutBuilder(
+            builder: (context, box) => Row(
+              children: [
+                Expanded(
+                  child: TruncatedText(
                     row.title,
-                    source.audio,
-                    source.channel,
-                  ].whereType<String>().join('\n'),
-                  child: Text(
-                    row.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: box.maxWidth * .55),
-                child: SourceMetadata(
-                  source: source,
-                  english: english,
-                  singleLine: true,
-                  scrollable: false,
-                ),
-              ),
-              if (series) ...[
                 const SizedBox(width: 12),
                 ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: box.maxWidth * .16),
-                  child: Text(
-                    sourceEpisodeDisplay(source),
-                    key: ValueKey(
-                      'source-episode-${row.provider.name}-${row.id}',
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  constraints: BoxConstraints(maxWidth: box.maxWidth * .55),
+                  child: SourceMetadata(
+                    source: source,
+                    english: english,
+                    singleLine: true,
+                    scrollable: false,
                   ),
                 ),
+                if (series) ...[
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: box.maxWidth * .16,
+                    child: TruncatedText(
+                      sourceEpisodeDisplay(source) == '—'
+                          ? ''
+                          : sourceEpisodeDisplay(source),
+                      tooltipOrder: 1,
+                      textKey: ValueKey(
+                        'source-episode-${row.provider.name}-${row.id}',
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 8),
+                watchedButton,
               ],
-              const SizedBox(width: 8),
-              watchedButton,
-            ],
+            ),
           ),
         ),
       );

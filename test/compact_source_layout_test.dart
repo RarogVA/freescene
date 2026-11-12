@@ -7,6 +7,7 @@ import 'package:freescene/android/source_card.dart';
 import 'package:freescene/catalog/catalog_models.dart';
 import 'package:freescene/catalog/catalog_page.dart';
 import 'package:freescene/catalog/watched.dart';
+import 'package:freescene/catalog/truncated_text.dart';
 
 const title = CatalogTitle(
   id: 'series',
@@ -149,6 +150,101 @@ void main() {
     );
   }
   testWidgets(
+    'TV aligns mixed episode labels and reveals full overflowing text on focus',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(960, 540));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final remote = RemoteFocus();
+      const fullTitle =
+          'A very long release title that cannot fit beside the metadata and the series information';
+      const fullEpisode =
+          'Seasons 1, 3, 5, 7, 9, 11, 13 / Episodes 1 through 999';
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: androidTheme(dark: true, tv: true),
+          home: Scaffold(
+            body: Column(
+              children: [
+                for (final id in ['a', 'b', 'c'])
+                  AndroidSourceCard(
+                    source: CatalogSource(
+                      row: SourceRow(
+                        id: id,
+                        provider: const SourceProvider('fixture'),
+                        title: id == 'a' ? fullTitle : 'Short',
+                        quality: '1080p',
+                        sizeBytes: 500000000,
+                        watch: SourceKind.direct,
+                        download: DownloadKind.unavailable,
+                      ),
+                      episodes: id == 'a'
+                          ? [fullEpisode]
+                          : id == 'b'
+                          ? ['S01E01']
+                          : [],
+                    ),
+                    focus: remote,
+                    english: true,
+                    series: true,
+                    onPlay: () {},
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final badges = find.byKey(const ValueKey('bubble-size'));
+      for (var i = 1; i < 3; i++) {
+        expect(
+          tester.getRect(badges.at(i)).right,
+          tester.getRect(badges.first).right,
+        );
+      }
+      final first = find.byKey(const ValueKey('remote-source-fixture-a'));
+      tester.widget<OutlinedButton>(first).focusNode!.requestFocus();
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<OutlinedButton>(first).focusNode!.hasPrimaryFocus,
+        isTrue,
+      );
+      expect(
+        find.text('$fullTitle\n$fullEpisode', findRichText: true),
+        findsOneWidget,
+      );
+      final second = find.byKey(const ValueKey('remote-source-fixture-b'));
+      tester.widget<OutlinedButton>(second).focusNode!.requestFocus();
+      await tester.pumpAndSettle();
+      expect(
+        find.text('$fullTitle\n$fullEpisode', findRichText: true),
+        findsNothing,
+      );
+      expect(
+        tester.widget<OutlinedButton>(second).focusNode!.hasPrimaryFocus,
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      remote.dispose();
+    },
+  );
+  testWidgets('hover tooltip is present only while a label is truncated', (
+    tester,
+  ) async {
+    const text = 'Full episode information which needs a tooltip';
+    for (final width in [80.0, 700.0]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(width: width, child: const TruncatedText(text)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byTooltip(text), width == 80 ? findsOneWidget : findsNothing);
+    }
+  });
+  testWidgets(
     'desktop stacked actions switch to icons without losing their actions',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1100, 700));
@@ -174,11 +270,19 @@ void main() {
         final download = find.byKey(
           const ValueKey('source-download-fixture/a'),
         );
-        expect(tester.getCenter(watch).dx, tester.getCenter(download).dx);
-        expect(
-          tester.getRect(watch).bottom,
-          lessThan(tester.getRect(download).top),
-        );
+        if (compact) {
+          expect(tester.getCenter(watch).dy, tester.getCenter(download).dy);
+          expect(
+            tester.getRect(watch).right,
+            lessThan(tester.getRect(download).left),
+          );
+        } else {
+          expect(tester.getCenter(watch).dx, tester.getCenter(download).dx);
+          expect(
+            tester.getRect(watch).bottom,
+            lessThan(tester.getRect(download).top),
+          );
+        }
         expect(
           tester.getSize(find.byKey(const ValueKey('source-fixture-a'))).height,
           lessThanOrEqualTo(88),

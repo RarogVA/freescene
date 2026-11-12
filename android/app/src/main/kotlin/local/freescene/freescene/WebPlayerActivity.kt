@@ -31,6 +31,11 @@ open class WebPlayerActivity : Activity() {
     private lateinit var close: PlayerCloseButton
     private lateinit var scale: PlayerScaleControl
     private lateinit var controls: Button
+    private lateinit var playPause: ImageButton
+    private var resumed = false
+    private var tvFocus: TvPlayerFocus? = null
+    private var webSettings: WebPlayerSettings? = null
+    private var settingsFocus: View? = null
     private lateinit var status: TextView
     private lateinit var providerNotice: TextView
     private lateinit var pointer: RemotePointer
@@ -53,6 +58,7 @@ open class WebPlayerActivity : Activity() {
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
         PlayerColors.restore(this)
+        watchedClock.elapsed = state?.getLong("watchedElapsed") ?: 0
         provider = intent.getStringExtra("provider") ?: ""
         source = state?.getString("source") ?: intent.getStringExtra("url") ?: ""
         preparedSource = state?.getString("preparedSource")
@@ -90,11 +96,34 @@ open class WebPlayerActivity : Activity() {
             setMargins(inset, inset, inset, inset)
         })
         bar.addView(PlayerTitleView(this, intent.getStringExtra("title")), LinearLayout.LayoutParams(0, close.diameter, 1f))
+        playPause = PlayerCloseButton(this).apply {
+            tag = "player-play-pause"
+            contentDescription = text("Воспроизведение / Пауза", "Play / Pause")
+            setImageResource(android.R.drawable.ic_media_play)
+            visibility = if (TvWindow.isTv(this@WebPlayerActivity)) View.VISIBLE else View.GONE
+            setOnClickListener { web?.evaluateJavascript("window.__freescenePlayback?.toggle();", null) }
+        }
+        bar.addView(playPause, LinearLayout.LayoutParams(close.diameter, close.diameter))
         if (intent.getBooleanExtra("series", false) && episodes.size > 1) button(text("Серии", "Episodes")) { chooseEpisode() }
         scale = PlayerScaleControl(this, state?.getInt("scaleMode") ?: 0,
             opened = { idleControls?.stop() },
             dismissed = { if (active) { TvWindow.applyPlayer(this); idleControls?.start() } },
             changed = { mode -> web?.let { it.evaluateJavascript(PlayerPresentation.script(this, mode), null) } })
+        webSettings = WebPlayerSettings(this,
+            send = { command -> web?.evaluateJavascript("window.__freescenePlayback?.command($command);", null) },
+            opened = { idleControls?.stop() },
+            dismissed = { if (active) { idleControls?.start(); if (TvWindow.isTv(this)) settingsFocus?.requestFocus() } },
+            scaling = { scale.button.performClick() })
+        fun setting(icon: Int, label: String, action: () -> Unit) = PlayerCloseButton(this).apply {
+            contentDescription = label; setImageResource(icon)
+            tag = "player-setting-$label"
+            setOnClickListener { settingsFocus = this; action() }
+            bar.addView(this, LinearLayout.LayoutParams(diameter, diameter))
+        }
+        if (TvWindow.isTv(this)) {
+            setting(androidx.media3.ui.R.drawable.exo_ic_audiotrack, text("Аудио", "Audio")) { webSettings?.request("audio") }
+            setting(androidx.media3.ui.R.drawable.exo_ic_speed, text("Скорость", "Speed")) { webSettings?.request("speed") }
+        } else setting(androidx.media3.ui.R.drawable.exo_ic_settings, text("Настройки", "Settings")) { webSettings?.menu() }
         button(text("Повторить", "Retry")) { load() }
         controls = button(text("Плеер", "Player")) { pointer.requestFocus() }
         controls.visibility = if (TvWindow.isTv(this)) View.VISIBLE else View.GONE
@@ -102,6 +131,7 @@ open class WebPlayerActivity : Activity() {
             val inset = (8 * resources.displayMetrics.density).toInt()
             setMargins(inset, inset, inset, inset)
         })
+        if (!TvWindow.isTv(this)) scale.button.visibility = View.GONE
         surface = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         val tv = TvWindow.isTv(this)
         val content = FrameLayout(this).apply {
@@ -126,18 +156,17 @@ open class WebPlayerActivity : Activity() {
         }
         content.addView(providerNotice, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
         setContentView(content)
-        if (tv) close.requestFocus()
-        var previousFocus: View? = close
+        if (tv) tvFocus = TvPlayerFocus(content) { playPause }
         idleControls = TvIdleControls(true) { visible ->
             pointer.cursorVisible = visible
             if (::providerNotice.isInitialized) providerNotice.visibility = if (visible && status.visibility == View.GONE) View.VISIBLE else View.GONE
             if (visible) {
                 bar.visibility = View.VISIBLE
                 if (tv) {
-                    if (previousFocus?.isShown == true) previousFocus?.requestFocus() else close.requestFocus()
+                    tvFocus?.restore(force = true)
                 }
             } else {
-                previousFocus = content.findFocus()
+                tvFocus?.remember()
                 bar.visibility = View.INVISIBLE
                 if (tv) pointer.requestFocus()
             }
@@ -214,7 +243,12 @@ open class WebPlayerActivity : Activity() {
                     if (active && epoch == generation && browser === web) {
                         history.save(progressKey, point.position, point.duration, ended)
                     }
-                }, playing = { playing -> if (active && epoch == generation && browser === web) watchedClock.sample(playing) }).install(browser, progressScript)
+                }, playing = { playing ->
+                    if (active && epoch == generation && browser === web) {
+                        watchedClock.sample(resumed && playing)
+                        playPause.setImageResource(if (playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play)
+                    }
+                }, controls = { data -> if (active && epoch == generation && browser === web) webSettings?.received(data) }).install(browser, progressScript)
                 CookieManager.getInstance().setAcceptThirdPartyCookies(browser, true)
                 browser.setDownloadListener { _, _, _, _, _ -> /* External downloads are not a player action. */ }
                 browser.webChromeClient = object : WebChromeClient() {
@@ -287,6 +321,7 @@ open class WebPlayerActivity : Activity() {
     }
     private fun releaseWeb() {
         watchedClock.sample(false)
+        webSettings?.dismiss()
         ++generation; main.removeCallbacksAndMessages(null)
         hideCustom()
         web?.let { v ->
@@ -301,14 +336,16 @@ open class WebPlayerActivity : Activity() {
         super.onStart()
         if (!active) { active = true; if (!isFinishing) load() }
     }
-    override fun onResume() { super.onResume(); TvWindow.applyPlayer(this); if (resumeDialog == null) idleControls?.start() }
+    override fun onResume() { super.onResume(); resumed = true; TvWindow.applyPlayer(this); if (resumeDialog == null) idleControls?.start() }
     override fun onPause() {
+        resumed = false
+        watchedClock.sample(false)
         web?.evaluateJavascript("window.__freescenePlayback?.flush();", null)
         idleControls?.stop(); super.onPause()
     }
     override fun onWindowFocusChanged(focused: Boolean) {
         super.onWindowFocusChanged(focused)
-        if (focused) { TvWindow.applyPlayer(this); if (resumeDialog == null) idleControls?.start() } else idleControls?.stop()
+        if (focused) { TvWindow.applyPlayer(this); if (resumeDialog == null) { idleControls?.start(); tvFocus?.restore() } } else idleControls?.stop()
     }
     override fun onStop() {
         idleControls?.stop(); active = false
@@ -320,6 +357,7 @@ open class WebPlayerActivity : Activity() {
     override fun onSaveInstanceState(out: Bundle) {
         if (::source.isInitialized) out.putString("source", source)
         out.putString("preparedSource", preparedSource)
+        out.putLong("watchedElapsed", watchedClock.elapsed)
         if (::scale.isInitialized) out.putInt("scaleMode", scale.mode)
         super.onSaveInstanceState(out)
     }
@@ -336,6 +374,9 @@ open class WebPlayerActivity : Activity() {
             if (event.action == KeyEvent.ACTION_UP) finish()
             return true
         }
-        return super.dispatchKeyEvent(event)
+        if (idleControls?.visible == true && resumeDialog == null) tvFocus?.restore()
+        val handled = super.dispatchKeyEvent(event)
+        if (event.action == KeyEvent.ACTION_DOWN) tvFocus?.moved()
+        return handled
     }
 }

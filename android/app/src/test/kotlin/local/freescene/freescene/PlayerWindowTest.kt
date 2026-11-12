@@ -41,7 +41,7 @@ class PlayerWindowTest {
         val scale = activity.window.decorView.findViewWithTag<View>("player-scale")
         val close = activity.window.decorView.findViewWithTag<PlayerCloseButton>("player-close")
         val root = scale.parent as View
-        assertEquals("Scale is at the opposite edge from Close", close.left, root.width - scale.right)
+        if (TvWindow.isTv(activity)) assertEquals("Scale is at the opposite edge from Close", close.left, root.width - scale.right)
         assertEquals(Color.BLACK, (player.background as ColorDrawable).color)
         assertEquals(AspectRatioFrameLayout.RESIZE_MODE_FIT, player.resizeMode)
         for ((selection, expected) in listOf(1 to AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
@@ -51,7 +51,7 @@ class PlayerWindowTest {
             val dialog = ShadowAlertDialog.getLatestAlertDialog()
             assertEquals(3, dialog.listView.adapter.count)
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(5))
-            assertTrue(scale.isShown)
+            assertEquals(TvWindow.isTv(activity), scale.isShown)
             dialog.listView.performItemClick(null, selection, selection.toLong())
             shadowOf(Looper.getMainLooper()).idle()
             assertEquals(expected, player.resizeMode)
@@ -82,7 +82,7 @@ class PlayerWindowTest {
         player.showController()
         assertTrue(title.isShown)
         assertTrue(close.isShown)
-        assertTrue(scale.isShown)
+        assertEquals(TvWindow.isTv(activity), scale.isShown)
         controller.pause().stop().destroy()
     }
     @Test fun tvCloseHidesAfterInactivityAndFirstOkOnlyRestoresIt() {
@@ -105,7 +105,32 @@ class PlayerWindowTest {
         activity.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DPAD_CENTER))
         assertEquals(View.VISIBLE, close.visibility)
         assertEquals(View.VISIBLE, title.visibility)
-        assertTrue(close.hasFocus())
+        assertTrue(activity.findViewById<View>(androidx.media3.ui.R.id.exo_play_pause).hasFocus())
+        assertFalse(activity.isFinishing)
+        controller.pause().stop().destroy()
+    }
+    @Test fun tvStartsOnPlayPauseAndRecoversDisabledTimelineWithoutStealingFocus() {
+        assumeTrue(BuildConfig.FLAVOR == "tv")
+        val controller = controller(); val activity = controller.get()
+        val play = activity.findViewById<View>(androidx.media3.ui.R.id.exo_play_pause)
+        val timeline = activity.findViewById<View>(androidx.media3.ui.R.id.exo_progress)
+        val scale = activity.window.decorView.findViewWithTag<View>("player-scale")
+        assertTrue(play.hasFocus())
+        timeline.isEnabled = true; timeline.isFocusableInTouchMode = true
+        assertTrue(timeline.requestFocus())
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(500))
+        assertTrue(timeline.hasFocus())
+        timeline.isEnabled = false
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(500))
+        assertTrue(play.hasFocus())
+        scale.requestFocus()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(500))
+        assertTrue(scale.hasFocus())
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(5))
+        scale.isEnabled = false
+        activity.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_CENTER))
+        activity.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DPAD_CENTER))
+        assertTrue(play.hasFocus())
         assertFalse(activity.isFinishing)
         controller.pause().stop().destroy()
     }
@@ -125,7 +150,7 @@ class PlayerWindowTest {
         // ShadowActivity.getCurrentFocus() is a manually populated stub in
         // Robolectric; inspect the actual Android view tree instead.
         val focused = activity.window.decorView.findViewWithTag<PlayerCloseButton>("player-close")
-        if (TvWindow.isTv(activity)) assertTrue(focused.hasFocus())
+        if (TvWindow.isTv(activity)) { focused.requestFocus(); assertTrue(focused.hasFocus()) }
         assertTrue("Actual focus: $focused", focused is PlayerCloseButton)
         assertTrue((focused as PlayerCloseButton).contentDescription in listOf("Close", "Закрыть"))
         assertEquals(focused.diameter, focused.layoutParams.width)
@@ -144,7 +169,13 @@ class PlayerWindowTest {
         assertTrue(close.isInTouchMode)
         assertFalse(close.hasFocus())
         assertFalse(scale.hasFocus())
-        tapPlayerControl(activity, scale)
+        assertFalse(scale.isShown)
+        val settings = activity.findViewById<View>(androidx.media3.ui.R.id.exo_settings)
+        tapPlayerControl(activity, settings)
+        val menu = ShadowAlertDialog.getLatestAlertDialog()
+        assertNotNull("The first tap opens common settings", menu)
+        menu.listView.performItemClick(null, menu.listView.adapter.count - 1, 0)
+        shadowOf(Looper.getMainLooper()).idle()
         val dialog = ShadowAlertDialog.getLatestAlertDialog()
         assertNotNull("The first tap must open the scale menu", dialog)
         assertTrue(dialog.isShowing)

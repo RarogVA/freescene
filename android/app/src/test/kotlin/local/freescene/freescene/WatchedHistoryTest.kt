@@ -10,24 +10,54 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class WatchedHistoryTest {
-    @Test fun onlyRealPlaybackReachesTwoMinutesAndMarksOnce() {
+    @Test fun onlyRealPlaybackReachesOneMinuteAndMarksOnce() {
         var marks = 0
         val clock = WatchedClock { marks++ }
         clock.sample(true, 0)
-        for (second in 1..119) clock.sample(true, second * 1000L)
-        assertEquals(0, marks)
-        clock.sample(false, 120000)
+        for (second in 1..29) clock.sample(true, second * 1000L)
+        clock.sample(false, 30000)
+        assertEquals(30000L, clock.elapsed)
         clock.sample(false, 240000) // loading, paused, or backgrounded
         clock.sample(true, 241000)
+        for (second in 1..29) clock.sample(true, 241000 + second * 1000L)
+        assertEquals(59000L, clock.elapsed)
         assertEquals(0, marks)
-        clock.sample(true, 242000)
+        clock.sample(true, 271000)
         assertEquals(1, marks)
-        clock.sample(true, 243000)
+        clock.sample(true, 272000)
         assertEquals(1, marks)
         val otherSource = WatchedClock { marks++ }
         otherSource.sample(true, 0)
         otherSource.sample(true, 1000000) // stale callback never counts as playback
         assertEquals(0L, otherSource.elapsed)
+    }
+    @Test fun webReportsCountWallTimeNotSeekPositions() {
+        val context = RuntimeEnvironment.getApplication()
+        var marks = 0
+        val clock = WatchedClock {
+            WatchedHistory(context).set("web-source", "web-film", true); marks++
+        }
+        val bridge = WebPlaybackProgress(received = { _, _ -> }, playing = { clock.sample(it) })
+        fun report(position: Long, playing: Boolean) {
+            bridge.postMessage("""{"position":$position,"duration":7200000,"playing":$playing}""")
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        }
+        report(0, true)
+        repeat(30) {
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1))
+            report(1000L * it, true)
+        }
+        report(3600000, false) // Seek to an hour does not earn an hour of viewing.
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(90))
+        report(3600000, false)
+        assertEquals(0, marks)
+        report(3600000, true)
+        repeat(30) {
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1))
+            report(3600000L + it * 1000, true)
+        }
+        assertEquals(1, marks)
+        assertEquals("web-film", WatchedHistory(context).snapshot()["web-source"])
     }
     @Test fun persistedVariantsCanBeClearedIndependently() {
         val context = RuntimeEnvironment.getApplication()

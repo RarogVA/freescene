@@ -33,9 +33,9 @@ static inline BOOL FSSetWatched(NSString *source,NSString *title,BOOL watched) {
 @implementation FSWatchedClock
 - (void)sample:(BOOL)playing at:(double)now {
     double delta=now-self.last;
-    if(self.active && playing && delta>=0 && delta<=6 && self.elapsed<120) {
+    if(self.active && delta>=0 && delta<=6 && self.elapsed<60) {
         self.elapsed+=delta;
-        if(self.elapsed>=120 && !FSSetWatched(self.source,self.title,YES))self.elapsed=119;
+        if(self.elapsed>=60 && !FSSetWatched(self.source,self.title,YES))self.elapsed=59;
     }
     self.last=now;self.active=playing;
 }

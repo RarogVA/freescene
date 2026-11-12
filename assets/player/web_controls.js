@@ -55,6 +55,20 @@
       frame.contentWindow?.postMessage({type: 'freescene-controls', command}, '*');
     }
   };
+  let motionVideo = null, motionPosition = 0, motionTime = 0, movingUntil = 0;
+  const physicallyPlaying = video => {
+    const now = performance.now();
+    if (video !== motionVideo) {
+      motionVideo = video; motionPosition = video.currentTime; motionTime = now; movingUntil = 0;
+    }
+    const delta = video.currentTime - motionPosition;
+    const elapsed = Math.max(0, now - motionTime) / 1000;
+    if (video.paused || video.ended || video.seeking || !video.isConnected ||
+        delta < 0 || delta > Math.max(.5, elapsed * (video.playbackRate || 1) * 2)) movingUntil = 0;
+    else if (delta > 0) movingUntil = now + 1200;
+    motionPosition = video.currentTime; motionTime = now;
+    return movingUntil > now;
+  };
   const report = () => {
     if (!selected || !enabled || !selected.isConnected || !visible(selected)) return;
     const now = Date.now(); if (now - lastReport < 200) return; lastReport = now;
@@ -63,7 +77,7 @@
       position: Number.isFinite(video.currentTime) ? video.currentTime : 0,
       duration: Number.isFinite(video.duration) ? video.duration : 0,
       paused: video.paused, ended: video.ended, buffering: video.readyState < 3,
-      playing: !video.paused && !video.ended && !video.seeking && video.readyState >= 3,
+      playing: physicallyPlaying(video),
       volume: video.volume, muted: video.muted, seekable: video.seekable.length > 0
     });
   };
@@ -102,7 +116,7 @@
     if (event.data?.type === 'freescene-controls-enable') { enabled = true; native = event.data.native === true; refresh(); }
     else if (event.data?.type === 'freescene-controls') command(event.data.command);
   });
-  for (const name of ['play','pause','timeupdate','volumechange','waiting','playing','ended']) document.addEventListener(name, report, true);
+  for (const name of ['play','pause','timeupdate','volumechange','waiting','playing','ended','seeking','seeked']) document.addEventListener(name, report, true);
   setInterval(refresh, 500);
   refresh();
 })

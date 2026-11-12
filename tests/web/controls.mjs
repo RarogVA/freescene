@@ -48,6 +48,12 @@ try {
     await until('window.reports?.at(-1)?.duration===180');
     assert.equal(await evaluate('window.reports.at(-1).paused'),true);
     await command('toggle');await until('window.reports.at(-1)?.playing===true');
+    if(route==='/direct') {
+      await evaluate(`Object.defineProperty(document.querySelector('video'),'readyState',{get:()=>2,configurable:true})`);
+      await new Promise(r=>setTimeout(r,1500));
+      assert.equal(await evaluate('window.reports.at(-1).playing'),true,'Actual video progress counts with HAVE_CURRENT_DATA');
+      await evaluate(`delete document.querySelector('video').readyState`);
+    }
     await command('seek',120);await until('window.reports.at(-1)?.position>=120');
     await command('toggle');await until('window.reports.at(-1)?.paused===true');
     await command('skip',-10);await until('window.reports.at(-1)?.position<112');

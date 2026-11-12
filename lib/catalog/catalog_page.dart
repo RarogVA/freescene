@@ -12,6 +12,7 @@ import 'source_seasons.dart' as seasons;
 import 'cached_poster.dart';
 import 'source_metadata.dart';
 import 'watched.dart';
+import 'truncated_text.dart';
 import 'source_filter.dart';
 import 'source_format.dart';
 export 'source_format.dart' show catalogBytes, sourceEpisodeDisplay;
@@ -891,6 +892,15 @@ class _SourceTableState extends State<SourceTable> {
       );
     }
 
+    if (widget.compactActions) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!widget.game) ...[action(true), const SizedBox(width: 6)],
+          action(false),
+        ],
+      );
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1191,9 +1201,10 @@ class _SourceTableState extends State<SourceTable> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            _TruncatedSourceTitle(
+            TruncatedText(
+              source.row.title,
+              maxLines: 2,
               key: ValueKey('source-name-$key'),
-              title: source.row.title,
             ),
             for (final text in [source.audio, source.channel])
               if (text != null && text.isNotEmpty)
@@ -1234,7 +1245,7 @@ class _SourceTableState extends State<SourceTable> {
             children: [
               SizedBox(
                 width: widget.compactActions
-                    ? 32
+                    ? (widget.game ? 32 : 70)
                     : widget.game
                     ? 176
                     : 124,
@@ -1262,11 +1273,7 @@ class _SourceTableState extends State<SourceTable> {
                   padding: const EdgeInsets.only(left: 12),
                   child: SizedBox(
                     width: width >= 600 ? 100 : 58,
-                    child: Text(
-                      sourceEpisodeDisplay(source),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    child: TruncatedText(sourceEpisodeDisplay(source)),
                   ),
                 ),
               if (!widget.game) ...[
@@ -1339,28 +1346,6 @@ class _SourceTableState extends State<SourceTable> {
           ],
         ),
       );
-    },
-  );
-}
-
-class _TruncatedSourceTitle extends StatelessWidget {
-  const _TruncatedSourceTitle({required this.title, super.key});
-  final String title;
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final style = DefaultTextStyle.of(context).style;
-      final painter = TextPainter(
-        text: TextSpan(text: title, style: style),
-        textDirection: Directionality.of(context),
-        textScaler: MediaQuery.textScalerOf(context),
-        maxLines: 2,
-        ellipsis: '…',
-      )..layout(maxWidth: constraints.maxWidth);
-      final truncated = painter.didExceedMaxLines;
-      painter.dispose();
-      final text = Text(title, maxLines: 2, overflow: TextOverflow.ellipsis);
-      return truncated ? Tooltip(message: title, child: text) : text;
     },
   );
 }
