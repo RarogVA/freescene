@@ -231,14 +231,31 @@ class _AndroidAboutDialogState extends State<AndroidAboutDialog> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
-            if (busy) const LinearProgressIndicator(),
-            if (status != null)
-              Padding(
+            SizedBox(
+              height: 4,
+              child: busy ? const LinearProgressIndicator() : null,
+            ),
+            SizedBox(
+              key: const ValueKey('android-about-status-area'),
+              height: MediaQuery.textScalerOf(context).scale(14) * 7,
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(8),
-                child: Text(status!, textAlign: TextAlign.center),
+                child: Focus(
+                  canRequestFocus: widget.tv && status != null,
+                  child: Column(
+                    children: [
+                      if (status != null)
+                        Text(status!, textAlign: TextAlign.center),
+                      if (available != null)
+                        Text(
+                          '${tr('Доступна версия', 'New version')} $available',
+                          textAlign: TextAlign.center,
+                        ),
+                    ],
+                  ),
+                ),
               ),
-            if (available != null)
-              Text('${tr('Доступна версия', 'New version')} $available'),
+            ),
           ],
         ),
       ),

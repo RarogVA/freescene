@@ -14,16 +14,29 @@ void main() {
     () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(AndroidRuntime.channel, null),
   );
-  Future<void> show(WidgetTester tester, {bool tv = false}) async {
+  Future<void> show(
+    WidgetTester tester, {
+    bool tv = false,
+    bool english = false,
+    double textScale = 1,
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: androidTheme(dark: true, tv: tv),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         home: Builder(
           builder: (context) => TextButton(
             onPressed: () => showDialog<void>(
               context: context,
-              builder: (_) =>
-                  AndroidAboutDialog(version: '1.3.4', english: false, tv: tv),
+              builder: (_) => AndroidAboutDialog(
+                version: '1.3.4',
+                english: english,
+                tv: tv,
+              ),
             ),
             child: const Text('Open'),
           ),
@@ -155,6 +168,96 @@ void main() {
       expect(check.left, licenses.left);
       expect(licenses.top, greaterThan(check.bottom));
       expect(tester.takeException(), isNull);
+    });
+  }
+  for (final scenario in [
+    (const Size(960, 540), false, 1.0),
+    (const Size(1280, 720), false, 1.0),
+    (const Size(960, 540), true, 1.5),
+    (const Size(1280, 720), false, 1.5),
+  ]) {
+    final (size, english, textScale) = scenario;
+    testWidgets('TV About geometry is stable through update states $scenario', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = size;
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      var response = Completer<Map<String, Object>>();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        AndroidRuntime.channel,
+        (call) => response.future,
+      );
+      await show(tester, tv: true, english: english, textScale: textScale);
+      final panel = tester.getRect(find.byType(AlertDialog));
+      final check = tester.getRect(
+        find.byKey(const ValueKey('android-about-check')),
+      );
+      final licenses = tester.getRect(
+        find.byKey(const ValueKey('android-about-licenses')),
+      );
+      void unchanged() {
+        expect(tester.getRect(find.byType(AlertDialog)), panel);
+        expect(
+          tester.getRect(find.byKey(const ValueKey('android-about-check'))),
+          check,
+        );
+        expect(
+          tester.getRect(find.byKey(const ValueKey('android-about-licenses'))),
+          licenses,
+        );
+        expect(tester.takeException(), isNull);
+      }
+
+      await tester.tap(find.byKey(const ValueKey('android-about-check')));
+      await tester.pump();
+      unchanged();
+      response.complete({'available': false});
+      await tester.pumpAndSettle();
+      unchanged();
+      response = Completer<Map<String, Object>>();
+      await tester.tap(find.byKey(const ValueKey('android-about-check')));
+      await tester.pump();
+      unchanged();
+      response.completeError(PlatformException(code: 'signature_or_version'));
+      await tester.pumpAndSettle();
+      unchanged();
+      response = Completer<Map<String, Object>>();
+      await tester.tap(find.byKey(const ValueKey('android-about-check')));
+      await tester.pump();
+      response.complete({'available': true, 'version': '1.8.2'});
+      await tester.pumpAndSettle();
+      unchanged();
+      final download = Completer<Map<String, Object>>();
+      final install = Completer<Map<String, Object>>();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        AndroidRuntime.channel,
+        (call) =>
+            call.method == 'updateDownload' ? download.future : install.future,
+      );
+      await tester.tap(find.byKey(const ValueKey('android-about-check')));
+      await tester.pump();
+      unchanged();
+      download.complete({'ready': true});
+      await tester.pump();
+      await tester.pump();
+      unchanged();
+      install.complete({'permissionRequired': true});
+      await tester.pumpAndSettle();
+      unchanged();
+      expect(
+        find.textContaining(english ? 'Allow installs' : 'Разрешите установку'),
+        findsOneWidget,
+      );
+      expect(
+        FocusManager.instance.primaryFocus,
+        tester
+            .widget<FilledButton>(
+              find.byKey(const ValueKey('android-about-check')),
+            )
+            .focusNode,
+      );
     });
   }
 }

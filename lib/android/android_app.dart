@@ -809,6 +809,10 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                 ),
               },
               child: Scaffold(
+                resizeToAvoidBottomInset: widget.runtime.tv,
+                bottomNavigationBar: widget.runtime.tv
+                    ? null
+                    : _mobileNavigation(),
                 body: SafeArea(
                   top: !widget.runtime.tv,
                   bottom: !widget.runtime.tv,
@@ -919,7 +923,290 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
     );
   }
 
-  Widget _toolbar() => Padding(
+  Widget _mobileNavigation() => Builder(
+    builder: (context) => Material(
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      child: SafeArea(
+        top: false,
+        child: Container(
+          key: const ValueKey('android-mobile-navigation'),
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(color: Theme.of(context).dividerColor),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            children: [
+              for (final item in [
+                ('home', Icons.home_outlined, tr('Домой', 'Home'), home),
+                (
+                  'downloads',
+                  Icons.download_outlined,
+                  tr('Загрузки', 'Downloads'),
+                  downloads,
+                ),
+                (
+                  'settings',
+                  Icons.settings_outlined,
+                  tr('Настройки', 'Settings'),
+                  settings,
+                ),
+                (
+                  'favorites',
+                  Icons.favorite_border,
+                  tr('Избранное', 'Favorites'),
+                  () =>
+                      unawaited(browse(saved: true, queued: false, search: '')),
+                ),
+                (
+                  'queue',
+                  Icons.playlist_play,
+                  tr('Очередь', 'Queue'),
+                  () =>
+                      unawaited(browse(queued: true, saved: false, search: '')),
+                ),
+              ])
+                Expanded(
+                  child: RemoteButton(
+                    id: item.$1,
+                    focus: remote,
+                    flat: true,
+                    radius: 22,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 2,
+                      vertical: 8,
+                    ),
+                    selected:
+                        item.$1 ==
+                        (screen == 'catalog'
+                            ? (catalog.favoritesOnly
+                                  ? 'favorites'
+                                  : catalog.queueOnly
+                                  ? 'queue'
+                                  : 'home')
+                            : screen),
+                    onPressed: item.$4,
+                    child: Tooltip(
+                      message: item.$3,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(item.$2),
+                          const SizedBox(height: 4),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              item.$3,
+                              maxLines: 1,
+                              softWrap: false,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
+  Widget _mobileIcon(
+    String id,
+    IconData icon,
+    String label,
+    VoidCallback run, {
+    bool selected = false,
+    bool flat = false,
+  }) => SizedBox.square(
+    dimension: 48,
+    child: RemoteButton(
+      id: id,
+      focus: remote,
+      radius: 24,
+      padding: EdgeInsets.zero,
+      selected: selected,
+      flat: flat,
+      onPressed: run,
+      child: Tooltip(message: label, child: Icon(icon)),
+    ),
+  );
+
+  Widget _mobileToolbar() => Builder(
+    builder: (context) {
+      final title = catalog.selected;
+      final detail = title != null;
+      final query = detail ? sourceQuery : catalog.search;
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                _mobileIcon(
+                  detail ? 'detail-back' : 'filter',
+                  detail ? Icons.arrow_back : Icons.filter_alt_outlined,
+                  detail
+                      ? tr('К каталогу', 'Back to catalogue')
+                      : tr('Фильтры', 'Filters'),
+                  () => unawaited(detail ? back() : filters()),
+                  flat: true,
+                  selected: !detail && catalog.filter.active,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: RemoteButton(
+                    id: detail ? 'source-search' : 'search',
+                    focus: remote,
+                    radius: 28,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    onPressed: () =>
+                        unawaited(detail ? searchSources() : search()),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.search),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            query.isEmpty
+                                ? (detail
+                                      ? tr(
+                                          'Поиск по найденному',
+                                          'Search results',
+                                        )
+                                      : tr('Поиск', 'Search'))
+                                : query,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (query.isNotEmpty)
+                  _mobileIcon(
+                    detail ? 'source-clear' : 'clear-search',
+                    Icons.close,
+                    tr('Очистить поиск', 'Clear search'),
+                    () {
+                      if (detail) {
+                        setState(() {
+                          sourceQuery = '';
+                          sourceLimit = 8;
+                        });
+                        resetSourceScroll();
+                      } else {
+                        unawaited(browse(search: ''));
+                      }
+                    },
+                    flat: true,
+                  ),
+                if (!detail) ...[
+                  _mobileIcon(
+                    'voice',
+                    Icons.mic,
+                    tr('Голосовой поиск', 'Voice search'),
+                    () => unawaited(search(voice: true)),
+                    flat: true,
+                  ),
+                  _mobileIcon(
+                    'refresh',
+                    Icons.refresh,
+                    tr('Обновить', 'Refresh'),
+                    () => unawaited(browse()),
+                    flat: true,
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (detail)
+              Row(
+                children: [
+                  if (title.kind == CatalogKind.series)
+                    Expanded(child: _sourceToolbar(showSearch: false))
+                  else
+                    const Spacer(),
+                  const SizedBox(width: 8),
+                  _mobileIcon(
+                    'favorite-title',
+                    Icons.favorite_border,
+                    tr('В избранное', 'Save'),
+                    () => unawaited(toggle(favorites, title, 'favorite-title')),
+                    selected: favorites.contains(title),
+                  ),
+                  const SizedBox(width: 6),
+                  _mobileIcon(
+                    'queue-title',
+                    Icons.playlist_play,
+                    tr('В очередь', 'Queue'),
+                    () => unawaited(toggle(queue, title, 'queue-title')),
+                    selected: queue.contains(title),
+                  ),
+                ],
+              )
+            else
+              Container(
+                key: const ValueKey('android-kind-switch'),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                padding: const EdgeInsets.all(4),
+                child: Row(
+                  children: [
+                    for (final kind in [CatalogKind.movies, CatalogKind.series])
+                      Expanded(
+                        child: RemoteButton(
+                          id: 'kind-${kind.name}',
+                          focus: remote,
+                          segment: true,
+                          flat: true,
+                          radius: 26,
+                          selected: catalog.kind == kind,
+                          onPressed: () => unawaited(browse(kind: kind)),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                kind == CatalogKind.movies
+                                    ? Icons.movie_outlined
+                                    : Icons.tv,
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  kind == CatalogKind.movies
+                                      ? tr('Фильмы', 'Films')
+                                      : tr('Сериалы', 'Series'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+    },
+  );
+
+  Widget _toolbar() => widget.runtime.tv ? _tvToolbar() : _mobileToolbar();
+
+  Widget _tvToolbar() => Padding(
     padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
     child: Column(
       children: [
@@ -977,29 +1264,6 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                   child: const Icon(Icons.mic),
                 ),
               ),
-              if (!widget.runtime.tv)
-                SizedBox.square(
-                  dimension: 48,
-                  child: RemoteButton(
-                    id: catalog.selected == null ? 'refresh' : 'detail-back',
-                    focus: remote,
-                    flat: true,
-                    radius: 24,
-                    padding: EdgeInsets.zero,
-                    onPressed: () =>
-                        unawaited(catalog.selected == null ? browse() : back()),
-                    child: Tooltip(
-                      message: catalog.selected == null
-                          ? tr('Обновить', 'Refresh')
-                          : tr('К каталогу', 'Back to catalogue'),
-                      child: Icon(
-                        catalog.selected == null
-                            ? Icons.refresh
-                            : Icons.arrow_back,
-                      ),
-                    ),
-                  ),
-                ),
               if (catalog.search.isNotEmpty)
                 SizedBox.square(
                   dimension: 48,
@@ -1174,42 +1438,6 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                       child: const Icon(Icons.refresh),
                     ),
                   );
-            if (!widget.runtime.tv) {
-              return Column(
-                children: [
-                  switcher,
-                  const SizedBox(height: 6),
-                  Row(
-                    key: const ValueKey('android-mobile-navigation'),
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      action(
-                        'home',
-                        Icons.home_outlined,
-                        tr('Домой', 'Home'),
-                        home,
-                      ),
-                      const SizedBox(width: 6),
-                      action(
-                        'downloads',
-                        Icons.download_outlined,
-                        tr('Загрузки', 'Downloads'),
-                        downloads,
-                      ),
-                      const SizedBox(width: 6),
-                      action(
-                        'settings',
-                        Icons.settings_outlined,
-                        tr('Настройки', 'Settings'),
-                        settings,
-                      ),
-                      const SizedBox(width: 6),
-                      collections,
-                    ],
-                  ),
-                ],
-              );
-            }
             return bounds.maxWidth < 600
                 ? Column(
                     children: [
@@ -1478,7 +1706,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
     resetSourceScroll();
   }
 
-  Widget _sourceToolbar() => LayoutBuilder(
+  Widget _sourceToolbar({bool showSearch = true}) => LayoutBuilder(
     builder: (context, bounds) {
       final series = catalog.selected?.kind == CatalogKind.series;
       Widget number(bool season) {
@@ -1514,32 +1742,36 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
 
       return Row(
         children: [
-          Expanded(
-            child: RemoteButton(
-              id: 'source-search',
-              focus: remote,
-              radius: 28,
-              alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              onPressed: () => unawaited(searchSources()),
-              child: Row(
-                children: [
-                  const Icon(Icons.search),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      sourceQuery.isEmpty
-                          ? tr('Поиск по найденному', 'Search results')
-                          : sourceQuery,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+          if (showSearch)
+            Expanded(
+              child: RemoteButton(
+                id: 'source-search',
+                focus: remote,
+                radius: 28,
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                onPressed: () => unawaited(searchSources()),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        sourceQuery.isEmpty
+                            ? tr('Поиск по найденному', 'Search results')
+                            : sourceQuery,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          if (sourceQuery.isNotEmpty) ...[
+          if (showSearch && sourceQuery.isNotEmpty) ...[
             const SizedBox(width: 6),
             RemoteButton(
               id: 'source-clear',
@@ -1558,10 +1790,10 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
             ),
           ],
           if (series) ...[
+            if (showSearch) const SizedBox(width: 6),
+            if (showSearch) number(true) else Expanded(child: number(true)),
             const SizedBox(width: 6),
-            number(true),
-            const SizedBox(width: 6),
-            number(false),
+            if (showSearch) number(false) else Expanded(child: number(false)),
           ],
         ],
       );
@@ -1647,11 +1879,6 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
       children: [
         if (catalog.sourcesLoading || catalog.detailsLoading || playing)
           LinearProgressIndicator(value: budget.lite ? 0.5 : null),
-        if (!widget.runtime.tv)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-            child: _sourceToolbar(),
-          ),
         Expanded(
           child: SingleChildScrollView(
             key: ValueKey('sources-${title.kind.name}-${title.id}'),

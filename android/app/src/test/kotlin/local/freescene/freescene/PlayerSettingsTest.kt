@@ -168,6 +168,29 @@ class PlayerSettingsTest {
         assertEquals(2, dialog().listView.checkedItemPosition)
         settings.dismiss()
     }
+    @Test fun tvSubtitleButtonOpensTheSharedDialogAndRestoresFocus() {
+        org.junit.Assume.assumeTrue(BuildConfig.FLAVOR == "tv")
+        val activity = org.robolectric.Robolectric.buildActivity(android.app.Activity::class.java).setup()
+        val f = Fixture()
+        val text = group("subtitles", Format.Builder().setSampleMimeType("text/vtt").setLanguage("en").build(), true)
+        f.tracks = Tracks(ImmutableList.of(text))
+        val view = PlayerView(activity.get()); view.setShowSubtitleButton(true)
+        activity.get().setContentView(view); activity.visible()
+        val settings = PlayerSettings(activity.get()) { f.player }; settings.bind(view)
+        val button = view.findViewById<View>(androidx.media3.ui.R.id.exo_subtitle)
+        button.isEnabled = true; button.visibility = View.VISIBLE
+        button.requestFocus(); button.performClick()
+        assertEquals(3, dialog().listView.adapter.count)
+        click(2)
+        assertEquals(listOf(0), f.selection.overrides[text.mediaTrackGroup]?.trackIndices)
+        assertTrue(button.hasFocus())
+        button.performClick()
+        assertEquals(2, dialog().listView.checkedItemPosition)
+        dialog().cancel()
+        assertTrue(button.hasFocus())
+        assertEquals(1, f.writes)
+        settings.dismiss(); activity.pause().stop().destroy()
+    }
     @Test fun playbackSpeedStillWorksAndDismissClosesOpenDialog() {
         val f = Fixture()
         val settings = PlayerSettings(context) { f.player }

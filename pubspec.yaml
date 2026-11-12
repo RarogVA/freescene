@@ -1,7 +1,7 @@
 name: freescene
 description: "FreeScene media catalogue for macOS, Android and Android TV"
 publish_to: 'none'
-version: 1.8.1+46
+version: 1.8.2+47
 
 environment:
   sdk: ^3.13.5

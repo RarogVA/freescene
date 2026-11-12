@@ -7,6 +7,7 @@
 @property FSGitHubHTTP *client;
 @property NSString *phase;
 @property NSString *message;
+@property double downloadProgress;
 @property NSString *failure;
 @property NSDictionary *asset;
 @property NSURL *work;
@@ -32,13 +33,16 @@
 @end
 @implementation FSReleaseUpdater
 - (instancetype)init {if((self=[super init])) {
-    self.phase=@"idle";
+    self.phase=@"idle";self.downloadProgress=-1;
     self.makeHTTP=^{return [FSGitHubHTTP new];};
     self.installedVersion=^{return [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"];};
     self.scheduleStartupOffer=^(NSTimeInterval delay,dispatch_block_t work){dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(delay*NSEC_PER_SEC)),dispatch_get_main_queue(),work);};
 }return self;}
 - (NSString *)label:(NSString *)ru english:(NSString *)en{return fsEnglish ? en : ru;}
-- (void)publish:(NSString *)phase message:(NSString *)message {self.phase=phase;self.message=message;if(self.changed)self.changed();}
+- (void)publish:(NSString *)phase message:(NSString *)message {
+    if(![phase isEqual:self.phase] || ![phase isEqual:@"downloading"])self.downloadProgress=-1;
+    self.phase=phase;self.message=message;if(self.changed)self.changed();
+}
 - (void)fail:(NSString *)error {
     if(self.handedOff)return;
     self.failure=error;self.installAfterDownload=NO;
@@ -135,7 +139,7 @@
     NSURL *image=[self.work URLByAppendingPathComponent:@"update.dmg"];
     [self publish:@"downloading" message:[self label:@"Загружаю обновление…" english:@"Downloading update…"]];
         self.client=self.makeHTTP();__weak FSReleaseUpdater *weak=self;
-        self.client.progress=^(double fraction){FSReleaseUpdater *s=weak;if(s && generation==s.generation)[s publish:@"downloading" message:[NSString stringWithFormat:[s label:@"Загрузка обновления: %.0f %%" english:@"Downloading update: %.0f %%"],fraction*100]];};
+        self.client.progress=^(double fraction){FSReleaseUpdater *s=weak;if(s && generation==s.generation){s.downloadProgress=fraction;[s publish:@"downloading" message:[NSString stringWithFormat:[s label:@"Загрузка обновления: %.0f %%" english:@"Downloading update: %.0f %%"],fraction*100]];}};
         [self.client get:[NSURL URLWithString:self.asset[@"url"]] downloadTo:image size:[self.asset[@"size"] longLongValue] completion:^(NSData *data,NSString *error){
             if(generation!=self.generation)return;self.client=nil;if(error){[self fail:error];return;}
             [self prepare:image generation:generation];

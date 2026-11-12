@@ -94,6 +94,7 @@ class _AndroidSearchDialogState extends State<AndroidSearchDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
+    scrollable: true,
     title: Text(widget.label ?? tr('Поиск', 'Search')),
     content: SizedBox(
       width: 480,

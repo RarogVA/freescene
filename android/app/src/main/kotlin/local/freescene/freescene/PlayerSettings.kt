@@ -44,11 +44,15 @@ internal class PlayerSettings(private val context: Context,
                 layoutParams = LinearLayout.LayoutParams(size, size)
                 setPadding(size / 4, size / 4, size / 4, size / 4)
             }
-            audioButton = button(MediaR.id.exo_audio_track, MediaR.drawable.exo_ic_audiotrack,
+            audioButton = button(MediaR.id.exo_audio_track, R.drawable.ic_player_audio,
                 MediaR.string.exo_track_selection_title_audio, ::showAudio)
             speedButton = button(MediaR.id.exo_playback_speed, MediaR.drawable.exo_ic_speed,
                 MediaR.string.exo_controls_playback_speed, ::showSpeed)
             parent.addView(audioButton, index); parent.addView(speedButton, index + 1)
+            view.findViewById<View>(MediaR.id.exo_subtitle)?.setOnClickListener {
+                returnFocus = it
+                showSubtitles()
+            }
             update()
         } else {
             settingsButton = settings

@@ -121,8 +121,9 @@ open class WebPlayerActivity : Activity() {
             bar.addView(this, LinearLayout.LayoutParams(diameter, diameter))
         }
         if (TvWindow.isTv(this)) {
-            setting(androidx.media3.ui.R.drawable.exo_ic_audiotrack, text("Аудио", "Audio")) { webSettings?.request("audio") }
+            setting(R.drawable.ic_player_audio, text("Аудио", "Audio")) { webSettings?.request("audio") }
             setting(androidx.media3.ui.R.drawable.exo_ic_speed, text("Скорость", "Speed")) { webSettings?.request("speed") }
+            setting(androidx.media3.ui.R.drawable.exo_ic_subtitle_on, text("Субтитры", "Subtitles")) { webSettings?.request("text") }
         } else setting(androidx.media3.ui.R.drawable.exo_ic_settings, text("Настройки", "Settings")) { webSettings?.menu() }
         button(text("Повторить", "Retry")) { load() }
         controls = button(text("Плеер", "Player")) { pointer.requestFocus() }

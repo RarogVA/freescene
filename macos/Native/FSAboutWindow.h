@@ -5,6 +5,8 @@
 @interface FSAboutWindow : NSObject <NSWindowDelegate>
 @property NSWindow *window;
 @property NSTextField *status;
+@property NSScrollView *statusScroll;
+@property NSProgressIndicator *progress;
 @property NSButton *checkButton;
 @property NSButton *licensesButton;
 @property NSWindow *licensesWindow;
@@ -40,7 +42,15 @@
         for(NSUInteger i=0;i<labels.count;++i) { NSTextField *label=[NSTextField labelWithString:labels[i]]; label.font=FSFont(i==0?26:14); label.alignment=NSTextAlignmentCenter; label.frame=NSMakeRect(20,y,500,30); label.tag=10+i; [self.window.contentView addSubview:label]; y-=32; }
         self.checkButton=[NSButton buttonWithTitle:@"" target:self action:@selector(check:)]; self.checkButton.bezelStyle=NSBezelStyleRounded; self.checkButton.font=FSFont(13); self.checkButton.frame=NSMakeRect(120,90,300,30); [self.window.contentView addSubview:self.checkButton];
         self.licensesButton=[NSButton buttonWithTitle:@"" target:self action:@selector(licenses:)]; self.licensesButton.bezelStyle=NSBezelStyleRounded; self.licensesButton.font=FSFont(13); self.licensesButton.frame=NSMakeRect(120,52,300,30); [self.window.contentView addSubview:self.licensesButton];
-        self.status=[NSTextField wrappingLabelWithString:@""]; self.status.font=FSFont(11); self.status.alignment=NSTextAlignmentCenter; self.status.frame=NSMakeRect(20,6,500,40); [self.window.contentView addSubview:self.status];
+        // Keep both regions allocated even while idle; only their contents change.
+        self.progress=[[NSProgressIndicator alloc] initWithFrame:NSMakeRect(120,166,300,6)];
+        self.progress.style=NSProgressIndicatorStyleBar;self.progress.minValue=0;self.progress.maxValue=1;
+        [self.window.contentView addSubview:self.progress];
+        self.statusScroll=[[NSScrollView alloc] initWithFrame:NSMakeRect(24,122,492,38)];
+        self.statusScroll.drawsBackground=NO;self.statusScroll.hasVerticalScroller=YES;self.statusScroll.autohidesScrollers=YES;
+        self.status=[NSTextField wrappingLabelWithString:@""];self.status.font=FSFont(11);self.status.alignment=NSTextAlignmentCenter;
+        self.status.selectable=YES;self.statusScroll.documentView=self.status;
+        [self.window.contentView addSubview:self.statusScroll];
         [self.window center];
     }
     [self applyAppearance]; [self.window makeKeyAndOrderFront:nil]; [NSApp activateIgnoringOtherApps:YES];
@@ -49,6 +59,7 @@
     self.window.title=fsEnglish ? @"About FreeScene" : @"О приложении FreeScene";
     self.window.appearance=[NSAppearance appearanceNamed:fsDark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
     self.window.backgroundColor=FSThemeBackground(fsDark);
+    self.status.textColor=FSThemeText(fsDark);
     for(NSView *view in self.window.contentView.subviews) if([view isKindOfClass:NSTextField.class]) ((NSTextField *)view).textColor=FSThemeText(fsDark);
     NSTextField *version=[self.window.contentView viewWithTag:11]; version.stringValue=[NSString stringWithFormat:@"%@ %@",fsEnglish ? @"Version" : @"Версия",[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @""];
     [self updateControls];
@@ -96,6 +107,18 @@
         @{@"checking":@"Проверка…",@"downloading":@"Загрузка…",@"installing":@"Установка…",@"available":@"Установить обновления",@"ready":@"Установить обновления"};
     self.checkButton.title=labels[phase ?: @"idle"] ?: (fsEnglish ? @"Check for updates" : @"Проверить обновления");
     self.status.stringValue=self.updater.message ?: @"";
+    if(self.statusScroll) {
+        CGFloat width=self.statusScroll.contentSize.width;
+        CGFloat height=[self.status.cell cellSizeForBounds:NSMakeRect(0,0,width,CGFLOAT_MAX)].height;
+        self.status.frame=NSMakeRect(0,0,width,MAX(height,self.statusScroll.contentSize.height));
+        [self.statusScroll.contentView scrollToPoint:NSMakePoint(0,self.status.isFlipped ? 0 : MAX(0,height-self.statusScroll.contentSize.height))];
+        [self.statusScroll reflectScrolledClipView:self.statusScroll.contentView];
+    }
+    BOOL busy=[@[@"checking",@"downloading",@"installing"] containsObject:phase ?: @"idle"];
+    self.progress.hidden=!busy;
+    self.progress.indeterminate=![phase isEqual:@"downloading"] || self.updater.downloadProgress<0;
+    if(busy && self.progress.indeterminate)[self.progress startAnimation:nil];else [self.progress stopAnimation:nil];
+    if(!self.progress.indeterminate)self.progress.doubleValue=self.updater.downloadProgress;
 }
 - (void)offerStartupUpdateForWindow:(NSWindow *)window allowed:(BOOL (^)(void))allowed {
     if(self.startupAlert || !window || ![self.updater.phase isEqual:@"available"] || !self.updater.asset || !allowed || !allowed())return;
