@@ -172,33 +172,76 @@ class _AndroidDownloadsState extends State<AndroidDownloads> {
       ],
     ),
   );
+
+  Widget mobileHeader() => Row(
+    children: [
+      mobileIcon(
+        'downloads-back',
+        Icons.arrow_back,
+        tr('Назад', 'Back'),
+        widget.back,
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Text(
+          tr('Загрузки', 'Downloads'),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+      ),
+      const SizedBox(width: 12),
+      mobileIcon(
+        'download-refresh',
+        Icons.refresh,
+        tr('Обновить', 'Refresh'),
+        refresh,
+      ),
+    ],
+  );
+
+  Widget mobileIcon(
+    String id,
+    IconData icon,
+    String label,
+    VoidCallback onPressed,
+  ) => SizedBox.square(
+    dimension: 48,
+    child: Tooltip(message: label, child: button(id, icon, '', onPressed)),
+  );
+
   @override
   Widget build(BuildContext context) => Column(
     children: [
       Padding(
         padding: const EdgeInsets.all(16),
-        child: Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            button('downloads-back', Icons.arrow_back, '', widget.back),
-            Text(
-              tr('Загрузки', 'Downloads'),
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            button(
-              'download-import',
-              Icons.add,
-              '.torrent',
-              () => action(() async {
-                await AndroidRuntime.channel.invokeMethod('torrentImport');
-              }),
-            ),
-            button('download-magnet', Icons.link, 'Magnet', addMagnet),
-            button('download-refresh', Icons.refresh, '', refresh),
-          ],
-        ),
+        child: !widget.focus.enabled
+            ? mobileHeader()
+            : Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  button('downloads-back', Icons.arrow_back, '', widget.back),
+                  Text(
+                    tr('Загрузки', 'Downloads'),
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  button(
+                    'download-import',
+                    Icons.add,
+                    '.torrent',
+                    () => action(() async {
+                      await AndroidRuntime.channel.invokeMethod(
+                        'torrentImport',
+                      );
+                    }),
+                  ),
+                  button('download-magnet', Icons.link, 'Magnet', addMagnet),
+                  button('download-refresh', Icons.refresh, '', refresh),
+                ],
+              ),
       ),
       if (busy) const LinearProgressIndicator(),
       if (error != null)
