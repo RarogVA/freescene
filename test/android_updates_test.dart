@@ -260,4 +260,78 @@ void main() {
       );
     });
   }
+
+  for (final size in [const Size(960, 540), const Size(1280, 720)]) {
+    for (final failure in [false, true]) {
+      testWidgets('TV update result skips status focus $size error=$failure', (
+        tester,
+      ) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = size;
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          AndroidRuntime.channel,
+          (call) async {
+            if (failure) throw PlatformException(code: 'network');
+            return {'available': false};
+          },
+        );
+        await show(tester, tv: true);
+        final check = find.byKey(const ValueKey('android-about-check'));
+        final primary = tester.widget<FilledButton>(check).focusNode;
+        expect(FocusManager.instance.primaryFocus, primary);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(FocusManager.instance.primaryFocus, primary);
+        expect(
+          find.textContaining(
+            failure ? 'Проверьте сеть' : 'Новых Android-сборок нет',
+          ),
+          findsOneWidget,
+        );
+        final logo = tester.getRect(find.byType(Image));
+        final status = tester.getRect(
+          find.byKey(const ValueKey('android-about-status-area')),
+        );
+        final scrollables = tester
+            .stateList<ScrollableState>(
+              find.descendant(
+                of: find.byType(AlertDialog),
+                matching: find.byType(Scrollable),
+              ),
+            )
+            .toList();
+        final offsets = scrollables
+            .map((state) => state.position.pixels)
+            .toList();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        await tester.pumpAndSettle();
+        expect(
+          Focus.of(tester.element(find.byIcon(Icons.close))).hasPrimaryFocus,
+          isTrue,
+        );
+        expect(tester.getRect(find.byType(Image)), logo);
+        expect(
+          tester.getRect(
+            find.byKey(const ValueKey('android-about-status-area')),
+          ),
+          status,
+        );
+        expect(
+          scrollables.map((state) => state.position.pixels).toList(),
+          offsets,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+        expect(FocusManager.instance.primaryFocus, primary);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
 }

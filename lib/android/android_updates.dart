@@ -240,19 +240,16 @@ class _AndroidAboutDialogState extends State<AndroidAboutDialog> {
               height: MediaQuery.textScalerOf(context).scale(14) * 7,
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(8),
-                child: Focus(
-                  canRequestFocus: widget.tv && status != null,
-                  child: Column(
-                    children: [
-                      if (status != null)
-                        Text(status!, textAlign: TextAlign.center),
-                      if (available != null)
-                        Text(
-                          '${tr('Доступна версия', 'New version')} $available',
-                          textAlign: TextAlign.center,
-                        ),
-                    ],
-                  ),
+                child: Column(
+                  children: [
+                    if (status != null)
+                      Text(status!, textAlign: TextAlign.center),
+                    if (available != null)
+                      Text(
+                        '${tr('Доступна версия', 'New version')} $available',
+                        textAlign: TextAlign.center,
+                      ),
+                  ],
                 ),
               ),
             ),
