@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 
 import '../catalog/catalog_models.dart';
 import '../catalog/watched.dart';
+import '../domain/provider_display.dart';
 import 'watch_history.dart';
 
 class HistorySource {
@@ -64,7 +65,9 @@ Future<HistorySource> resolveHistorySource(
             .where(
               (p) => known
                   ? p.name == providerId
-                  : p.label == entry.provider || p.name == entry.provider,
+                  : p.label == entry.provider ||
+                        p.name == entry.provider ||
+                        providerDisplayLabel(p) == entry.provider,
             )) {
       var start = 0;
       for (var pageCount = 0; pageCount < 20; pageCount++) {

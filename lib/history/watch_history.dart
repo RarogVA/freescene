@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../catalog/catalog_models.dart';
 import '../catalog/source_metadata.dart';
 import '../catalog/source_seasons.dart';
+import '../domain/provider_display.dart';
 
 Map<String, Object?> sourceWatchHistory(
   CatalogTitle? title,
@@ -13,7 +14,7 @@ Map<String, Object?> sourceWatchHistory(
   bool english,
 ) => {
   'title': title?.title(english) ?? source.row.title,
-  'provider': source.row.provider.label,
+  'provider': providerDisplayLabel(source.row.provider),
   if (title != null) ...{
     'catalogId': title.id,
     'catalogKind': title.kind.name,
