@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'catalog_models.dart';
+import '../domain/provider_display.dart';
 import 'source_format.dart';
 import 'availability_indicator.dart';
 import '../domain/availability.dart';
@@ -115,11 +116,12 @@ class SourceMetadata extends StatelessWidget {
           dark ? const Color(0xff91ba9b) : const Color(0xff3f7250),
         ),
     ];
+    final providerLabel = providerDisplayLabel(row.provider);
     final format = [
-      if (row.provider.label.trim().isNotEmpty)
+      if (providerLabel.trim().isNotEmpty)
         bubble(
           'provider',
-          Text(row.provider.label),
+          Text(providerLabel),
           dark ? const Color(0xff9cb8d6) : const Color(0xff42698e),
         ),
       if (quality != null)

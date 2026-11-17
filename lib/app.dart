@@ -26,6 +26,7 @@ import 'catalog/catalog_controller.dart';
 import 'catalog/catalog_page.dart';
 import 'catalog/catalog_kind_switch.dart';
 import 'catalog/favorites.dart';
+import 'domain/provider_display.dart';
 import 'catalog/watch_queue.dart';
 import 'catalog/catalog_filter_dialog.dart';
 import 'catalog/source_import.dart';
@@ -556,7 +557,7 @@ class _FreeSceneAppState extends State<FreeSceneApp>
             : resolved.uri.toString(),
         title: resolved.row.title,
         provider: resolved.row.provider.name,
-        providerName: resolved.row.provider.label,
+        providerName: providerDisplayLabel(resolved.row.provider),
         kind: resolved.row.watch.name,
         webPlayer: replay?.data['webPlayer'] as int? ?? resolved.webPlayer,
         webEpisodes: resolved.webEpisodes.map((e) => e.toJson()).toList(),
@@ -1189,7 +1190,7 @@ class _FreeSceneAppState extends State<FreeSceneApp>
                     for (final provider in Preferences.availableProviders)
                       CheckboxListTile(
                         key: ValueKey('provider-${provider.name}'),
-                        title: Text(provider.label),
+                        title: Text(providerDisplayLabel(provider)),
                         subtitle: provider.descriptor?.descriptionRu != null
                             ? Text(
                                 text(
