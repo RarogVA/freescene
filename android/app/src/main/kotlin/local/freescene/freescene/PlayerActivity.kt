@@ -453,8 +453,11 @@ open class PlayerActivity : Activity() {
             http.setDefaultRequestProperties(mapOf("Referer" to it))
         }
         audioWarning = null
+        val dataSources = DefaultDataSource.Factory(this, http)
         player = ExoPlayer.Builder(this, PlayerAudio.renderers(this)).setLoadControl(load)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(this, http), PlayerExtractors()))
+            .setMediaSourceFactory(
+                if (torrentId != null) TorrentMediaSource.factory(dataSources, PlayerExtractors())
+                else DefaultMediaSourceFactory(dataSources, PlayerExtractors()))
             .setSeekBackIncrementMs(10000).setSeekForwardIncrementMs(10000).build().also {
                 view.player = it
                 if (lowRam) it.trackSelectionParameters = it.trackSelectionParameters.buildUpon()
