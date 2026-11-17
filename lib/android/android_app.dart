@@ -19,6 +19,7 @@ import '../catalog/catalog_filter_dialog.dart';
 import '../catalog/cached_poster.dart';
 import '../catalog/favorites.dart';
 import '../catalog/poster_cache.dart';
+import '../domain/provider_display.dart';
 import '../catalog/watch_queue.dart';
 import '../settings/preferences.dart';
 import '../settings/settings_store.dart';
@@ -680,7 +681,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
             'history': historyMetadata,
             'series': isSeries,
             'provider': playback.provider,
-            'providerName': source.row.provider.label,
+            'providerName': providerDisplayLabel(source.row.provider),
             'title': title,
             'url': historyPlaybackUrl(
               replay,
@@ -1940,13 +1941,14 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
       final text = normalize(
         [
           source.row.title,
-          source.row.provider.label,
+          providerDisplayLabel(source.row.provider),
           source.row.quality,
           source.audio,
           source.channel,
         ].whereType<String>().join(' '),
       );
-      return !hiddenSourceProviders.contains(source.row.provider) &&
+      return !providerIsHidden(source.row.provider) &&
+          !hiddenSourceProviders.contains(source.row.provider) &&
           words.every(text.contains) &&
           (sourceSeason == null ||
               sourceMatchesSeason(source, sourceSeason!)) &&
@@ -1994,7 +1996,8 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
       return;
     }
     for (final entry in catalog.providerStates.entries.toList()) {
-      if (!hiddenSourceProviders.contains(entry.key) &&
+      if (!providerIsHidden(entry.key) &&
+          !hiddenSourceProviders.contains(entry.key) &&
           entry.value.hasMore &&
           !entry.value.loading &&
           entry.value.error == null) {
@@ -2084,25 +2087,26 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                   runSpacing: 8,
                   children: [
                     for (final provider in catalog.providerStates.keys)
-                      button(
-                        'source-provider-${provider.name}',
-                        provider.label,
-                        () {
-                          setState(() {
-                            if (!hiddenSourceProviders.add(provider)) {
-                              hiddenSourceProviders.remove(provider);
-                            }
-                            sourceLimit = 8;
-                          });
-                          WidgetsBinding.instance.addPostFrameCallback(
-                            (_) => loadSourcesNearEnd(),
-                          );
-                        },
-                        selected: !hiddenSourceProviders.contains(provider),
-                        icon: hiddenSourceProviders.contains(provider)
-                            ? Icons.check_box_outline_blank
-                            : Icons.check_box,
-                      ),
+                      if (!providerIsHidden(provider))
+                        button(
+                          'source-provider-${provider.name}',
+                          providerDisplayLabel(provider),
+                          () {
+                            setState(() {
+                              if (!hiddenSourceProviders.add(provider)) {
+                                hiddenSourceProviders.remove(provider);
+                              }
+                              sourceLimit = 8;
+                            });
+                            WidgetsBinding.instance.addPostFrameCallback(
+                              (_) => loadSourcesNearEnd(),
+                            );
+                          },
+                          selected: !hiddenSourceProviders.contains(provider),
+                          icon: hiddenSourceProviders.contains(provider)
+                              ? Icons.check_box_outline_blank
+                              : Icons.check_box,
+                        ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -2144,11 +2148,12 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                   runSpacing: 8,
                   children: [
                     for (final entry in catalog.providerStates.entries)
-                      if (!hiddenSourceProviders.contains(entry.key) &&
+                      if (!providerIsHidden(entry.key) &&
+                          !hiddenSourceProviders.contains(entry.key) &&
                           entry.value.error != null)
                         button(
                           'more-${entry.key.name}',
-                          '${tr('Повторить', 'Retry')} · ${entry.key.label}',
+                          '${tr('Повторить', 'Retry')} · ${providerDisplayLabel(entry.key)}',
                           () async {
                             await catalog.loadMoreSources(entry.key);
                             if (mounted &&
@@ -2278,10 +2283,12 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                         spacing: 12,
                         runSpacing: 12,
                         children: [
-                          for (final provider in SourceProvider.values.toSet())
+                          for (final provider in visibleProviders(
+                            SourceProvider.values,
+                          ))
                             button(
                               'provider-${provider.name}',
-                              provider.label,
+                              providerDisplayLabel(provider),
                               () async {
                                 final enabled = preferences.providers
                                     .intersection(

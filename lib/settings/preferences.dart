@@ -1,3 +1,4 @@
+import '../domain/provider_display.dart';
 import '../domain/notifications.dart';
 import '../domain/source.dart';
 
@@ -27,7 +28,8 @@ class Preferences {
   static Set<SourceProvider> get defaultProviders => SourceProvider.values
       .where((p) => p.descriptor?.enabledByDefault == true)
       .toSet();
-  static List<SourceProvider> get availableProviders => SourceProvider.values;
+  static List<SourceProvider> get availableProviders =>
+      visibleProviders(SourceProvider.values);
   final Set<SourceProvider> providers;
   bool get english => language == AppLanguage.en;
 

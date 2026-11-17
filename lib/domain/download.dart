@@ -1,3 +1,4 @@
+import 'provider_display.dart';
 import 'source.dart';
 
 enum DownloadPhase {
@@ -28,7 +29,7 @@ class DownloadOrigin {
   String get label => localizedLabel(false);
 
   String localizedLabel(bool english) =>
-      provider?.label ??
+      (provider == null ? null : providerDisplayLabel(provider!)) ??
       switch (local!) {
         LocalOrigin.torrentFile =>
           english ? 'Local .torrent' : 'Локальный .torrent',

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../android/remote_focus.dart';
 import '../catalog/source_format.dart';
+import '../domain/provider_display.dart';
 import 'watch_history.dart';
 
 class WatchHistoryPage extends StatefulWidget {
@@ -217,10 +218,14 @@ class WatchHistoryPageState extends State<WatchHistoryPage> {
   );
   Widget row(WatchEntry entry) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final provider = switch (entry.provider) {
+    final stored = storedProviderDisplayLabel(
+      entry.provider,
+      providerId: entry.data['sourceProvider'] as String?,
+    );
+    final provider = switch (stored) {
       'Локальный .torrent' ||
       'Local .torrent' => tr('Локальный .torrent', 'Local .torrent'),
-      _ => entry.provider,
+      _ => stored,
     };
     final description = [
       if (entry.episodeLabel != null) entry.episodeLabel!,

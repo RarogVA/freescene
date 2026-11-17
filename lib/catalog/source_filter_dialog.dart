@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'catalog_models.dart';
+import '../domain/provider_display.dart';
 import 'source_filter.dart';
 
 class SourceChoices {
@@ -32,9 +33,9 @@ class SourceFilterDialog extends StatefulWidget {
 }
 
 class _SourceFilterDialogState extends State<SourceFilterDialog> {
-  late final providers =
-      widget.sources.map((s) => s.row.provider).toSet().toList()
-        ..sort((a, b) => a.label.compareTo(b.label));
+  late final providers = visibleProviders(
+    widget.sources.map((s) => s.row.provider).toSet(),
+  )..sort((a, b) => providerDisplayLabel(a).compareTo(providerDisplayLabel(b)));
   late final qualities =
       widget.sources
           .where((s) => s.row.provider.descriptor?.qualityInPlayer != true)
@@ -93,7 +94,7 @@ class _SourceFilterDialogState extends State<SourceFilterDialog> {
             tr('Провайдер', 'Provider'),
             providers,
             selectedProviders,
-            (p) => p.label,
+            (p) => providerDisplayLabel(p),
           ),
           if (widget.sources.any(
             (s) =>

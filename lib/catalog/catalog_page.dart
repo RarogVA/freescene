@@ -10,6 +10,7 @@ import 'queue_button.dart';
 import 'favorites.dart';
 import 'source_seasons.dart' as seasons;
 import 'cached_poster.dart';
+import '../domain/provider_display.dart';
 import 'source_metadata.dart';
 import 'watched.dart';
 import 'truncated_text.dart';
@@ -512,62 +513,70 @@ class CatalogPageView extends StatelessWidget {
     );
   }
 
-  Widget _details(BuildContext context, CatalogTitle title) => SourceTable(
-    title: title,
-    compactActions: compactSourceActions,
-    key: ValueKey('${title.kind}-${title.id}'),
-    sources: controller.sources,
-    providers: controller.providerStates.keys.toList(),
-    english: english,
-    game: title.kind == CatalogKind.games,
-    series: title.kind == CatalogKind.series,
-    onUseSource: onUseSource,
-    introduction: Padding(
-      padding: const EdgeInsets.only(top: 12, bottom: 24),
-      child: _titleDescription(context, title),
-    ),
-    footer: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (controller.providerStates.isEmpty)
-          Text(
-            tr(
-              'Включите провайдеров в настройках, чтобы искать источники.',
-              'Enable providers in Settings to search for sources.',
+  Widget _details(BuildContext context, CatalogTitle title) {
+    final visibleProviderStates = [
+      for (final entry in controller.providerStates.entries)
+        if (!providerIsHidden(entry.key)) entry,
+    ];
+    return SourceTable(
+      title: title,
+      compactActions: compactSourceActions,
+      key: ValueKey('${title.kind}-${title.id}'),
+      sources: controller.sources,
+      providers: controller.providerStates.keys.toList(),
+      english: english,
+      game: title.kind == CatalogKind.games,
+      series: title.kind == CatalogKind.series,
+      onUseSource: onUseSource,
+      introduction: Padding(
+        padding: const EdgeInsets.only(top: 12, bottom: 24),
+        child: _titleDescription(context, title),
+      ),
+      footer: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (visibleProviderStates.isEmpty)
+            Text(
+              tr(
+                'Включите провайдеров в настройках, чтобы искать источники.',
+                'Enable providers in Settings to search for sources.',
+              ),
             ),
-          ),
-        for (final entry in controller.providerStates.entries)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${entry.key.label} · ${tr('Показано', 'Loaded')}: ${entry.value.items.length} / ${entry.value.total}',
-                ),
-                if (entry.value.loading) const LinearProgressIndicator(),
-                if (entry.value.error != null)
-                  _error(
-                    entry.value.error!,
-                    () => controller.loadMoreSources(entry.key),
+          for (final entry in visibleProviderStates)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${providerDisplayLabel(entry.key)} · ${tr('Показано', 'Loaded')}: ${entry.value.items.length} / ${entry.value.total}',
                   ),
-                if (!entry.value.loading &&
-                    entry.value.error == null &&
-                    entry.value.items.isEmpty)
-                  Text(tr('Ничего не найдено', 'No sources found')),
-                if (entry.value.hasMore &&
-                    !entry.value.loading &&
-                    entry.value.error == null)
-                  TextButton(
-                    onPressed: () => controller.loadMoreSources(entry.key),
-                    child: Text('${tr('Ещё', 'More')} ${entry.key.label}'),
-                  ),
-              ],
+                  if (entry.value.loading) const LinearProgressIndicator(),
+                  if (entry.value.error != null)
+                    _error(
+                      entry.value.error!,
+                      () => controller.loadMoreSources(entry.key),
+                    ),
+                  if (!entry.value.loading &&
+                      entry.value.error == null &&
+                      entry.value.items.isEmpty)
+                    Text(tr('Ничего не найдено', 'No sources found')),
+                  if (entry.value.hasMore &&
+                      !entry.value.loading &&
+                      entry.value.error == null)
+                    TextButton(
+                      onPressed: () => controller.loadMoreSources(entry.key),
+                      child: Text(
+                        '${tr('Ещё', 'More')} ${providerDisplayLabel(entry.key)}',
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 
   Widget _titleDescription(
     BuildContext context,
@@ -780,9 +789,9 @@ class _SourceTableState extends State<SourceTable> {
   final sourceSearch = TextEditingController();
   int? season, episode;
   final hiddenProviders = <SourceProvider>{};
-  Set<SourceProvider> get providers =>
-      widget.providers?.toSet() ??
-      widget.sources.map((source) => source.row.provider).toSet();
+  Set<SourceProvider> get providers => visibleProviders(
+    widget.providers ?? widget.sources.map((source) => source.row.provider),
+  ).toSet();
   @override
   void didUpdateWidget(SourceTable oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -922,6 +931,7 @@ class _SourceTableState extends State<SourceTable> {
     final sources = widget.sources
         .where(
           (source) =>
+              !providerIsHidden(source.row.provider) &&
               !hiddenProviders.contains(source.row.provider) &&
               normalized(source.row.title).contains(query) &&
               (!widget.series ||
@@ -937,7 +947,8 @@ class _SourceTableState extends State<SourceTable> {
     if (sortColumn != null) {
       sources.sort((a, b) {
         if (sortColumn == 2) {
-          final c = a.row.provider.label.compareTo(b.row.provider.label);
+          final c = providerDisplayLabel(a.row.provider)
+              .compareTo(providerDisplayLabel(b.row.provider));
           return ascending ? c : -c;
         }
         if (sortColumn == 6) {
@@ -1140,7 +1151,7 @@ class _SourceTableState extends State<SourceTable> {
                           height: 40,
                           child: FilterChip(
                             key: ValueKey('source-provider-${provider.name}'),
-                            label: Text(provider.label),
+                            label: Text(providerDisplayLabel(provider)),
                             padding: const EdgeInsets.symmetric(horizontal: 6),
                             labelPadding: const EdgeInsets.symmetric(
                               horizontal: 4,
@@ -1149,8 +1160,8 @@ class _SourceTableState extends State<SourceTable> {
                                 MaterialTapTargetSize.shrinkWrap,
                             selected: !hiddenProviders.contains(provider),
                             tooltip: hiddenProviders.contains(provider)
-                                ? '${tr('Показать', 'Show')} ${provider.label}'
-                                : '${tr('Скрыть', 'Hide')} ${provider.label}',
+                                ? '${tr('Показать', 'Show')} ${providerDisplayLabel(provider)}'
+                                : '${tr('Скрыть', 'Hide')} ${providerDisplayLabel(provider)}',
                             onSelected: (selected) => setState(() {
                               if (selected) {
                                 hiddenProviders.remove(provider);
