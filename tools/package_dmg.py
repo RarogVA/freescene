@@ -33,17 +33,20 @@ stage.mkdir(parents=True, exist_ok=True)
 subprocess.run(['ditto', str(args.bundle), str(stage / 'FreeScene.app')], check=True)
 if not (stage / 'Applications').exists():
     (stage / 'Applications').symlink_to('/Applications')
-repair = stage / 'Исправить запуск.command'
-shutil.copyfile(Path(__file__).with_name('fix_macos_launch.command'), repair)
-repair.chmod(0o755)
+for name in ('Исправить запуск.command', 'Исправить запуск.md'):
+    (stage / name).unlink(missing_ok=True)
+repair = stage / 'Исправить запуск.md'
+shutil.copyfile(Path(__file__).with_name('fix_macos_launch.md'), repair)
 edition = ' Preview' if args.channel == 'preview' else ''
 (stage / 'Установка.txt').write_text(f'''FreeScene {version}{edition} — macOS 13+, {platform}
 
 Перетащите FreeScene.app в Applications. Запускайте приложение из Applications.
 
-Если приложение не запускается, откройте «Исправить запуск.command» на этом диске.
-Скрипт очищает расширенные атрибуты только /Applications/FreeScene.app.
-После завершения снова откройте установленное приложение.
+Если приложение не запускается, откройте «Исправить запуск.md» на этом диске
+и выполните указанную там команду в Терминале:
+xattr -r -c /Applications/FreeScene.app/
+Команда очищает расширенные атрибуты только /Applications/FreeScene.app.
+После этого снова откройте установленное приложение.
 
 {signature_text}
 Если macOS блокирует первый запуск, после попытки открыть приложение используйте
