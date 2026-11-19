@@ -143,7 +143,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
-  testWidgets('unknown metadata produces no placeholders', (tester) async {
+  testWidgets('unknown counts still show unverified connection', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: SourceMetadata(
@@ -152,9 +154,15 @@ void main() {
         ),
       ),
     );
-    for (final type in ['quality', 'size', 'duration', 'availability']) {
+    for (final type in ['quality', 'size', 'duration']) {
       expect(find.byKey(ValueKey('bubble-$type')), findsNothing);
     }
+    expect(find.byKey(const ValueKey('bubble-availability')), findsOneWidget);
+    expect(find.byIcon(Icons.help_outline), findsOneWidget);
+    expect(
+      find.byTooltip('Catalogue: seeds — · peers —\nConnection not checked'),
+      findsOneWidget,
+    );
     expect(find.text('—'), findsNothing);
   });
 }

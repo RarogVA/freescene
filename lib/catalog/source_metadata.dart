@@ -6,7 +6,6 @@ import 'catalog_models.dart';
 import '../domain/provider_display.dart';
 import 'source_format.dart';
 import 'availability_indicator.dart';
-import '../domain/availability.dart';
 
 String? compactQuality(String? value) {
   if (value == null || value.trim().isEmpty) return null;
@@ -109,11 +108,11 @@ class SourceMetadata extends StatelessWidget {
           Text(sourceDuration(row.durationSeconds)),
           dark ? const Color(0xffd8b876) : const Color(0xff86651c),
         ),
-      if (row.isTorrent && TorrentAvailability(row.visibleCounts).bars != null)
+      if (row.isTorrent)
         bubble(
           'availability',
           AvailabilityIndicator(source: row, english: english),
-          dark ? const Color(0xff91ba9b) : const Color(0xff3f7250),
+          Theme.of(context).colorScheme.onSurfaceVariant,
         ),
     ];
     final providerLabel = providerDisplayLabel(row.provider);

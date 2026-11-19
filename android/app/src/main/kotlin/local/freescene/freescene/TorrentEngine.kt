@@ -9,7 +9,6 @@ import androidx.annotation.Keep
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.security.KeyStore
 import java.security.MessageDigest
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -73,12 +72,7 @@ object TorrentEngine {
         val downloads = (if (tv) File(cache, "buffer") else
             File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir, "torrents")).apply { mkdirs() }
         // OpenSSL does not read Android's certificate store by itself.
-        val ca = File(profile, "ca.pem")
-        val store = KeyStore.getInstance("AndroidCAStore").apply { load(null) }
-        ca.writeText(store.aliases().toList().mapNotNull { store.getCertificate(it) }.joinToString("\n") {
-            "-----BEGIN CERTIFICATE-----\n" + android.util.Base64.encodeToString(it.encoded, android.util.Base64.NO_WRAP)
-                .chunked(64).joinToString("\n") + "\n-----END CERTIFICATE-----"
-        })
+        val ca = TorrentCertificates.bundle(context)
         val lite = TvWindow.isTv(context) || (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).isLowRamDevice
         handle = TorrentNative.create(JSONObject().put("profile", profile.path).put("downloads", downloads.path)
             .put("historyCache", historyCache(context).path).put("historyIds", JSONArray(WatchHistory(context).ids()))

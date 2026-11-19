@@ -60,7 +60,9 @@ class TorrentChannel(private val activity: Activity) {
                                 .putExtra("history", JSONObject(call.argument<Map<String, Any?>>("history") ?: emptyMap<String, Any?>()).toString())
                                 .putExtra("watchedSource", call.argument<String>("watchedSource"))
                                 .putExtra("watchedTitle", call.argument<String>("watchedTitle"))
-                                .putExtra("series", call.argument<Boolean>("series") ?: false))
+                                .putExtra("series", call.argument<Boolean>("series") ?: false)
+                                .putExtra("season", call.argument<Int>("season") ?: -1)
+                                .putExtra("episode", call.argument<Int>("episode") ?: -1))
                                 result.success(null)
                             } catch (failure: Exception) {
                                 TorrentEngine.submit(activity, JSONObject().put("method", "closeStream").put("id", id).put("playbackSession", session))
@@ -90,7 +92,9 @@ class TorrentChannel(private val activity: Activity) {
                                 .putExtra("history", JSONObject(call.argument<Map<String, Any?>>("history") ?: emptyMap<String, Any?>()).toString())
                                 .putExtra("watchedSource", call.argument<String>("watchedSource"))
                                 .putExtra("watchedTitle", call.argument<String>("watchedTitle"))
-                                .putExtra("series", call.argument<Boolean>("series") ?: false))
+                                .putExtra("series", call.argument<Boolean>("series") ?: false)
+                                .putExtra("season", call.argument<Int>("season") ?: -1)
+                                .putExtra("episode", call.argument<Int>("episode") ?: -1))
                     result.success(null)
                 }
                 "torrentCommand" -> {

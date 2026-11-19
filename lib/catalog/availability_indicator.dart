@@ -1,36 +1,56 @@
 import 'package:flutter/material.dart';
 
-import '../domain/availability.dart';
 import '../domain/source.dart';
+import 'source_checks.dart';
 
+/// Catalogue counts are not evidence of a successful connection.
 class AvailabilityIndicator extends StatelessWidget {
   const AvailabilityIndicator({
+    super.key,
     required this.source,
     required this.english,
-    super.key,
   });
 
   final SourceRow source;
   final bool english;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ValueListenableBuilder(
+    valueListenable: sourceCheckResults,
+    builder: (context, _, child) => _content(context),
+  );
+  Widget _content(BuildContext context) {
     if (!source.isTorrent) return const Text('—');
-    final counts = source.visibleCounts;
-    final bars = TorrentAvailability(counts).bars;
-    final level = bars == null
-        ? (english ? 'Unknown' : 'Неизвестна')
-        : '$bars/5';
-    final label = english
-        ? 'Availability: $level · Seeds: ${counts.seedsLabel} · Peers: ${counts.peersLabel}\nEstimate from provider data'
-        : 'Доступность: $level · Сиды: ${counts.seedsLabel} · Пиры: ${counts.peersLabel}\nОценка по данным провайдера';
-    const colors = [
-      Color(0xffe05a59),
-      Color(0xffe89449),
-      Color(0xffd4b34e),
-      Color(0xff92b953),
-      Color(0xff48af78),
-    ];
+    final counts = source.catalogueCounts;
+    final summary = english
+        ? 'Catalogue: seeds ${counts.seedsLabel} · peers ${counts.peersLabel}'
+        : 'Каталог: сиды ${counts.seedsLabel} · пиры ${counts.peersLabel}';
+    final state = recentSourceCheck('${source.provider.name}:${source.id}')
+        ?.state;
+    final status = switch (state) {
+      SourceCheckState.checking => english ? 'Checking…' : 'Проверяется…',
+      SourceCheckState.data =>
+        english ? 'Video data received' : 'Данные видео поступают',
+      SourceCheckState.timeout =>
+        english
+            ? 'No data within the check time'
+            : 'За время проверки данные не получены',
+      SourceCheckState.unavailable =>
+        english ? 'Could not check' : 'Не удалось проверить',
+      null => english ? 'Connection not checked' : 'Подключение не проверено',
+    };
+    final label = '$summary\n$status';
+    final compactCounts = [
+      if (counts.seeds != null) '${english ? 'S' : 'С'} ${counts.seedsLabel}',
+      if (counts.peers != null) '${english ? 'P' : 'П'} ${counts.peersLabel}',
+    ].join(' · ');
+    final icon = switch (state) {
+      SourceCheckState.checking => Icons.hourglass_top,
+      SourceCheckState.data => Icons.check_circle_outline,
+      SourceCheckState.timeout => Icons.schedule,
+      SourceCheckState.unavailable => Icons.error_outline,
+      null => Icons.help_outline,
+    };
     return Tooltip(
       message: label,
       excludeFromSemantics: true,
@@ -39,23 +59,16 @@ class AvailabilityIndicator extends StatelessWidget {
         child: ExcludeSemantics(
           child: Row(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              for (var i = 0; i < 5; i++)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 1.5),
-                  child: Container(
-                    width: 5,
-                    height: 6.0 + i * 4,
-                    decoration: BoxDecoration(
-                      color: i < (bars ?? 0)
-                          ? colors[i]
-                          : Theme.of(context).colorScheme.outlineVariant,
-                      borderRadius: BorderRadius.circular(1.5),
-                    ),
-                  ),
-                ),
-              if (bars == null) const Text(' —'),
+              if (compactCounts.isNotEmpty) ...[
+                Text(compactCounts),
+                const SizedBox(width: 6),
+              ],
+              Icon(
+                icon,
+                size: 16,
+                color: DefaultTextStyle.of(context).style.color,
+              ),
             ],
           ),
         ),

@@ -1,3 +1,5 @@
+import '../catalog/source_checks.dart';
+import 'source_probe.dart';
 import '../history/watch_history.dart';
 import '../history/watch_history_page.dart';
 import '../history/history_playback.dart';
@@ -34,7 +36,7 @@ import 'android_voice_dialog.dart';
 import 'android_theme.dart';
 import 'android_updates.dart';
 import 'remote_focus.dart';
-import 'source_card.dart';
+import 'source_picker.dart';
 
 class AndroidBootstrap extends StatefulWidget {
   const AndroidBootstrap({super.key});
@@ -220,6 +222,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
       preferences.providers.intersection(SourceProvider.values.toSet()),
     );
     catalog.addListener(_changed);
+    sourceCheckResults.addListener(_checksChanged);
     gridScroll.addListener(loadNearEnd);
     sourcesScroll.addListener(scheduleSourceLoad);
     unawaited(catalog.browse());
@@ -282,11 +285,23 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
     }
   }
 
+  late final sourceChecks = androidSourceChecks(
+    widget.repository,
+    season: () => sourceSeason,
+    episode: () => sourceEpisode,
+  );
+
+  void _checksChanged() {
+    if (mounted) setState(() {});
+  }
+
   void _changed() {
     if (!mounted) return;
     setState(() {});
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !modal && !playing) remote.repair();
+      if (mounted && !modal && !playing) {
+        remote.repair();
+      }
       loadNearEnd();
       loadSourcesNearEnd();
     });
@@ -302,6 +317,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
       remote.restore(remote.last);
       offerUpdate();
     }
+    if (state != AppLifecycleState.resumed) sourceChecks.stop();
     if (state == AppLifecycleState.paused && budget.lite) {
       PaintingBinding.instance.imageCache.clear();
     }
@@ -309,6 +325,8 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    sourceCheckResults.removeListener(_checksChanged);
+    sourceChecks.dispose();
     watchHistory.dispose();
     watched.dispose();
     ++playbackEpoch;
@@ -622,6 +640,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
     WatchEntry? replay,
   }) async {
     if (playing) return;
+    sourceChecks.stop();
     final epoch = ++playbackEpoch;
     final target = remote.last;
     final selectedTitle = historyTitle ?? catalog.selected;
@@ -650,6 +669,8 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                 ...identity,
                 'history': historyMetadata,
                 'series': isSeries,
+                if (isSeries && sourceSeason != null) 'season': sourceSeason,
+                if (isSeries && sourceEpisode != null) 'episode': sourceEpisode,
                 'playerDark': preferences.appearance == AppAppearance.dark,
               },
             );
@@ -663,6 +684,8 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                 ...identity,
                 'history': historyMetadata,
                 'series': isSeries,
+                if (isSeries && sourceSeason != null) 'season': sourceSeason,
+                if (isSeries && sourceEpisode != null) 'episode': sourceEpisode,
                 'playerDark': preferences.appearance == AppAppearance.dark,
               },
             );
@@ -921,6 +944,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
   );
 
   void history() {
+    sourceChecks.stop();
     cancelPlayback();
     catalog.back();
     setState(() => screen = 'history');
@@ -2121,27 +2145,26 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                           : 'No matching results.',
                     ),
                   ),
-                for (final source in visible)
-                  Padding(
-                    key: ValueKey(
-                      'source-row-${source.row.provider.name}-${source.row.id}',
-                    ),
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: AndroidSourceCard(
-                      source: source,
-                      title: title,
-                      posterCache: widget.posterCache,
-                      previewDecodeWidth: budget.posterWidth,
-                      focus: remote,
-                      english: preferences.english,
-                      series: title.kind == CatalogKind.series,
-                      onDownload: !widget.runtime.tv && source.row.isTorrent
-                          ? () => unawaited(downloadSource(source))
-                          : null,
-                      onPlay: source.canWatch
-                          ? () => unawaited(play(source))
-                          : null,
-                    ),
+                if (filteredSources.isNotEmpty)
+                  AndroidSourcePicker(
+                    key: ValueKey('picker-${title.kind.name}-${title.id}'),
+                    title: title,
+                    sources: filteredSources,
+                    selectionKey: '$sourceSeason:$sourceEpisode',
+                    focus: remote,
+                    english: preferences.english,
+                    enabled: !playing,
+                    limit: sourceLimit,
+                    posterCache: widget.posterCache,
+                    previewDecodeWidth: budget.posterWidth,
+                    onCandidates: (scope, candidates) =>
+                        sourceChecks.select(scope, candidates),
+                    onCheck: sourceChecks.retry,
+                    onStop: sourceChecks.stop,
+                    onPlay: (source) => unawaited(play(source)),
+                    onDownload: widget.runtime.tv
+                        ? null
+                        : (source) => unawaited(downloadSource(source)),
                   ),
                 Wrap(
                   spacing: 8,
