@@ -55,29 +55,37 @@ class CatalogSelectionThumb extends StatelessWidget {
   const CatalogSelectionThumb({
     required this.index,
     required this.count,
+    this.animate = true,
     super.key,
   });
   final int index, count;
+  final bool animate;
 
   @override
-  Widget build(BuildContext context) => Align(
-    alignment: Alignment.centerLeft,
-    child: FractionallySizedBox(
-      widthFactor: 1 / count,
-      heightFactor: 1,
-      child: AnimatedSlide(
-        offset: Offset(index.toDouble(), 0),
-        duration: motionDuration(context),
-        curve: Curves.easeOutCubic,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.onSurface,
-            borderRadius: BorderRadius.circular(24),
-          ),
-        ),
+  Widget build(BuildContext context) {
+    final offset = Offset(index.toDouble(), 0);
+    final thumb = DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.onSurface,
+        borderRadius: BorderRadius.circular(24),
       ),
-    ),
-  );
+    );
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: FractionallySizedBox(
+        widthFactor: 1 / count,
+        heightFactor: 1,
+        child: animate && !MediaQuery.disableAnimationsOf(context)
+            ? AnimatedSlide(
+                offset: offset,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                child: thumb,
+              )
+            : FractionalTranslation(translation: offset, child: thumb),
+      ),
+    );
+  }
 }
 
 class PillSurface extends StatelessWidget {

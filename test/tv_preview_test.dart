@@ -12,6 +12,7 @@ import 'package:freescene/catalog/catalog_controller.dart';
 import 'package:freescene/providers/demo.dart';
 import 'package:freescene/settings/preferences.dart';
 import 'package:freescene/settings/settings_store.dart';
+import 'package:freescene/widgets/catalog_style.dart';
 
 class _Catalogue extends DemoCatalog {
   _Catalogue({this.count = 18});
@@ -229,28 +230,28 @@ void main() {
   );
 
   testWidgets(
-    'film and series indicator moves independently of its segment labels',
+    'TV film and series selection updates on the first frame with animations enabled',
     (tester) async {
-      await launch(tester);
-      final slider = find.descendant(
-        of: find.byKey(const ValueKey('android-kind-switch')),
-        matching: find.byType(SlideTransition),
-      );
+      await launch(tester, preferences: Preferences(tvAnimations: true));
+      final controlGroup = find.byType(CatalogSelectionThumb);
       final thumb = find.descendant(
-        of: slider,
+        of: controlGroup,
         matching: find.byType(DecoratedBox),
       );
-      final left = tester.getCenter(thumb).dx;
-      final right = tester.getCenter(control('kind-series')).dx;
-      focusNode(tester, 'kind-series').requestFocus();
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.select);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 70));
-      expect(tester.getCenter(thumb).dx, inExclusiveRange(left, right));
-      expect(tester.getCenter(control('kind-series')).dx, right);
-      await tester.pumpAndSettle();
-      expect(tester.getCenter(thumb).dx, closeTo(right, .1));
+      expect(
+        find.descendant(of: controlGroup, matching: find.byType(AnimatedSlide)),
+        findsNothing,
+      );
+      for (final id in ['kind-series', 'kind-movies']) {
+        focusNode(tester, id).requestFocus();
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.select);
+        await tester.pump();
+        expect(
+          tester.getCenter(thumb).dx,
+          closeTo(tester.getCenter(control(id)).dx, .1),
+        );
+      }
     },
   );
 

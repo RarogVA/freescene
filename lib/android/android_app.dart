@@ -1509,6 +1509,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
             CatalogSelectionThumb(
               index: catalog.kind == CatalogKind.series ? 1 : 0,
               count: 2,
+              animate: !widget.runtime.tv,
             ),
             Row(
               children: [
