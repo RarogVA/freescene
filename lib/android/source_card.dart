@@ -94,50 +94,64 @@ class AndroidSourceCard extends StatelessWidget {
     );
     if (focus.enabled) {
       return OverflowTooltip(
-        child: RemoteButton(
-          key: ValueKey('source-card-${row.provider.name}-${row.id}'),
-          id: 'source-${row.provider.name}-${row.id}',
-          focus: focus,
-          onPressed: onPlay,
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: LayoutBuilder(
-            builder: (context, box) => Row(
-              children: [
-                Expanded(
-                  child: TruncatedText(
-                    row.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: colors.surfaceContainer,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: RemoteButton(
+            key: ValueKey('source-card-${row.provider.name}-${row.id}'),
+            id: 'source-${row.provider.name}-${row.id}',
+            focus: focus,
+            onPressed: onPlay,
+            radius: 24,
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: LayoutBuilder(
+              builder: (context, box) => Row(
+                children: [
+                  Icon(
+                    Icons.play_circle_outline_rounded,
+                    color: onPlay == null
+                        ? colors.onSurfaceVariant
+                        : colors.primary,
                   ),
-                ),
-                const SizedBox(width: 12),
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: box.maxWidth * .55),
-                  child: SourceMetadata(
-                    source: source,
-                    english: english,
-                    singleLine: true,
-                    scrollable: false,
-                  ),
-                ),
-                if (series) ...[
                   const SizedBox(width: 12),
-                  SizedBox(
-                    width: box.maxWidth * .16,
+                  Expanded(
                     child: TruncatedText(
-                      sourceEpisodeDisplay(source) == '—'
-                          ? ''
-                          : sourceEpisodeDisplay(source),
-                      tooltipOrder: 1,
-                      textKey: ValueKey(
-                        'source-episode-${row.provider.name}-${row.id}',
-                      ),
+                      row.title,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: box.maxWidth * .55),
+                    child: SourceMetadata(
+                      source: source,
+                      english: english,
+                      singleLine: true,
+                      scrollable: false,
+                    ),
+                  ),
+                  if (series) ...[
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: box.maxWidth * .16,
+                      child: TruncatedText(
+                        sourceEpisodeDisplay(source) == '—'
+                            ? ''
+                            : sourceEpisodeDisplay(source),
+                        tooltipOrder: 1,
+                        textKey: ValueKey(
+                          'source-episode-${row.provider.name}-${row.id}',
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 8),
+                  watchedButton,
                 ],
-                const SizedBox(width: 8),
-                watchedButton,
-              ],
+              ),
             ),
           ),
         ),

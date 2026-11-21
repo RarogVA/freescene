@@ -18,6 +18,7 @@ android {
 
     defaultConfig {
         applicationId = "local.freescene.freescene"
+        manifestPlaceholders["applicationLabel"] = "FreeScene"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -35,7 +36,12 @@ android {
         create("mobile") { dimension = "device" }
         create("tv") {
             dimension = "device"
-            applicationIdSuffix = ".tv"
+            val isolatedPreview = providers.gradleProperty("isolatedPreview").orNull == "true"
+            require(!isolatedPreview || providers.gradleProperty("localPreview").orNull == "true") {
+                "Isolated preview requires localPreview signing"
+            }
+            applicationIdSuffix = if (isolatedPreview) ".tv.preview" else ".tv"
+            if (isolatedPreview) manifestPlaceholders["applicationLabel"] = "FreeScene Preview"
         }
     }
     sourceSets.getByName("main").jniLibs.srcDir("../../build/android-engine/jniLibs")

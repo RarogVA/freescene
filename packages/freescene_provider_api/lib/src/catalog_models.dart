@@ -21,6 +21,47 @@ class CatalogFilter {
     this.highQualityOnly = false,
     this.ended,
   });
+  static const outsideFourCountries = 'outside-ru-by-ua-kz';
+  static const _excludedSingleCountries = {
+    'россия',
+    'российская федерация',
+    'russia',
+    'russian federation',
+    'ru',
+    'rus',
+    'беларусь',
+    'белоруссия',
+    'belarus',
+    'by',
+    'blr',
+    'украина',
+    'ukraine',
+    'ua',
+    'ukr',
+    'казахстан',
+    'kazakhstan',
+    'kz',
+    'kaz',
+  };
+
+  bool includesCountry(String? name) =>
+      country != outsideFourCountries ||
+      !_excludedSingleCountries.contains(name?.trim().toLowerCase());
+
+  /// The composite choice is applied to full country credits after listing.
+  CatalogFilter get providerFilter => country != outsideFourCountries
+      ? this
+      : CatalogFilter(
+          year: year,
+          yearTo: yearTo,
+          minRating: minRating,
+          maxRating: maxRating,
+          sort: sort,
+          genre: genre,
+          highQualityOnly: highQualityOnly,
+          ended: ended,
+        );
+
   final int? year;
   final int? yearTo;
   final double minRating;

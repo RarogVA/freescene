@@ -71,6 +71,7 @@ class CatalogController extends ChangeNotifier {
         .where(
           (title) =>
               title.kind == kind &&
+              filter.includesCountry(title.country) &&
               normalized(
                 '${title.name} ${title.englishName ?? ''} ${title.year ?? ''}',
               ).contains(query),
@@ -93,6 +94,36 @@ class CatalogController extends ChangeNotifier {
     if (_disposed) return;
     if (queueOnly) _collectionListing();
     _changed();
+  }
+
+  Future<CatalogPage<CatalogTitle>> _list(int start, int generation) async {
+    final selection = filter;
+    while (true) {
+      final page = await repository.list(
+        kind,
+        search: search,
+        filter: selection.providerFilter,
+        start: start,
+      );
+      if (_disposed ||
+          generation != _generation ||
+          selection.country != CatalogFilter.outsideFourCountries) {
+        return page;
+      }
+      final items = page.items
+          .where((t) => selection.includesCountry(t.country))
+          .toList();
+      final more = page.hasMore && page.next > start;
+      if (items.isNotEmpty || !more) {
+        return CatalogPage(
+          items: items,
+          start: start,
+          total: more ? page.total : start + items.length,
+          nextStart: more ? page.next : null,
+        );
+      }
+      start = page.next;
+    }
   }
 
   Future<void> browse({
@@ -134,11 +165,7 @@ class CatalogController extends ChangeNotifier {
         _collectionListing();
         return;
       }
-      final page = await repository.list(
-        this.kind,
-        search: this.search,
-        filter: this.filter,
-      );
+      final page = await _list(0, generation);
       if (_disposed || generation != _generation) return;
       items = page.items;
       total = page.total;
@@ -186,12 +213,7 @@ class CatalogController extends ChangeNotifier {
     error = null;
     _changed();
     try {
-      final page = await repository.list(
-        kind,
-        search: search,
-        filter: filter,
-        start: _next,
-      );
+      final page = await _list(_next, generation);
       if (_disposed || generation != _generation) return;
       final existing = items.map((t) => t.id).toSet();
       items = [...items, ...page.items.where((t) => existing.add(t.id))];

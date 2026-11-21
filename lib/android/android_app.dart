@@ -35,6 +35,7 @@ import 'android_theme.dart';
 import 'android_updates.dart';
 import 'remote_focus.dart';
 import 'source_card.dart';
+import 'tv_widgets.dart';
 
 class AndroidBootstrap extends StatefulWidget {
   const AndroidBootstrap({super.key});
@@ -168,8 +169,17 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
   late final traversal = RemoteTraversalPolicy(
     remote,
     horizontalGroups: const [
-      ['filter', 'search', 'voice', 'clear-search'],
-      ['favorites', 'queue', 'kind-movies', 'kind-series', 'refresh'],
+      [
+        'kind-movies',
+        'kind-series',
+        'favorites',
+        'queue',
+        'search',
+        'voice',
+        'filter',
+        'refresh',
+        'clear-search',
+      ],
       [
         'detail-back',
         'source-search',
@@ -204,6 +214,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
   String sourceQuery = '';
   int? sourceSeason, sourceEpisode;
   bool get tvDetails => widget.runtime.tv && catalog.selected != null;
+  bool searchExpanded = false;
   bool modal = false, playing = false, backBusy = false;
   int playbackEpoch = 0;
   TrailerResolver? trailerClient;
@@ -228,6 +239,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
   }
 
   Future<void> checkStartupUpdate() async {
+    if (const bool.fromEnvironment('FREESCENE_PREVIEW')) return;
     try {
       final result = await AndroidUpdates().check();
       if (!mounted || result['available'] != true) return;
@@ -272,6 +284,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
     final result = await dialog<CatalogFilter>(
       CatalogFilterDialog(
         initial: catalog.filter,
+        tv: widget.runtime.tv,
         english: preferences.english,
         kind: catalog.kind,
       ),
@@ -337,6 +350,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
     focus: remote,
     onPressed: action,
     selected: selected,
+    radius: widget.runtime.tv ? 24 : 12,
     child: icon == null
         ? Text(label, textAlign: TextAlign.center)
         : Row(
@@ -395,12 +409,153 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
     remote.restore('detail-back');
   }
 
+  Future<void> titleMenu(CatalogTitle title) async {
+    final tile = 'title-${title.kind.name}-${title.id}';
+    final result = await dialog<String>(
+      Builder(
+        builder: (context) {
+          Widget item(
+            String id,
+            IconData icon,
+            String verb,
+            String meaning, {
+            bool first = false,
+            bool enabled = true,
+            bool iconLast = false,
+          }) {
+            final glyph = Icon(icon, size: 22);
+            return Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Semantics(
+                label: meaning,
+                child: FilledButton(
+                  key: ValueKey('title-menu-$id'),
+                  autofocus: first,
+                  onPressed: enabled ? () => Navigator.pop(context, id) : null,
+                  child: ExcludeSemantics(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (!iconLast) glyph,
+                        if (!iconLast) const SizedBox(width: 10),
+                        Text(verb),
+                        if (iconLast) const SizedBox(width: 10),
+                        if (iconLast) glyph,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+
+          Widget listItem(
+            String id,
+            FavoritesController list,
+            IconData icon,
+            String add,
+            String remove,
+          ) {
+            final saved = list.contains(title);
+            return item(
+              id,
+              icon,
+              saved
+                  ? tr('Убрать из', 'Remove from')
+                  : tr('Добавить в', 'Add to'),
+              saved ? remove : add,
+              iconLast: true,
+            );
+          }
+
+          final marked = watched.titleWatched(title);
+          return AlertDialog(
+            scrollable: true,
+            title: Text(
+              title.title(preferences.english),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            content: SizedBox(
+              width: 310,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  item(
+                    'watch',
+                    Icons.play_arrow_rounded,
+                    tr('Смотреть', 'Watch'),
+                    tr('Смотреть', 'Watch'),
+                    first: true,
+                  ),
+                  listItem(
+                    'favorite',
+                    favorites,
+                    Icons.favorite_rounded,
+                    tr('Добавить в избранное', 'Add to favorites'),
+                    tr('Убрать из избранного', 'Remove from favorites'),
+                  ),
+                  listItem(
+                    'queue',
+                    queue,
+                    Icons.playlist_play_rounded,
+                    tr('Добавить в очередь', 'Add to queue'),
+                    tr('Убрать из очереди', 'Remove from queue'),
+                  ),
+                  item(
+                    'watched',
+                    Icons.visibility_outlined,
+                    marked
+                        ? tr('Просмотрено', 'Watched')
+                        : tr('Отметить просмотренным', 'Mark as watched'),
+                    tr('Отметить просмотренным', 'Mark as watched'),
+                    enabled: !marked,
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+      restore: tile,
+    );
+    if (!mounted) return;
+    switch (result) {
+      case 'watch':
+        open(title);
+      case 'favorite':
+        await toggle(favorites, title, tile);
+      case 'queue':
+        await toggle(queue, title, tile);
+      case 'watched':
+        try {
+          await watched.markTitle(title);
+        } catch (_) {
+          if (mounted) {
+            await message(
+              tr(
+                'Не удалось сохранить отметку',
+                'Could not save watched status',
+              ),
+            );
+          }
+        }
+    }
+  }
+
   Future<T?> dialog<T>(Widget child, {String? restore}) async {
     final target = restore ?? remote.last;
     modal = true;
     try {
       return await showDialog<T>(
         context: navigator.currentContext!,
+        animationStyle:
+            widget.runtime.tv &&
+                (!preferences.tvAnimations ||
+                    MediaQuery.disableAnimationsOf(navigator.currentContext!))
+            ? AnimationStyle.noAnimation
+            : null,
         builder: (_) => child,
       );
     } finally {
@@ -796,6 +951,9 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
       navigatorKey: navigator,
       debugShowCheckedModeBanner: false,
       title: 'FreeScene',
+      themeAnimationDuration: widget.runtime.tv && !preferences.tvAnimations
+          ? Duration.zero
+          : const Duration(milliseconds: 200),
       theme: androidTheme(
         dark: preferences.appearance == AppAppearance.dark,
         tv: widget.runtime.tv,
@@ -807,27 +965,34 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
       // left/right available for moving the caret and adjusting sliders.
       builder: (context, child) => !widget.runtime.tv
           ? child!
-          : Shortcuts(
-              shortcuts: const {
-                SingleActivator(
-                  LogicalKeyboardKey.arrowUp,
-                ): DirectionalFocusIntent(
-                  TraversalDirection.up,
-                  ignoreTextFields: false,
+          : MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                disableAnimations:
+                    !preferences.tvAnimations ||
+                    MediaQuery.disableAnimationsOf(context),
+              ),
+              child: Shortcuts(
+                shortcuts: const {
+                  SingleActivator(
+                    LogicalKeyboardKey.arrowUp,
+                  ): DirectionalFocusIntent(
+                    TraversalDirection.up,
+                    ignoreTextFields: false,
+                  ),
+                  SingleActivator(
+                    LogicalKeyboardKey.arrowDown,
+                  ): DirectionalFocusIntent(
+                    TraversalDirection.down,
+                    ignoreTextFields: false,
+                  ),
+                  SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
+                  SingleActivator(LogicalKeyboardKey.gameButtonA):
+                      ActivateIntent(),
+                },
+                child: FocusTraversalGroup(
+                  policy: RemoteDialogTraversalPolicy(),
+                  child: child!,
                 ),
-                SingleActivator(
-                  LogicalKeyboardKey.arrowDown,
-                ): DirectionalFocusIntent(
-                  TraversalDirection.down,
-                  ignoreTextFields: false,
-                ),
-                SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
-                SingleActivator(LogicalKeyboardKey.gameButtonA):
-                    ActivateIntent(),
-              },
-              child: FocusTraversalGroup(
-                policy: RemoteDialogTraversalPolicy(),
-                child: child!,
               ),
             ),
       home: Builder(
@@ -876,7 +1041,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                       children: [
                         if (widget.runtime.tv) ...[
                           _rail(),
-                          const VerticalDivider(width: 1),
+                          const SizedBox(width: 4),
                         ],
                         Expanded(
                           child: Column(
@@ -998,61 +1163,106 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
     remote.restore('settings-back');
   }
 
-  Widget _rail() {
-    Widget item(
-      String id,
-      IconData icon,
-      String label,
-      VoidCallback action, {
-      bool selected = false,
-    }) => Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: RemoteButton(
-        id: id,
-        focus: remote,
-        onPressed: action,
-        flat: true,
-        selected: selected,
-        radius: 24,
-        alignment: Alignment.center,
-        child: Tooltip(message: label, child: Icon(icon)),
-      ),
-    );
-    return SizedBox(
-      key: const ValueKey('android-tv-sidebar'),
-      width: 76,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 12, 10, 8),
+  Widget _rail() => Builder(
+    builder: (context) {
+      final colors = Theme.of(context).colorScheme;
+      final compact = preferences.sidebarCollapsed;
+      Widget item(
+        String id,
+        IconData icon,
+        String label,
+        VoidCallback action, {
+        bool selected = false,
+      }) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: RemoteButton(
+          id: id,
+          focus: remote,
+          onPressed: action,
+          flat: true,
+          selected: selected,
+          radius: 22,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          alignment: Alignment.centerLeft,
+          child: Tooltip(
+            message: label,
+            child: compact
+                ? Center(child: Icon(icon, size: 21))
+                : Row(
+                    children: [
+                      Icon(icon, size: 21),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      );
+      return Container(
+        key: const ValueKey('android-tv-sidebar'),
+        width: compact ? 74 : 144,
+        margin: const EdgeInsets.fromLTRB(12, 16, 0, 16),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(
+            color: colors.outlineVariant.withValues(alpha: .35),
+          ),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            item('home', Icons.home_outlined, tr('Домой', 'Home'), home),
-            const Spacer(),
+            const SizedBox(height: 8),
+            item(
+              'home',
+              Icons.grid_view_rounded,
+              tr('Каталог', 'Catalogue'),
+              home,
+              selected: screen == 'catalog',
+            ),
             item(
               'history',
-              Icons.history,
+              Icons.history_rounded,
               tr('История', 'History'),
               history,
               selected: screen == 'history',
             ),
+            const Spacer(),
             item(
               'settings',
-              Icons.settings_outlined,
+              Icons.tune_rounded,
               tr('Настройки', 'Settings'),
               settings,
               selected: screen == 'settings',
             ),
-            item(
-              'about-brand',
-              Icons.info_outline,
-              'FreeScene',
-              () => unawaited(about()),
+            RemoteButton(
+              id: 'about-brand',
+              focus: remote,
+              flat: true,
+              radius: 22,
+              padding: const EdgeInsets.all(4),
+              onPressed: () => unawaited(about()),
+              child: Tooltip(
+                message: tr('О приложении', 'About'),
+                child: const TvBrandIcon(size: 38),
+              ),
             ),
           ],
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
 
   Widget _mobileNavigation() => Builder(
     builder: (context) => Material(
@@ -1329,268 +1539,266 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
 
   Widget _toolbar() => widget.runtime.tv ? _tvToolbar() : _mobileToolbar();
 
-  Widget _tvToolbar() => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-    child: Column(
-      children: [
-        if (!tvDetails)
-          Row(
+  Widget _tvToolbar() => Builder(
+    builder: (context) {
+      final colors = Theme.of(context).colorScheme;
+      final title = catalog.selected;
+      Widget action(
+        String id,
+        IconData icon,
+        String label,
+        VoidCallback run, {
+        bool selected = false,
+        bool iconOnly = false,
+      }) => RemoteButton(
+        id: id,
+        focus: remote,
+        onPressed: run,
+        selected: selected,
+        flat: true,
+        radius: 24,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Tooltip(
+          message: label,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              RemoteButton(
-                id: 'filter',
-                focus: remote,
-                onPressed: () => unawaited(filters()),
-                radius: 28,
-                flat: true,
-                selected: catalog.filter.active,
-                child: Icon(
-                  Icons.filter_alt_outlined,
-                  color: catalog.filter.active
-                      ? Theme.of(navigator.currentContext!).colorScheme.error
-                      : null,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: RemoteButton(
-                  id: 'search',
-                  focus: remote,
-                  radius: 28,
-                  alignment: Alignment.centerLeft,
-                  onPressed: () => unawaited(search()),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.search),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          catalog.search.isEmpty
-                              ? tr('Поиск', 'Search')
-                              : catalog.search,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              RemoteButton(
-                id: 'voice',
-                focus: remote,
-                radius: 28,
-                flat: true,
-                onPressed: () => unawaited(search(voice: true)),
-                child: Tooltip(
-                  message: tr('Голосовой поиск', 'Voice search'),
-                  child: const Icon(Icons.mic),
-                ),
-              ),
-              if (catalog.search.isNotEmpty)
-                SizedBox.square(
-                  dimension: 48,
-                  child: RemoteButton(
-                    id: 'clear-search',
-                    focus: remote,
-                    radius: 24,
-                    padding: EdgeInsets.zero,
-                    onPressed: () => unawaited(browse(search: '')),
-                    child: Tooltip(
-                      message: tr('Очистить поиск', 'Clear search'),
-                      child: const Icon(Icons.close),
-                    ),
-                  ),
-                ),
+              Icon(icon, size: 21),
+              if (!iconOnly) ...[const SizedBox(width: 8), Text(label)],
             ],
           ),
-        if (!tvDetails) const SizedBox(height: 10),
-        LayoutBuilder(
+        ),
+      );
+      if (title != null) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+          child: TvSurface(
+            child: Row(
+              key: const ValueKey('android-catalog-toolbar'),
+              children: [
+                TvBackButton(
+                  id: 'detail-back',
+                  focus: remote,
+                  label: tr('Назад', 'Back'),
+                  onPressed: back,
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: _sourceToolbar()),
+                const SizedBox(width: 8),
+                action(
+                  'favorite-title',
+                  Icons.favorite_border_rounded,
+                  tr('В избранное', 'Save'),
+                  () => unawaited(toggle(favorites, title, 'favorite-title')),
+                  selected: favorites.contains(title),
+                  iconOnly: true,
+                ),
+                action(
+                  'queue-title',
+                  Icons.playlist_add_rounded,
+                  tr('В очередь', 'Queue'),
+                  () => unawaited(toggle(queue, title, 'queue-title')),
+                  selected: queue.contains(title),
+                  iconOnly: true,
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+        child: LayoutBuilder(
           builder: (context, bounds) {
-            final compact = bounds.maxWidth < (tvDetails ? 1250 : 1050);
-            final switcher = tvDetails
-                ? SizedBox(
-                    width: bounds.maxWidth < 600
-                        ? bounds.maxWidth
-                        : math.min(
-                            catalog.selected?.kind == CatalogKind.series
-                                ? 760
-                                : 420,
-                            bounds.maxWidth - 248,
-                          ),
-                    child: _sourceToolbar(),
-                  )
-                : Container(
-                    key: const ValueKey('android-kind-switch'),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                    padding: const EdgeInsets.all(4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+            final series = catalog.kind == CatalogKind.series;
+            return Row(
+              key: const ValueKey('android-catalog-toolbar'),
+              children: [
+                TvSurface(
+                  key: const ValueKey('android-kind-switch'),
+                  child: SizedBox(
+                    width: 170,
+                    height: 48,
+                    child: Stack(
                       children: [
-                        for (final kind in [
-                          CatalogKind.movies,
-                          CatalogKind.series,
-                        ])
-                          SizedBox(
-                            width: compact
-                                ? math.min(150, (bounds.maxWidth - 8) / 2)
-                                : 160,
-                            child: RemoteButton(
-                              id: 'kind-${kind.name}',
-                              segment: true,
-                              focus: remote,
-                              flat: true,
-                              radius: 26,
-                              selected: catalog.kind == kind,
-                              selectedBackground: widget.runtime.tv
-                                  ? const Color(0xffbdbdbd)
-                                  : null,
-                              selectedForeground: widget.runtime.tv
-                                  ? const Color(0xff252731)
-                                  : null,
-                              onPressed: () => unawaited(browse(kind: kind)),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    kind == CatalogKind.movies
-                                        ? Icons.movie_outlined
-                                        : Icons.tv,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
+                        AnimatedAlign(
+                          alignment: series
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
+                          duration: tvMotionDuration(context),
+                          curve: Curves.easeInOutCubic,
+                          child: Container(
+                            width: 85,
+                            height: 46,
+                            decoration: BoxDecoration(
+                              color: colors.onSurface,
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            for (final kind in [
+                              CatalogKind.movies,
+                              CatalogKind.series,
+                            ])
+                              Expanded(
+                                child: RemoteButton(
+                                  id: 'kind-${kind.name}',
+                                  focus: remote,
+                                  flat: true,
+                                  radius: 24,
+                                  padding: EdgeInsets.zero,
+                                  selected: catalog.kind == kind,
+                                  selectedBackground: Colors.transparent,
+                                  selectedForeground: colors.surface,
+                                  onPressed: () =>
+                                      unawaited(browse(kind: kind)),
+                                  child: Text(
                                     kind == CatalogKind.movies
                                         ? tr('Фильмы', 'Films')
                                         : tr('Сериалы', 'Series'),
                                   ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                TvCollectionButton(
+                  id: 'favorites',
+                  icon: Icons.favorite_border_rounded,
+                  label: tr('Избранное', 'Favorites'),
+                  focus: remote,
+                  selected: catalog.favoritesOnly,
+                  onPressed: () => unawaited(
+                    browse(saved: !catalog.favoritesOnly, queued: false),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                TvCollectionButton(
+                  id: 'queue',
+                  icon: Icons.playlist_play_rounded,
+                  label: tr('Очередь', 'Queue'),
+                  focus: remote,
+                  selected: catalog.queueOnly,
+                  onPressed: () => unawaited(
+                    browse(queued: !catalog.queueOnly, saved: false),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, area) => Align(
+                      alignment: Alignment.centerRight,
+                      child: Focus(
+                        canRequestFocus: false,
+                        skipTraversal: true,
+                        onFocusChange: (value) {
+                          if (mounted &&
+                              (value || !modal) &&
+                              searchExpanded != value) {
+                            setState(() => searchExpanded = value);
+                          }
+                        },
+                        child: TvAnimatedSize(
+                          alignment: Alignment.centerRight,
+                          duration: tvMotionDuration(context, 220),
+                          curve: Curves.easeOutCubic,
+                          child: SizedBox(
+                            width: searchExpanded ? area.maxWidth : 58,
+                            child: TvSurface(
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: RemoteButton(
+                                      id: 'search',
+                                      focus: remote,
+                                      flat: true,
+                                      radius: 24,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                      ),
+                                      onPressed: () => unawaited(search()),
+                                      child: Tooltip(
+                                        message: tr('Поиск', 'Search'),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const Icon(
+                                              Icons.search_rounded,
+                                              size: 22,
+                                            ),
+                                            if (searchExpanded &&
+                                                area.maxWidth > 285) ...[
+                                              const SizedBox(width: 6),
+                                              Flexible(
+                                                child: Text(
+                                                  catalog.search.isEmpty
+                                                      ? tr('Поиск', 'Search')
+                                                      : catalog.search,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (searchExpanded) ...[
+                                    action(
+                                      'voice',
+                                      Icons.mic_none_rounded,
+                                      tr('Голосовой поиск', 'Voice search'),
+                                      () => unawaited(search(voice: true)),
+                                      iconOnly: true,
+                                    ),
+                                    action(
+                                      'filter',
+                                      Icons.tune_rounded,
+                                      tr('Фильтры', 'Filters'),
+                                      () => unawaited(filters()),
+                                      selected: catalog.filter.active,
+                                      iconOnly: true,
+                                    ),
+                                    action(
+                                      'refresh',
+                                      Icons.refresh_rounded,
+                                      tr('Обновить', 'Refresh'),
+                                      () => unawaited(catalog.browse()),
+                                      iconOnly: true,
+                                    ),
+                                    if (catalog.search.isNotEmpty)
+                                      action(
+                                        'clear-search',
+                                        Icons.close_rounded,
+                                        tr('Очистить', 'Clear'),
+                                        () => unawaited(browse(search: '')),
+                                        iconOnly: true,
+                                      ),
+                                  ],
                                 ],
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                  );
-            final title = catalog.selected;
-            final detail = title != null;
-            Widget action(
-              String id,
-              IconData icon,
-              String label,
-              VoidCallback onPressed, {
-              bool selected = false,
-            }) => SizedBox(
-              width: widget.runtime.tv ? null : 48,
-              height: widget.runtime.tv ? null : 48,
-              child: RemoteButton(
-                id: id,
-                focus: remote,
-                radius: widget.runtime.tv ? 20 : 24,
-                padding: widget.runtime.tv
-                    ? const EdgeInsets.all(12)
-                    : EdgeInsets.zero,
-                selected: selected,
-                onPressed: onPressed,
-                child: Tooltip(
-                  message: label,
-                  child: compact || !widget.runtime.tv
-                      ? Icon(icon)
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(icon),
-                            const SizedBox(width: 8),
-                            Text(label),
-                          ],
                         ),
-                ),
-              ),
-            );
-            final collections = Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                action(
-                  detail ? 'favorite-title' : 'favorites',
-                  Icons.favorite_border,
-                  detail
-                      ? tr('В избранное', 'Save')
-                      : tr('Избранное', 'Favorites'),
-                  () => unawaited(
-                    detail
-                        ? toggle(favorites, title, 'favorite-title')
-                        : browse(saved: !catalog.favoritesOnly, queued: false),
+                      ),
+                    ),
                   ),
-                  selected: detail
-                      ? favorites.contains(title)
-                      : catalog.favoritesOnly,
-                ),
-                const SizedBox(width: 6),
-                action(
-                  detail ? 'queue-title' : 'queue',
-                  Icons.playlist_play,
-                  detail ? tr('В очередь', 'Queue') : tr('Очередь', 'Queue'),
-                  () => unawaited(
-                    detail
-                        ? toggle(queue, title, 'queue-title')
-                        : browse(queued: !catalog.queueOnly, saved: false),
-                  ),
-                  selected: detail ? queue.contains(title) : catalog.queueOnly,
                 ),
               ],
             );
-            final left = detail
-                ? action(
-                    'detail-back',
-                    Icons.arrow_back,
-                    tr('К каталогу', 'Back to catalogue'),
-                    () => unawaited(back()),
-                  )
-                : collections;
-            final right = detail
-                ? collections
-                : RemoteButton(
-                    id: 'refresh',
-                    focus: remote,
-                    flat: true,
-                    radius: 24,
-                    onPressed: () => unawaited(browse()),
-                    child: Tooltip(
-                      message: tr('Обновить', 'Refresh'),
-                      child: const Icon(Icons.refresh),
-                    ),
-                  );
-            return bounds.maxWidth < 600
-                ? Column(
-                    children: [
-                      switcher,
-                      const SizedBox(height: 6),
-                      Row(children: [left, const Spacer(), right]),
-                    ],
-                  )
-                : Row(
-                    key: const ValueKey('android-catalog-toolbar'),
-                    children: [
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: left,
-                        ),
-                      ),
-                      switcher,
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: right,
-                        ),
-                      ),
-                    ],
-                  );
           },
         ),
-      ],
-    ),
+      );
+    },
   );
 
   void loadNearEnd() {
@@ -1636,20 +1844,25 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
             : LayoutBuilder(
                 builder: (context, bounds) {
                   final columns = widget.runtime.tv
-                      ? 6
+                      ? (bounds.maxWidth / 160).floor().clamp(3, 6)
                       : math.max(2, (bounds.maxWidth / 180).floor());
-                  final height =
-                      ((bounds.maxWidth - 24 - (columns - 1) * 10) / columns) *
-                      1.85;
+                  final gap = widget.runtime.tv ? 16.0 : 10.0;
+                  final inset = widget.runtime.tv ? 20.0 : 12.0;
+                  final width =
+                      (bounds.maxWidth - inset * 2 - (columns - 1) * gap) /
+                      columns;
+                  final height = widget.runtime.tv
+                      ? (width * 1.5 + tvPosterCaptionHeight(context)) * .8
+                      : width * 1.85;
                   return GridView.builder(
                     key: PageStorageKey('android-grid-${catalog.kind.name}'),
                     controller: gridScroll,
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(inset),
                     scrollCacheExtent: ScrollCacheExtent.pixels(height * 2),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: columns,
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
+                      mainAxisSpacing: gap,
+                      crossAxisSpacing: gap,
                       mainAxisExtent: height,
                     ),
                     itemCount: catalog.items.length,
@@ -1665,68 +1878,84 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
     key: ValueKey('title-${title.kind.name}-${title.id}'),
     id: 'title-${title.kind.name}-${title.id}',
     focus: remote,
-    onPressed: () => open(title),
+    onPressed: () => widget.runtime.tv ? titleMenu(title) : open(title),
     tile: true,
+    radius: widget.runtime.tv ? 18 : 12,
     padding: EdgeInsets.zero,
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: Stack(
-              fit: StackFit.expand,
+    child: widget.runtime.tv
+        ? TvPosterContent(
+            title: title,
+            english: preferences.english,
+            favorite: favorites.contains(title),
+            queued: queue.contains(title),
+            cache: widget.posterCache,
+          )
+        : ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                title.poster == null
-                    ? const Center(child: Icon(Icons.movie_outlined, size: 44))
-                    : CachedPoster(
-                        uri: title.poster!,
-                        fallback: title.posterFallback,
-                        cache: widget.posterCache,
-                        decodeWidth: budget.posterWidth,
-                        placeholder: const Icon(Icons.movie_outlined),
-                      ),
-                if (favorites.contains(title))
-                  const Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Icon(Icons.favorite, color: Colors.white),
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      title.poster == null
+                          ? const Center(
+                              child: Icon(Icons.movie_outlined, size: 44),
+                            )
+                          : CachedPoster(
+                              uri: title.poster!,
+                              fallback: title.posterFallback,
+                              cache: widget.posterCache,
+                              decodeWidth: budget.posterWidth,
+                              placeholder: const Icon(Icons.movie_outlined),
+                            ),
+                      if (favorites.contains(title))
+                        const Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Icon(Icons.favorite, color: Colors.white),
+                        ),
+                      if (queue.contains(title))
+                        const Positioned(
+                          left: 8,
+                          top: 8,
+                          child: Icon(Icons.playlist_play, color: Colors.white),
+                        ),
+                    ],
                   ),
-                if (queue.contains(title))
-                  const Positioned(
-                    left: 8,
-                    top: 8,
-                    child: Icon(Icons.playlist_play, color: Colors.white),
+                ),
+                SizedBox(
+                  height: 82,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Tooltip(
+                            message: title.title(preferences.english),
+                            child: Text(
+                              title.title(preferences.english),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        TitleMetadata(
+                          title: title,
+                          english: preferences.english,
+                        ),
+                      ],
+                    ),
                   ),
+                ),
               ],
             ),
           ),
-          SizedBox(
-            height: 82,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Tooltip(
-                      message: title.title(preferences.english),
-                      child: Text(
-                        title.title(preferences.english),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                  TitleMetadata(title: title, english: preferences.english),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
   );
 
   Future<void> searchSources() async {
@@ -2021,67 +2250,96 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                LayoutBuilder(
-                  builder: (context, bounds) {
-                    final description = Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title.title(preferences.english),
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          [
-                            if (title.year != null) '${title.year}',
-                            if (title.rating != null)
-                              '★ ${title.rating!.toStringAsFixed(1)}',
-                            if (title.genres != null) title.genres!,
-                          ].join(' · '),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(title.synopsis(preferences.english)),
-                        if (title.trailer != null) ...[
-                          const SizedBox(height: 12),
-                          button(
-                            'trailer',
-                            tr('Трейлер', 'Trailer'),
-                            () => unawaited(watchTrailer(title)),
-                            icon: Icons.movie_outlined,
-                          ),
-                        ],
-                      ],
-                    );
-                    if (title.poster == null || bounds.maxWidth < 480) {
-                      return description;
-                    }
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: 150,
-                          height: 225,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: CachedPoster(
-                              uri: title.poster!,
-                              fallback: title.posterFallback,
-                              cache: widget.posterCache,
-                              decodeWidth: budget.posterWidth,
-                              placeholder: const Icon(Icons.movie_outlined),
+                if (widget.runtime.tv)
+                  TvEntrance(
+                    key: ValueKey('hero-${title.kind.name}-${title.id}'),
+                    child: TvDetailHero(
+                      title: title,
+                      english: preferences.english,
+                      cache: widget.posterCache,
+                      focus: remote,
+                      trailer: title.trailer == null
+                          ? null
+                          : button(
+                              'trailer',
+                              tr('Трейлер', 'Trailer'),
+                              () => unawaited(watchTrailer(title)),
+                              icon: Icons.play_circle_outline_rounded,
+                            ),
+                    ),
+                  )
+                else
+                  LayoutBuilder(
+                    builder: (context, bounds) {
+                      final description = Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title.title(preferences.english),
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 24),
-                        Expanded(child: description),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
+                          const SizedBox(height: 10),
+                          Text(
+                            [
+                              if (title.year != null) '${title.year}',
+                              if (title.rating != null)
+                                '★ ${title.rating!.toStringAsFixed(1)}',
+                              if (title.genres != null) title.genres!,
+                            ].join(' · '),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(title.synopsis(preferences.english)),
+                          if (title.trailer != null) ...[
+                            const SizedBox(height: 12),
+                            button(
+                              'trailer',
+                              tr('Трейлер', 'Trailer'),
+                              () => unawaited(watchTrailer(title)),
+                              icon: Icons.movie_outlined,
+                            ),
+                          ],
+                        ],
+                      );
+                      if (title.poster == null || bounds.maxWidth < 480) {
+                        return description;
+                      }
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 150,
+                            height: 225,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: CachedPoster(
+                                uri: title.poster!,
+                                fallback: title.posterFallback,
+                                cache: widget.posterCache,
+                                decodeWidth: budget.posterWidth,
+                                placeholder: const Icon(Icons.movie_outlined),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(child: description),
+                        ],
+                      );
+                    },
+                  ),
+                const SizedBox(height: 20),
+                if (widget.runtime.tv) ...[
+                  Text(
+                    tr('Варианты просмотра', 'Ways to watch'),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -2185,12 +2443,20 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            button(
-              'settings-back',
-              tr('Назад', 'Back'),
-              () => unawaited(back()),
-              icon: Icons.arrow_back,
-            ),
+            if (widget.runtime.tv)
+              TvBackButton(
+                id: 'settings-back',
+                focus: remote,
+                label: tr('Назад', 'Back'),
+                onPressed: back,
+              )
+            else
+              button(
+                'settings-back',
+                tr('Назад', 'Back'),
+                () => unawaited(back()),
+                icon: Icons.arrow_back,
+              ),
             const SizedBox(width: 16),
             Expanded(
               child: Text(
@@ -2243,6 +2509,44 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                               ),
                             ),
                           ),
+                          if (widget.runtime.tv)
+                            button(
+                              'animations',
+                              preferences.tvAnimations
+                                  ? tr('Анимации: вкл.', 'Animations: on')
+                                  : tr('Анимации: выкл.', 'Animations: off'),
+                              () => unawaited(
+                                save(
+                                  preferences.copyWith(
+                                    tvAnimations: !preferences.tvAnimations,
+                                  ),
+                                ),
+                              ),
+                              icon: preferences.tvAnimations
+                                  ? Icons.motion_photos_on_rounded
+                                  : Icons.motion_photos_off_rounded,
+                              selected: preferences.tvAnimations,
+                            ),
+                          if (widget.runtime.tv)
+                            button(
+                              'sidebar-collapse',
+                              tr(
+                                'Свернуть левую панель',
+                                'Collapse left sidebar',
+                              ),
+                              () => unawaited(
+                                save(
+                                  preferences.copyWith(
+                                    sidebarCollapsed:
+                                        !preferences.sidebarCollapsed,
+                                  ),
+                                ),
+                              ),
+                              icon: preferences.sidebarCollapsed
+                                  ? Icons.check_box_rounded
+                                  : Icons.check_box_outline_blank_rounded,
+                              selected: preferences.sidebarCollapsed,
+                            ),
                           button(
                             'appearance',
                             tr('Сменить тему', 'Change theme'),

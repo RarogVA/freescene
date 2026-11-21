@@ -71,12 +71,21 @@ class WatchedController extends ChangeNotifier {
     }
   }
 
+  Future<void> markTitle(CatalogTitle title) async {
+    if (titleWatched(title) || title.kind == CatalogKind.games) return;
+    final key = jsonEncode([title.kind.name, title.id]);
+    await _set({'watchedTitle': key, 'watchedSource': key}, true);
+  }
+
   Future<void> toggle(CatalogTitle title, CatalogSource source) async {
     final identity = watchedIdentity(title, source);
     if (identity.isEmpty) return;
+    await _set(identity, !sourceWatched(title, source));
+  }
+
+  Future<void> _set(Map<String, String> identity, bool marked) async {
     final sourceKey = identity['watchedSource']!;
     if (!_saving.add(sourceKey)) return;
-    final marked = !sourceWatched(title, source);
     ++_revision;
     try {
       await channel.invokeMethod<void>('setWatched', {

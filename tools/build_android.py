@@ -23,8 +23,12 @@ def main():
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument('--preview', action='store_true')
     modes.add_argument('--release', action='store_true')
+    parser.add_argument('--isolated-preview', action='store_true',
+                        help='Install a TV preview beside the regular app with a separate profile')
     parser.add_argument('--bundle', action='store_true', help='Build AAB instead of APKs')
     args = parser.parse_args()
+    if args.isolated_preview and (not args.preview or args.flavor != 'tv'):
+        parser.error('--isolated-preview requires --flavor tv --preview')
     if args.release and not (ROOT / 'android/key.properties').is_file():
         parser.error('Production signing requires android/key.properties; see docs/android.md')
     if args.bundle and not (args.release or args.preview):
@@ -37,11 +41,14 @@ def main():
         environment['ORG_GRADLE_PROJECT_localPreview'] = 'true'
     else:
         environment.pop('ORG_GRADLE_PROJECT_localPreview', None)
+    environment['ORG_GRADLE_PROJECT_isolatedPreview'] = str(args.isolated_preview).lower()
     subprocess.run([sys.executable, str(ROOT / 'tools/build_android_engine.py')], cwd=ROOT, check=True)
     subprocess.run([sys.executable, str(ROOT / 'tools/build_android_audio.py')], cwd=ROOT, check=True)
     mode = 'release' if args.release or args.preview else 'debug'
     command = ['flutter', 'build', 'appbundle' if args.bundle else 'apk',
                '--flavor', args.flavor, '--' + mode]
+    if args.isolated_preview:
+        command += ['--dart-define=FREESCENE_PREVIEW=true']
     if not args.bundle:
         command += ['--split-per-abi', '--target-platform', 'android-arm,android-arm64']
     subprocess.run(command, cwd=ROOT, env=environment, check=True)
@@ -70,6 +77,7 @@ def main():
                           'sha256': hashlib.sha256(path.read_bytes()).hexdigest()})
     shutil.copy2(ROOT / 'build/android-audio/FreeScene-android-audio-sources.tar.gz', output)
     report = {'flavor': args.flavor, 'mode': mode, 'localPreview': args.preview,
+              'isolatedPreview': args.isolated_preview,
               'productionSigningConfigured': (ROOT / 'android/key.properties').is_file(),
               'artifacts': artifacts}
     (output / 'build-result.json').write_text(json.dumps(report, indent=2) + '\n')

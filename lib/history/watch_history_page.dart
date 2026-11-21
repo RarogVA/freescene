@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../android/remote_focus.dart';
+import '../android/tv_widgets.dart';
 import '../catalog/source_format.dart';
 import '../domain/provider_display.dart';
 import 'watch_history.dart';
@@ -121,10 +122,20 @@ class WatchHistoryPageState extends State<WatchHistoryPage> {
       ],
     );
     if (widget.remote != null) {
+      if (tv && id == 'history-back') {
+        return TvBackButton(
+          key: ValueKey(id),
+          id: id,
+          focus: widget.remote!,
+          label: label,
+          onPressed: onPressed,
+        );
+      }
       return RemoteButton(
         key: ValueKey(id),
         id: id,
         focus: widget.remote!,
+        radius: tv ? 24 : 12,
         onPressed: onPressed,
         child: child,
       );
@@ -318,6 +329,7 @@ class WatchHistoryPageState extends State<WatchHistoryPage> {
         key: ValueKey('history-row-${entry.id}'),
         id: 'history-row-${entry.id}',
         focus: widget.remote!,
+        radius: tv ? 22 : 12,
         selected: selected.contains(entry.id),
         onPressed: widget.controller.removing || opening != null
             ? null

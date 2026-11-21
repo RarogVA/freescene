@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../settings/license_document.dart';
 import 'android_runtime.dart';
+import 'tv_widgets.dart';
 
 /// Metadata only; the native layer verifies and retains the downloaded APK.
 class AndroidUpdates {
@@ -104,10 +105,12 @@ class _AndroidAboutDialogState extends State<AndroidAboutDialog> {
     key: ValueKey('android-about-$id'),
     focusNode: primary ? primaryAction : null,
     autofocus: widget.tv && primary,
-    style: FilledButton.styleFrom(
-      minimumSize: const Size(0, 64),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    ),
+    style: widget.tv
+        ? null
+        : FilledButton.styleFrom(
+            minimumSize: const Size(0, 64),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
     onPressed: busy ? null : run,
     child: Text(label, textAlign: TextAlign.center),
   );
@@ -188,7 +191,9 @@ class _AndroidAboutDialogState extends State<AndroidAboutDialog> {
       ),
     ];
     return AlertDialog(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: widget.tv
+          ? null
+          : Theme.of(context).scaffoldBackgroundColor,
       scrollable: true,
       title: Row(
         children: [
@@ -215,7 +220,13 @@ class _AndroidAboutDialogState extends State<AndroidAboutDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset('assets/branding/app-icon.png', width: 64, height: 64),
+            widget.tv
+                ? const TvBrandIcon(size: 64)
+                : Image.asset(
+                    'assets/branding/app-icon.png',
+                    width: 64,
+                    height: 64,
+                  ),
             const SizedBox(height: 8),
             Text(
               'FreeScene',

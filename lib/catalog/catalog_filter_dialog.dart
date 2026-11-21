@@ -6,11 +6,12 @@ class CatalogFilterDialog extends StatefulWidget {
   const CatalogFilterDialog({
     required this.initial,
     required this.english,
+    this.tv = false,
     this.kind = CatalogKind.movies,
     super.key,
   });
   final CatalogFilter initial;
-  final bool english;
+  final bool english, tv;
   final CatalogKind kind;
   @override
   State<CatalogFilterDialog> createState() => _CatalogFilterDialogState();
@@ -79,16 +80,70 @@ class _CatalogFilterDialogState extends State<CatalogFilterDialog> {
     );
   }
 
+  Widget yearField(String key, String label, TextEditingController value) {
+    if (!widget.tv) {
+      return TextField(
+        key: ValueKey(key),
+        controller: value,
+        keyboardType: TextInputType.number,
+        decoration: InputDecoration(labelText: label),
+      );
+    }
+    return OutlinedButton(
+      key: ValueKey(key),
+      onPressed: () async {
+        var draft = value.text;
+        final result = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            scrollable: true,
+            title: Text(label),
+            content: TextFormField(
+              initialValue: draft,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              onChanged: (v) => draft = v,
+              onFieldSubmitted: (v) => Navigator.pop(ctx, v),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(tr('Отмена', 'Cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, draft),
+                child: Text(tr('Готово', 'Done')),
+              ),
+            ],
+          ),
+        );
+        if (mounted && result != null) setState(() => value.text = result);
+      },
+      child: Text('$label · ${value.text.isEmpty ? '—' : value.text}'),
+    );
+  }
+
   Widget options(
     String title,
     String? value,
     List<FilterOption> choices,
-    ValueChanged<String?> change,
-  ) => DropdownButtonFormField<String>(
-    initialValue: choices.any((c) => c.id == value) ? value : null,
+    ValueChanged<String?> change, {
+    bool countryPicker = false,
+  }) => DropdownButtonFormField<String>(
+    initialValue:
+        (countryPicker && value == CatalogFilter.outsideFourCountries) ||
+            choices.any((c) => c.id == value)
+        ? value
+        : null,
     isExpanded: true,
     decoration: InputDecoration(labelText: title),
     items: [
+      if (countryPicker)
+        DropdownMenuItem(
+          value: CatalogFilter.outsideFourCountries,
+          child: Text(tr('Не Россия', 'Exclude Russia and selected countries')),
+        ),
       DropdownMenuItem(value: null, child: Text(tr('Все', 'Any'))),
       for (final c in choices)
         DropdownMenuItem(
@@ -138,6 +193,7 @@ class _CatalogFilterDialogState extends State<CatalogFilterDialog> {
                       country,
                       loaded!.countries,
                       (v) => setState(() => country = v),
+                      countryPicker: widget.tv,
                     ),
                 ],
               );
@@ -147,23 +203,18 @@ class _CatalogFilterDialogState extends State<CatalogFilterDialog> {
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  key: const ValueKey('filter-year'),
-                  controller: year,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: tr('Год / от', 'Year / from'),
-                  ),
+                child: yearField(
+                  'filter-year',
+                  tr('Год / от', 'Year / from'),
+                  year,
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: TextField(
-                  controller: yearTo,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: tr('До (необязательно)', 'To (optional)'),
-                  ),
+                child: yearField(
+                  'filter-year-to',
+                  tr('До (необязательно)', 'To (optional)'),
+                  yearTo,
                 ),
               ),
             ],

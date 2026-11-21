@@ -8,7 +8,7 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <application
-        android:label="FreeScene"
+        android:label="${applicationLabel}"
         android:name="${applicationName}"
         android:allowBackup="false"
         android:usesCleartextTraffic="false"

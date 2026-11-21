@@ -12,6 +12,7 @@ class Preferences {
     this.appearance = AppAppearance.dark,
     this.scale = 100,
     this.sidebarCollapsed = false,
+    this.tvAnimations = true,
     Set<NotificationEvent>? notifications,
     Set<SourceProvider>? providers,
   }) : assert([100, 125, 150].contains(scale)),
@@ -24,6 +25,7 @@ class Preferences {
   final AppAppearance appearance;
   final int scale;
   final bool sidebarCollapsed;
+  final bool tvAnimations;
   final Set<NotificationEvent> notifications;
   static Set<SourceProvider> get defaultProviders => SourceProvider.values
       .where((p) => p.descriptor?.enabledByDefault == true)
@@ -38,6 +40,7 @@ class Preferences {
     AppAppearance? appearance,
     int? scale,
     bool? sidebarCollapsed,
+    bool? tvAnimations,
     Set<NotificationEvent>? notifications,
     Set<SourceProvider>? providers,
   }) => Preferences(
@@ -45,6 +48,7 @@ class Preferences {
     appearance: appearance ?? this.appearance,
     scale: scale ?? this.scale,
     sidebarCollapsed: sidebarCollapsed ?? this.sidebarCollapsed,
+    tvAnimations: tvAnimations ?? this.tvAnimations,
     notifications: notifications ?? this.notifications,
     providers: providers ?? this.providers,
   );
@@ -55,6 +59,7 @@ class Preferences {
     'appearance': appearance.name,
     'scale': scale,
     'sidebarCollapsed': sidebarCollapsed,
+    'tvAnimations': tvAnimations,
     'providers': [for (final provider in providers) provider.name],
     'notifications': {
       for (final event in NotificationEvent.values)
@@ -83,6 +88,10 @@ class Preferences {
     final sidebarCollapsed = json['sidebarCollapsed'] ?? false;
     if (sidebarCollapsed is! bool) {
       throw const FormatException('Invalid sidebar preference');
+    }
+    final tvAnimations = json['tvAnimations'] ?? true;
+    if (tvAnimations is! bool) {
+      throw const FormatException('Invalid TV animation preference');
     }
     final savedProviders = json['providers'];
     if (savedProviders != null &&
@@ -116,6 +125,7 @@ class Preferences {
       appearance: appearance,
       scale: scale,
       sidebarCollapsed: sidebarCollapsed,
+      tvAnimations: tvAnimations,
       providers: savedProviders == null
           ? null
           : {

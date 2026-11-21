@@ -320,7 +320,7 @@ class _RemoteButtonState extends State<RemoteButton> {
     final colors = Theme.of(context).colorScheme;
     final outlineOnly =
         Theme.of(context).extension<RemoteFocusStyle>()?.outlineOnly ?? false;
-    return OutlinedButton(
+    final button = OutlinedButton(
       key: ValueKey('remote-${widget.id}'),
       focusNode: node,
       onPressed: widget.onPressed,
@@ -346,6 +346,8 @@ class _RemoteButtonState extends State<RemoteButton> {
                       : colors.secondaryContainer)
             : widget.tile
             ? colors.surfaceContainer
+            : widget.flat && widget.focus.enabled
+            ? Colors.transparent
             : null,
         foregroundColor: focused && !widget.tile && !outlineOnly
             ? colors.onPrimary
@@ -379,6 +381,14 @@ class _RemoteButtonState extends State<RemoteButton> {
               child: widget.child,
             )
           : widget.child,
+    );
+    if (!widget.focus.enabled) return button;
+    final animate = !MediaQuery.disableAnimationsOf(context);
+    return AnimatedScale(
+      scale: focused && widget.tile && animate ? 1.035 : 1,
+      duration: animate ? const Duration(milliseconds: 180) : Duration.zero,
+      curve: Curves.easeOutCubic,
+      child: button,
     );
   }
 }
