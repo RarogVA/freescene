@@ -1,6 +1,47 @@
 #import <Cocoa/Cocoa.h>
 #import "FSReleaseUpdater.h"
 
+// Native utility actions use the same 44-point pills as Flutter controls.
+@interface FSAboutActionButton : NSButton
+@property NSString *symbolName;
+@property NSTrackingArea *hoverTracking;
+@property BOOL hovered;
+@end
+@implementation FSAboutActionButton
+- (instancetype)initWithFrame:(NSRect)frame {
+    if((self=[super initWithFrame:frame])) {
+        self.bordered=NO;self.focusRingType=NSFocusRingTypeNone;
+        self.font=FSFont(13);self.buttonType=NSButtonTypeMomentaryPushIn;
+    }
+    return self;
+}
+- (void)updateTrackingAreas {
+    [super updateTrackingAreas];
+    if(self.hoverTracking)[self removeTrackingArea:self.hoverTracking];
+    self.hoverTracking=[[NSTrackingArea alloc] initWithRect:self.bounds options:NSTrackingMouseEnteredAndExited|NSTrackingActiveInKeyWindow|NSTrackingInVisibleRect owner:self userInfo:nil];
+    [self addTrackingArea:self.hoverTracking];
+}
+- (void)mouseEntered:(NSEvent *)event {self.hovered=YES;self.needsDisplay=YES;}
+- (void)mouseExited:(NSEvent *)event {self.hovered=NO;self.needsDisplay=YES;}
+- (void)drawRect:(NSRect)dirty {
+    NSColor *text=FSThemeText(fsDark);
+    NSColor *fill=FSThemeRaised(fsDark);
+    BOOL focus=self.window.firstResponder==self;
+    if(self.enabled && (self.hovered || self.highlighted || focus))fill=[fill blendedColorWithFraction:0.16 ofColor:FSThemeAccent(fsDark)];
+    if(!self.enabled)text=[text colorWithAlphaComponent:0.4];
+    NSBezierPath *pill=[NSBezierPath bezierPathWithRoundedRect:NSInsetRect(self.bounds,1,1) xRadius:22 yRadius:22];
+    [fill setFill];[pill fill];
+    [(focus ? FSThemeAccent(fsDark) : [text colorWithAlphaComponent:0.22]) setStroke];pill.lineWidth=focus ? 3 : 1;[pill stroke];
+    NSDictionary *attributes=@{NSFontAttributeName:self.font,NSForegroundColorAttributeName:text};
+    NSSize size=[self.title sizeWithAttributes:attributes];
+    CGFloat x=(self.bounds.size.width-size.width-28)/2;
+    NSImageSymbolConfiguration *config=[[NSImageSymbolConfiguration configurationWithPointSize:18 weight:NSFontWeightRegular] configurationByApplyingConfiguration:[NSImageSymbolConfiguration configurationWithPaletteColors:@[text]]];
+    NSImage *icon=[[NSImage imageWithSystemSymbolName:self.symbolName accessibilityDescription:nil] imageWithSymbolConfiguration:config];
+    [icon drawInRect:NSMakeRect(x,(self.bounds.size.height-20)/2,20,20)];
+    [self.title drawAtPoint:NSMakePoint(x+28,(self.bounds.size.height-size.height)/2) withAttributes:attributes];
+}
+@end
+
 // Native About window with anonymous updates and open-source notices.
 @interface FSAboutWindow : NSObject <NSWindowDelegate>
 @property NSWindow *window;
@@ -40,8 +81,8 @@
         NSArray *labels=@[@"FreeScene",[NSString stringWithFormat:@"%@ %@",fsEnglish ? @"Version" : @"Версия",version],@"FreeScene - портал для Вашего удобства!"];
         CGFloat y=246;
         for(NSUInteger i=0;i<labels.count;++i) { NSTextField *label=[NSTextField labelWithString:labels[i]]; label.font=FSFont(i==0?26:14); label.alignment=NSTextAlignmentCenter; label.frame=NSMakeRect(20,y,500,30); label.tag=10+i; [self.window.contentView addSubview:label]; y-=32; }
-        self.checkButton=[NSButton buttonWithTitle:@"" target:self action:@selector(check:)]; self.checkButton.bezelStyle=NSBezelStyleRounded; self.checkButton.font=FSFont(13); self.checkButton.frame=NSMakeRect(120,90,300,30); [self.window.contentView addSubview:self.checkButton];
-        self.licensesButton=[NSButton buttonWithTitle:@"" target:self action:@selector(licenses:)]; self.licensesButton.bezelStyle=NSBezelStyleRounded; self.licensesButton.font=FSFont(13); self.licensesButton.frame=NSMakeRect(120,52,300,30); [self.window.contentView addSubview:self.licensesButton];
+        self.checkButton=[[FSAboutActionButton alloc] initWithFrame:NSMakeRect(120,70,300,44)]; self.checkButton.target=self;self.checkButton.action=@selector(check:);((FSAboutActionButton *)self.checkButton).symbolName=@"arrow.triangle.2.circlepath"; [self.window.contentView addSubview:self.checkButton];
+        self.licensesButton=[[FSAboutActionButton alloc] initWithFrame:NSMakeRect(120,18,300,44)];self.licensesButton.target=self;self.licensesButton.action=@selector(licenses:);((FSAboutActionButton *)self.licensesButton).symbolName=@"doc.text"; [self.window.contentView addSubview:self.licensesButton];
         // Keep both regions allocated even while idle; only their contents change.
         self.progress=[[NSProgressIndicator alloc] initWithFrame:NSMakeRect(120,166,300,6)];
         self.progress.style=NSProgressIndicatorStyleBar;self.progress.minValue=0;self.progress.maxValue=1;
@@ -65,6 +106,7 @@
     [self updateControls];
     NSString *licensesTitle=fsEnglish ? @"Open-source licences" : @"Лицензии открытого ПО";
     self.licensesButton.title=licensesTitle;
+    self.checkButton.needsDisplay=YES;self.licensesButton.needsDisplay=YES;
     self.licensesWindow.title=licensesTitle;
     self.licensesWindow.appearance=[NSAppearance appearanceNamed:fsDark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
     self.licensesWindow.backgroundColor=FSThemeBackground(fsDark);

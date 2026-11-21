@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'navigation/back_swipe_guard.dart';
+import 'navigation/catalog_section_swipe.dart';
 import 'domain/notifications.dart';
 import 'settings/preferences.dart';
 import 'torrent/native_torrent.dart';
@@ -23,6 +24,7 @@ import 'settings/license_document.dart';
 import 'theme/freescene_theme.dart';
 import 'widgets/catalog_style.dart';
 import 'widgets/desktop_controls.dart';
+import 'widgets/voice_search_dialog.dart';
 import 'widgets/release_changelog.dart';
 import 'catalog/catalog_models.dart';
 import 'catalog/catalog_controller.dart';
@@ -276,6 +278,31 @@ class _FreeSceneAppState extends State<FreeSceneApp>
 
   String text(String ru, String en) => _preferences.english ? en : ru;
 
+  static const _voiceChannel = MethodChannel('freescene/desktop_voice');
+  static final _voiceEvents = const EventChannel(
+    'freescene/desktop_voice/events',
+  ).receiveBroadcastStream();
+  Future<void> _voiceSearch() async {
+    final query = await showDialog<String>(
+      context: _navigator.currentContext!,
+      animationStyle: _preferences.tvAnimations
+          ? null
+          : AnimationStyle.noAnimation,
+      builder: (_) => VoiceSearchDialog(
+        english: _preferences.english,
+        desktop: true,
+        listen: () => _voiceChannel.invokeMethod<String>('voiceListen', {
+          'language': _preferences.english ? 'en-US' : 'ru-RU',
+        }),
+        cancel: () => _voiceChannel.invokeMethod<void>('voiceCancel'),
+        events: _voiceEvents,
+      ),
+    );
+    if (!mounted || query == null || query.isEmpty) return;
+    _search.text = query;
+    _searchChanged(query, immediate: true);
+  }
+
   Widget _catalogSwitch() => CatalogKindSwitch(
     key: const ValueKey('catalog-kind-switch'),
     value: switch (_lastCatalogPage) {
@@ -284,12 +311,14 @@ class _FreeSceneAppState extends State<FreeSceneApp>
       _ => CatalogKind.movies,
     },
     english: _preferences.english,
-    onChanged: (kind) => _selectPage(switch (kind) {
-      CatalogKind.movies => _Page.movies,
-      CatalogKind.series => _Page.series,
-      CatalogKind.games => _Page.games,
-    }),
+    onChanged: _selectKind,
   );
+
+  void _selectKind(CatalogKind kind) => _selectPage(switch (kind) {
+    CatalogKind.movies => _Page.movies,
+    CatalogKind.series => _Page.series,
+    CatalogKind.games => _Page.games,
+  });
 
   CatalogKind? get _catalogKind => switch (_page) {
     _Page.movies => CatalogKind.movies,
@@ -390,6 +419,15 @@ class _FreeSceneAppState extends State<FreeSceneApp>
         BackSwipeGuard.blocks(point)) {
       return false;
     }
+    final direction = arguments['direction'];
+    if (direction == -1 || direction == 1) {
+      if (_catalogKind != null &&
+          _catalog?.selected == null &&
+          CatalogSectionSwipe.handleNative(point, direction as int)) {
+        return true;
+      }
+      if (direction == 1) return false;
+    }
     if (_catalogKind != null && _catalog?.selected != null) {
       _catalog!.back();
       return true;
@@ -449,7 +487,7 @@ class _FreeSceneAppState extends State<FreeSceneApp>
           !_showFavorites &&
           !_showQueue;
       final active = enabled && _catalog!.filter.active;
-      return DesktopActionButton(
+      return DesktopSearchAction(
         key: const ValueKey('catalog-filter'),
         label: text('Фильтр', 'Filter'),
         selected: active,
@@ -857,6 +895,7 @@ class _FreeSceneAppState extends State<FreeSceneApp>
                               controller: _catalog!,
                               english: _preferences.english,
                               kindSwitch: _catalogSwitch(),
+                              onKindChanged: _selectKind,
                               searchControls: (refresh) => DesktopSearchField(
                                 key: const ValueKey('catalog-search-pill'),
                                 fieldKey: const ValueKey('catalog-search'),
@@ -870,7 +909,19 @@ class _FreeSceneAppState extends State<FreeSceneApp>
                                   'Clear search',
                                 ),
                                 expandedWidth: 480,
-                                trailing: [_catalogFilterButton(), refresh],
+                                trailing: [
+                                  DesktopSearchAction(
+                                    key: const ValueKey('catalog-voice'),
+                                    icon: Icons.mic_none_rounded,
+                                    label: text(
+                                      'Голосовой поиск',
+                                      'Voice search',
+                                    ),
+                                    onPressed: _voiceSearch,
+                                  ),
+                                  _catalogFilterButton(),
+                                  refresh,
+                                ],
                                 onChanged: _searchChanged,
                                 onCleared: () =>
                                     _searchChanged('', immediate: true),
@@ -997,28 +1048,21 @@ class _FreeSceneAppState extends State<FreeSceneApp>
     children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-        child: Row(
+        child: DesktopPageHeader(
           key: const ValueKey('settings-header'),
-          children: [
-            DesktopActionButton(
-              key: const ValueKey('settings-back'),
-              label: text('Назад к каталогу', 'Back to catalogue'),
-              onPressed: () => _selectPage(_lastCatalogPage),
-              icon: Icons.arrow_back_rounded,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                text('Настройки', 'Settings'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
+          leading: DesktopActionButton(
+            key: const ValueKey('settings-back'),
+            label: text('Назад', 'Back'),
+            onPressed: () => _selectPage(_lastCatalogPage),
+            icon: Icons.arrow_back_rounded,
+          ),
+          title: Text(
+            text('Настройки', 'Settings'),
+            key: const ValueKey('settings-title'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600),
+          ),
         ),
       ),
       Expanded(child: _settingsContent()),
@@ -1089,44 +1133,32 @@ class _FreeSceneAppState extends State<FreeSceneApp>
                     ),
                     _settingControl(
                       text('Анимации', 'Animations'),
-                      RadioGroup<bool>(
-                        groupValue: _preferences.tvAnimations,
-                        onChanged: (value) {
-                          if (value != null) {
-                            _update(_preferences.copyWith(tvAnimations: value));
-                          }
-                        },
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            for (final enabled in [true, false])
-                              InkWell(
-                                key: ValueKey('settings-animations-$enabled'),
-                                borderRadius: BorderRadius.circular(24),
-                                onTap: () => _update(
-                                  _preferences.copyWith(tvAnimations: enabled),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Radio<bool>(value: enabled),
-                                    Text(
-                                      enabled
-                                          ? text(
-                                              'Включить анимации',
-                                              'Enable animations',
-                                            )
-                                          : text(
-                                              'Отключить анимации',
-                                              'Disable animations',
-                                            ),
+                      SegmentedButton<bool>(
+                        key: const ValueKey('settings-animations'),
+                        segments: [
+                          for (final enabled in [true, false])
+                            ButtonSegment(
+                              value: enabled,
+                              tooltip: enabled
+                                  ? text(
+                                      'Включить анимации',
+                                      'Enable animations',
+                                    )
+                                  : text(
+                                      'Отключить анимации',
+                                      'Disable animations',
                                     ),
-                                    const SizedBox(width: 12),
-                                  ],
-                                ),
+                              label: Text(
+                                enabled
+                                    ? text('Вкл.', 'On')
+                                    : text('Выкл.', 'Off'),
+                                key: ValueKey('settings-animations-$enabled'),
                               ),
-                          ],
+                            ),
+                        ],
+                        selected: {_preferences.tvAnimations},
+                        onSelectionChanged: (value) => _update(
+                          _preferences.copyWith(tvAnimations: value.single),
                         ),
                       ),
                     ),

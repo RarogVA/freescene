@@ -109,6 +109,19 @@ int main(void) { @autoreleasepool {
     event.timestamp+=1;event.deltaY=1;
     check(![recognizer observe:event],"discrete diagonal ignored");
 
+    recognizer=[FSSwipeBackRecognizer new];recognizer.bidirectional=YES;
+    event=fixture();
+    check(gesture(recognizer,event,120,0) && recognizer.navigationDirection==1,"leftward gesture selects next catalogue section");
+    check(gesture(recognizer,event,-120,0) && recognizer.navigationDirection==-1,"rightward gesture selects previous section");
+    event.inverted=YES;
+    check(gesture(recognizer,event,-120,0) && recognizer.navigationDirection==1,"next section honors natural scrolling");
+    check(gesture(recognizer,event,120,0) && recognizer.navigationDirection==-1,"previous section honors natural scrolling");
+    event.inverted=NO;event.timestamp+=1;
+    send(recognizer,event,NSEventPhaseBegan,100,0);send(recognizer,event,NSEventPhaseChanged,-60,0);
+    check(!send(recognizer,event,NSEventPhaseEnded,80,0),"reversal cancels forward navigation");
+    event.type=NSEventTypeSwipe;event.timestamp+=1;event.deltaX=1;event.deltaY=0;
+    check([recognizer observe:event] && recognizer.navigationDirection==1,"discrete leftward swipe selects next section");
+
     // Real Cocoa events exercise the public AppKit phase/delta mapping rather
     // than relying exclusively on test doubles. No CGEvent is posted.
     recognizer=[FSSwipeBackRecognizer new];
@@ -135,6 +148,7 @@ int main(void) { @autoreleasepool {
         [navigation observe:event];event.timestamp+=0.1;event.phase=NSEventPhaseEnded;event.scrollingDeltaX=0;[navigation observe:event];
     };
     navigate();check(navigations==1,"main window forwards one native back event");
+    check([point[@"direction"] integerValue]==-1,"coordinator forwards physical navigation direction");
     check([point[@"x"] doubleValue]==50 && [point[@"y"] doubleValue]==200,"unflipped Cocoa point converts to top-left Flutter coordinates");
     view.fixtureFlipped=YES;navigate();
     check([point[@"x"] doubleValue]==50 && [point[@"y"] doubleValue]==100,"flipped Flutter view point is not inverted twice");

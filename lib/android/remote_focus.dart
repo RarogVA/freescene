@@ -78,7 +78,8 @@ class RemoteDialogTraversalPolicy extends FocusTraversalPolicy {
 /// Stable identities survive page rebuilds; disposed controls are never focused.
 /// The view owns nodes, while this registry owns only references to live nodes.
 class RemoteFocus {
-  RemoteFocus({this.enabled = true});
+  RemoteFocus({this.enabled = true, this.onSelected});
+  final ValueChanged<String>? onSelected;
 
   /// Phones use normal touch/keyboard focus, without TV restoration or scrolling.
   final bool enabled;
@@ -92,7 +93,11 @@ class RemoteFocus {
     if (_nodes[id] == node) _nodes.remove(id);
   }
 
-  void selected(String id) => last = id;
+  void selected(String id) {
+    last = id;
+    onSelected?.call(id);
+  }
+
   void restore(String? id, {String fallback = 'home'}) {
     if (!enabled) return;
     final generation = ++_generation;
@@ -430,7 +435,7 @@ class _RemoteButtonState extends State<RemoteButton> {
             ? widget.selectedBackground ??
                   (widget.segment
                       ? colors.primary.withValues(alpha: 0.9)
-                      : colors.secondaryContainer)
+                      : colors.primaryContainer)
             : widget.tile
             ? colors.surfaceContainer
             : widget.flat
@@ -440,7 +445,7 @@ class _RemoteButtonState extends State<RemoteButton> {
             ? colors.onPrimary
             : widget.selected
             ? widget.selectedForeground ??
-                  (widget.segment ? colors.onPrimary : colors.onSurface)
+                  (widget.segment ? colors.onPrimary : colors.primary)
             : colors.onSurface,
         side: BorderSide(
           color: focused

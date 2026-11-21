@@ -2,6 +2,7 @@ import Cocoa
 import FlutterMacOS
 
 class MainFlutterWindow: NSWindow {
+  private var voiceInput: DesktopVoiceInput?
   private var pressureMonitor: Any?
   private var forceClickSent = false
 
@@ -19,6 +20,7 @@ class MainFlutterWindow: NSWindow {
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     FSNativeBridge.register(with: flutterViewController, window: self)
+    voiceInput = DesktopVoiceInput(messenger: flutterViewController.engine.binaryMessenger, window: self)
 
     // Flutter exposes secondary clicks, but AppKit owns Force Touch stages.
     let contextMenu = FlutterMethodChannel(

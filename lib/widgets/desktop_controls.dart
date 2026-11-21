@@ -34,6 +34,54 @@ class _DesktopActionButtonState extends State<DesktopActionButton> {
     final colors = Theme.of(context).colorScheme;
     final expanded =
         widget.alwaysExpanded || (widget.revealLabel && (hovered || focused));
+    final button = FilledButton(
+      onPressed: widget.onPressed,
+      onHover: (value) => setState(() => hovered = value),
+      onFocusChange: (value) => setState(() => focused = value),
+      style: FilledButton.styleFrom(
+        minimumSize: Size.square(widget.size),
+        maximumSize: Size(double.infinity, widget.size),
+        padding: EdgeInsets.symmetric(horizontal: (widget.size - 20) / 2),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.standard,
+        shape: const StadiumBorder(),
+        backgroundColor: widget.selected
+            ? colors.primaryContainer
+            : colors.surfaceContainerHigh,
+        foregroundColor: widget.selected ? colors.primary : colors.onSurface,
+        side: BorderSide(color: colors.outlineVariant.withValues(alpha: .65)),
+      ),
+      child: ExcludeSemantics(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            widget.glyph ?? Icon(widget.icon, size: 20),
+            Flexible(
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(end: expanded ? 1 : 0),
+                duration: motionDuration(context, 220),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, child) => ClipRect(
+                  child: Align(
+                    widthFactor: value,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: child,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.only(start: 8),
+                  child: Text(
+                    widget.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
     return Semantics(
       label: widget.label,
       button: true,
@@ -43,61 +91,9 @@ class _DesktopActionButtonState extends State<DesktopActionButton> {
       focused: focused,
       onTap: widget.onPressed,
       excludeSemantics: true,
-      child: Tooltip(
-        message: widget.label,
-        child: FilledButton(
-          onPressed: widget.onPressed,
-          onHover: (value) => setState(() => hovered = value),
-          onFocusChange: (value) => setState(() => focused = value),
-          style: FilledButton.styleFrom(
-            minimumSize: Size.square(widget.size),
-            maximumSize: Size(double.infinity, widget.size),
-            padding: EdgeInsets.symmetric(horizontal: (widget.size - 20) / 2),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.standard,
-            shape: const StadiumBorder(),
-            backgroundColor: widget.selected
-                ? colors.primaryContainer
-                : colors.surfaceContainerHigh,
-            foregroundColor: widget.selected
-                ? colors.onPrimaryContainer
-                : colors.onSurface,
-            side: BorderSide(
-              color: colors.outlineVariant.withValues(alpha: .65),
-            ),
-          ),
-          child: ExcludeSemantics(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                widget.glyph ?? Icon(widget.icon, size: 20),
-                Flexible(
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(end: expanded ? 1 : 0),
-                    duration: motionDuration(context, 220),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, child) => ClipRect(
-                      child: Align(
-                        widthFactor: value,
-                        alignment: AlignmentDirectional.centerStart,
-                        child: child,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsetsDirectional.only(start: 8),
-                      child: Text(
-                        widget.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      child: widget.revealLabel || widget.alwaysExpanded
+          ? button
+          : Tooltip(message: widget.label, child: button),
     );
   }
 }
@@ -205,8 +201,11 @@ class _DesktopSearchFieldState extends State<DesktopSearchField> {
                     onChanged: widget.onChanged,
                     onSubmitted: widget.onSubmitted,
                     textAlignVertical: TextAlignVertical.center,
+                    style: Theme.of(context).textTheme.bodyMedium,
                     decoration: InputDecoration(
                       hintText: widget.label,
+                      hintStyle: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(color: colors.onSurfaceVariant),
                       isDense: true,
                       filled: false,
                       border: InputBorder.none,
@@ -218,9 +217,12 @@ class _DesktopSearchFieldState extends State<DesktopSearchField> {
                         height: 42,
                       ),
                       prefixIcon: IconButton(
-                        tooltip: widget.label,
                         onPressed: focus.requestFocus,
-                        icon: const Icon(Icons.search_rounded, size: 20),
+                        icon: Icon(
+                          Icons.search_rounded,
+                          size: 20,
+                          semanticLabel: widget.label,
+                        ),
                       ),
                       suffixIcon: widget.controller.text.isEmpty
                           ? null
@@ -283,6 +285,107 @@ class DesktopPicker extends StatelessWidget {
           Expanded(child: DropdownButtonHideUnderline(child: child)),
         ],
       ),
+    );
+  }
+}
+
+/// Fixed side slots keep the page title anchored while actions reveal captions.
+class DesktopPageHeader extends StatelessWidget {
+  const DesktopPageHeader({
+    required this.leading,
+    required this.title,
+    this.trailing,
+    super.key,
+  });
+  final Widget leading, title;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, bounds) {
+      if (bounds.maxWidth < 620) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Align(alignment: Alignment.centerLeft, child: leading),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: trailing,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            title,
+          ],
+        );
+      }
+      final sideWidth = (bounds.maxWidth * .27).clamp(144.0, 220.0);
+      return Row(
+        children: [
+          SizedBox(
+            width: sideWidth,
+            child: Align(alignment: Alignment.centerLeft, child: leading),
+          ),
+          const SizedBox(width: 16),
+          Expanded(child: Center(child: title)),
+          const SizedBox(width: 16),
+          SizedBox(
+            width: sideWidth,
+            child: Align(alignment: Alignment.centerRight, child: trailing),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+/// Fixed-size controls inside a search pill: no caption expansion or idle border.
+class DesktopSearchAction extends StatelessWidget {
+  const DesktopSearchAction({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.selected = false,
+    super.key,
+  });
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final bool selected;
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    bool active(Set<WidgetState> states) =>
+        selected ||
+        states.contains(WidgetState.hovered) ||
+        states.contains(WidgetState.focused);
+    return IconButton(
+      onPressed: onPressed,
+      tooltip: label,
+      style:
+          IconButton.styleFrom(
+            fixedSize: const Size(40, 40),
+            minimumSize: const Size(40, 40),
+            padding: EdgeInsets.zero,
+            shape: const CircleBorder(),
+            side: BorderSide.none,
+          ).copyWith(
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (states) =>
+                  active(states) ? colors.primaryContainer : Colors.transparent,
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (states) => active(states) ? colors.primary : colors.onSurface,
+            ),
+          ),
+      icon: Icon(icon, size: 21),
     );
   }
 }

@@ -14,6 +14,7 @@ class WatchHistoryPage extends StatefulWidget {
     required this.english,
     required this.onBack,
     this.onPlay,
+    this.onOpenTitle,
     this.remote,
     this.mobile = false,
     super.key,
@@ -22,6 +23,7 @@ class WatchHistoryPage extends StatefulWidget {
   final bool english, mobile;
   final VoidCallback onBack;
   final Future<void> Function(WatchEntry)? onPlay;
+  final Future<void> Function(WatchEntry)? onOpenTitle;
   final RemoteFocus? remote;
   @override
   State<WatchHistoryPage> createState() => WatchHistoryPageState();
@@ -106,6 +108,68 @@ class WatchHistoryPageState extends State<WatchHistoryPage> {
           fallback: 'history-back',
         );
       }
+    }
+  }
+
+  Future<void> entryMenu(WatchEntry entry) async {
+    if (!tv ||
+        selecting ||
+        confirming ||
+        opening != null ||
+        widget.controller.removing) {
+      return;
+    }
+    setState(() => confirming = true);
+    final action = await showDialog<String>(
+      context: context,
+      animationStyle: MediaQuery.disableAnimationsOf(context)
+          ? AnimationStyle.noAnimation
+          : null,
+      builder: (context) => AlertDialog(
+        scrollable: true,
+        title: Text(entry.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+        content: SizedBox(
+          width: 310,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FilledButton.icon(
+                key: const ValueKey('history-menu-title'),
+                autofocus: entry.catalogTitle != null,
+                onPressed:
+                    entry.catalogTitle == null || widget.onOpenTitle == null
+                    ? null
+                    : () => Navigator.pop(context, 'title'),
+                icon: const Icon(Icons.movie_outlined),
+                label: Text(tr('Перейти к карточке', 'Open title')),
+              ),
+              const SizedBox(height: 6),
+              FilledButton.icon(
+                key: const ValueKey('history-menu-watch'),
+                autofocus: entry.catalogTitle == null,
+                onPressed: widget.onPlay == null
+                    ? null
+                    : () => Navigator.pop(context, 'watch'),
+                icon: const Icon(Icons.play_arrow_rounded),
+                label: Text(tr('Смотреть', 'Watch')),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    setState(() => confirming = false);
+    if (action == 'title') {
+      await widget.onOpenTitle?.call(entry);
+    } else if (action == 'watch') {
+      await activateEntry(entry);
+    } else {
+      widget.remote?.restore(
+        'history-row-${entry.id}',
+        fallback: 'history-back',
+      );
     }
   }
 
@@ -336,6 +400,10 @@ class WatchHistoryPageState extends State<WatchHistoryPage> {
         onPressed: widget.controller.removing || opening != null
             ? null
             : () => activateEntry(entry),
+        onLongPress:
+            tv && !selecting && !widget.controller.removing && opening == null
+            ? () => entryMenu(entry)
+            : null,
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.all(16),
         child: content,
@@ -355,6 +423,13 @@ class WatchHistoryPageState extends State<WatchHistoryPage> {
 
   Widget header(List<Widget> children) => LayoutBuilder(
     builder: (context, constraints) {
+      if (widget.remote == null) {
+        return DesktopPageHeader(
+          leading: children.first,
+          title: children[1],
+          trailing: children.last,
+        );
+      }
       if (constraints.maxWidth < 620) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,7 +477,11 @@ class WatchHistoryPageState extends State<WatchHistoryPage> {
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): () {
-          if (!exitSelection() && !confirming) widget.onBack();
+          if (ModalRoute.of(context)?.isCurrent == true &&
+              !exitSelection() &&
+              !confirming) {
+            widget.onBack();
+          }
         },
       },
       child: Padding(
@@ -422,6 +501,9 @@ class WatchHistoryPageState extends State<WatchHistoryPage> {
                 icon: Icons.arrow_back,
               ),
               Text(
+                key: const ValueKey('history-title'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 selecting
                     ? tr(
                         'Выбрано: ${selected.length}',

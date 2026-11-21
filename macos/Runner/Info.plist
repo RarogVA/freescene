@@ -28,6 +28,10 @@
 	<string>FreeScene сохраняет выбранные Вами загрузки в каталоге Downloads/FreeScene.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>FreeScene ищет доступных BitTorrent-пиров в локальной сети для выбранных загрузок.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>FreeScene использует микрофон только при запуске голосового поиска.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>FreeScene распознаёт название для поиска. Если распознавание на устройстве недоступно, аудио обрабатывается сервисом Apple.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>

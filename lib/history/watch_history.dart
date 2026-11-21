@@ -43,6 +43,23 @@ class WatchEntry {
   String? get quality => compactQuality(data['quality'] as String? ?? subtitle);
   int? get sizeBytes => data['sizeBytes'] as int?;
   int get watchedAt => data['watchedAt']! as int;
+  CatalogTitle? get catalogTitle {
+    final kind = switch (data['catalogKind']) {
+      'movies' => CatalogKind.movies,
+      'series' => CatalogKind.series,
+      _ => null,
+    };
+    final id = data['catalogId'] as String?;
+    if (kind == null || id == null) return null;
+    return CatalogTitle(
+      id: id,
+      kind: kind,
+      name: data['catalogName'] as String? ?? title,
+      englishName: data['catalogEnglishName'] as String?,
+      year: data['catalogYear'] as int?,
+    );
+  }
+
   Map<String, String> get watchedIdentity {
     final parts = [
       'catalogKind',

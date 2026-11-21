@@ -42,10 +42,10 @@ class SavedTitleButton extends StatelessWidget {
             : null,
         style: IconButton.styleFrom(
           fixedSize: const Size.square(38),
-          backgroundColor: overPoster
-              ? colors.surface.withValues(alpha: 0.94)
-              : null,
-          foregroundColor: colors.primary,
+          backgroundColor: selected
+              ? colors.primaryContainer
+              : colors.surface.withValues(alpha: 0.94),
+          foregroundColor: selected ? colors.primary : colors.onSurface,
           shape: const CircleBorder(),
           side: BorderSide(
             color: colors.primary.withValues(alpha: selected ? 0.8 : 0.35),

@@ -230,27 +230,30 @@ class PosterCardContent extends StatelessWidget {
                     right: 10,
                     bottom: 10,
                     child: _PosterBadge(
+                      accent: favorite || queued || marked,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (marked)
-                            const Icon(
+                            Icon(
                               Icons.visibility_outlined,
                               size: 16,
-                              color: Colors.white,
+                              color: colors.primary,
                             ),
+                          if (marked && (favorite || queued))
+                            const SizedBox(width: 6),
                           if (favorite)
-                            const Icon(
+                            Icon(
                               Icons.favorite,
                               size: 16,
-                              color: Colors.white,
+                              color: colors.primary,
                             ),
                           if (favorite && queued) const SizedBox(width: 6),
                           if (queued)
-                            const Icon(
+                            Icon(
                               Icons.playlist_play,
                               size: 18,
-                              color: Colors.white,
+                              color: colors.primary,
                             ),
                         ],
                       ),
@@ -307,13 +310,16 @@ class PosterCardContent extends StatelessWidget {
 }
 
 class _PosterBadge extends StatelessWidget {
-  const _PosterBadge({required this.child});
+  const _PosterBadge({required this.child, this.accent = false});
   final Widget child;
+  final bool accent;
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
     decoration: BoxDecoration(
-      color: const Color(0xd9101216),
+      color: accent
+          ? Theme.of(context).colorScheme.primaryContainer
+          : const Color(0xd9101216),
       borderRadius: BorderRadius.circular(7),
     ),
     child: child,

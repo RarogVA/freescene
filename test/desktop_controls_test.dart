@@ -97,7 +97,7 @@ void main() {
                   child: DesktopActionButton(
                     key: ValueKey(reduced),
                     icon: Icons.arrow_back_rounded,
-                    label: 'К каталогу',
+                    label: 'Назад',
                     onPressed: () {},
                   ),
                 ),
@@ -113,13 +113,13 @@ void main() {
         await mouse.moveTo(tester.getCenter(button));
         await tester.pump();
         if (!reduced) await tester.pump(const Duration(milliseconds: 250));
-        expect(tester.getSize(button).width, greaterThan(100));
+        expect(tester.getSize(button).width, greaterThan(44));
         await mouse.moveTo(Offset.zero);
         await tester.pumpAndSettle();
         expect(tester.getSize(button).width, 44);
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pumpAndSettle();
-        expect(tester.getSize(button).width, greaterThan(100));
+        expect(tester.getSize(button).width, greaterThan(44));
         await mouse.removePointer();
       }
     },
@@ -272,21 +272,23 @@ void main() {
         searchRect.left,
         tester.getRect(find.byKey(const ValueKey('source-filters'))).left,
       );
-      expect(tester.getRect(reset).left, searchRect.right + 12);
+      expect(reset, findsNothing);
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: Offset.zero);
       await mouse.moveTo(tester.getCenter(search));
       await tester.pumpAndSettle();
       expect(tester.getRect(search).left, searchRect.left);
-      expect(tester.getSize(search).width, 240);
-      expect(tester.getRect(reset).left, searchRect.left + 240 + 12);
-      await mouse.moveTo(const Offset(1090, 650));
-      await tester.pumpAndSettle();
+      expect(tester.getSize(search).width, 360);
+      expect(
+        find.ancestor(of: reset, matching: find.byType(DesktopSearchField)),
+        findsOneWidget,
+      );
       final resetLeft = tester.getRect(reset).left;
+      final resetSize = tester.getSize(reset);
       await mouse.moveTo(tester.getCenter(reset));
       await tester.pumpAndSettle();
       expect(tester.getRect(reset).left, resetLeft);
-      expect(tester.getSize(reset).width, greaterThan(44));
+      expect(tester.getSize(reset), resetSize);
       final sort = find.widgetWithText(DesktopActionButton, 'Сезон / серия');
       final firstRow = find.byKey(ValueKey('source-${demoProvider.name}-1'));
       expect(
@@ -318,7 +320,7 @@ void main() {
     },
   );
 
-  testWidgets('desktop animation radio persists and applies immediately', (
+  testWidgets('desktop animation segments persist and apply immediately', (
     tester,
   ) async {
     Preferences? saved;
@@ -336,6 +338,14 @@ void main() {
     await tester.ensureVisible(off);
     await tester.tap(off);
     await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<SegmentedButton<bool>>(
+            find.byKey(const ValueKey('settings-animations')),
+          )
+          .selected,
+      {false},
+    );
     expect(saved?.tvAnimations, isFalse);
     expect(Preferences.fromJson(saved!.toJson()).tvAnimations, isFalse);
     expect(MediaQuery.disableAnimationsOf(tester.element(off)), isTrue);
@@ -410,12 +420,20 @@ void main() {
       expect(tester.getSize(back), const Size(44, 44));
       final favoriteRect = tester.getRect(find.byType(FavoriteButton));
       final queueRect = tester.getRect(find.byType(QueueButton));
+      final toolbar = find.byKey(const ValueKey('catalog-details-toolbar'));
       expect(
-        favoriteRect.right,
-        tester
-            .getRect(find.byKey(const ValueKey('catalog-details-toolbar')))
-            .right,
+        find.descendant(of: toolbar, matching: find.byType(FavoriteButton)),
+        findsNothing,
       );
+      expect(
+        find.descendant(
+          of: toolbar,
+          matching: find.byKey(const ValueKey('source-search-pill')),
+        ),
+        findsOneWidget,
+      );
+      expect(favoriteRect.top, greaterThan(tester.getRect(toolbar).bottom));
+      expect(queueRect.left, greaterThanOrEqualTo(favoriteRect.right + 16));
       expect(find.byType(AddFavoriteIcon), findsOneWidget);
       await mouse.moveTo(tester.getCenter(back));
       await tester.pumpAndSettle();

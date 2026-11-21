@@ -349,6 +349,13 @@ void main() {
         );
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
+        expect(find.byType(TvDetailHero), findsOneWidget);
+        expect(
+          FocusManager.instance.primaryFocus,
+          focusNode(tester, 'source-demo-video'),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
         expect(
           FocusManager.instance.primaryFocus,
           focusNode(tester, 'title-movies-0'),

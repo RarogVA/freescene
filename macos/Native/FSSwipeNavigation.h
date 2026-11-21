@@ -5,8 +5,9 @@
 // Observe fluid two-finger scrolling without consuming Flutter's scroll events.
 // A page change is committed on finger release, never during momentum scrolling.
 @interface FSSwipeBackRecognizer : NSObject
-@property BOOL tracking, rejected;
-@property CGFloat movementX, movementY, verticalDistance, oppositeDistance;
+@property BOOL tracking, rejected, bidirectional;
+@property NSInteger navigationDirection;
+@property CGFloat movementX, movementY, verticalDistance, horizontalDistance;
 @property NSTimeInterval startedAt, lastNavigationAt;
 - (BOOL)observe:(NSEvent *)event;
 - (void)cancel;
@@ -19,7 +20,8 @@
 }
 - (void)cancel {
     self.tracking=self.rejected=NO;
-    self.movementX=self.movementY=self.verticalDistance=self.oppositeDistance=0;
+    self.movementX=self.movementY=self.verticalDistance=self.horizontalDistance=0;
+    self.navigationDirection=0;
 }
 - (BOOL)observe:(NSEvent *)event {
     if (event.modifierFlags & (NSEventModifierFlagShift|NSEventModifierFlagControl|NSEventModifierFlagOption|NSEventModifierFlagCommand)) {
@@ -29,8 +31,10 @@
     if (event.type==NSEventTypeSwipe) {
         [self cancel];
         // AppKit's discrete swipe events use -1 for a physical swipe right.
-        BOOL back=event.deltaX*direction < -0.5 && fabs(event.deltaY)<0.25;
-        if (back && event.timestamp-self.lastNavigationAt>=0.45) {
+        CGFloat x=event.deltaX*direction;
+        BOOL navigate=(x < -0.5 || (self.bidirectional && x > 0.5)) && fabs(event.deltaY)<0.25;
+        if (navigate && event.timestamp-self.lastNavigationAt>=0.45) {
+            self.navigationDirection=x<0 ? -1 : 1;
             self.lastNavigationAt=event.timestamp; return YES;
         }
         return NO;
@@ -47,19 +51,20 @@
     CGFloat x=event.scrollingDeltaX*direction,y=event.scrollingDeltaY*direction;
     if (!isfinite(x) || !isfinite(y)) { [self cancel]; return NO; }
     self.movementX+=x; self.movementY+=y;
-    self.verticalDistance+=fabs(y); self.oppositeDistance+=MAX(0,x);
+    self.verticalDistance+=fabs(y); self.horizontalDistance+=fabs(x);
     // Lock the initial intent. A vertical scroll must not become Back after
     // incidental sideways drift; a reversed gesture must not navigate either.
     if (MAX(fabs(self.movementX),fabs(self.movementY))>=12 &&
-        (self.movementX>=0 || fabs(self.movementX)<fabs(self.movementY)*1.8)) self.rejected=YES;
+        ((!self.bidirectional && self.movementX>=0) || fabs(self.movementX)<fabs(self.movementY)*1.8)) self.rejected=YES;
     if (!(event.phase & NSEventPhaseEnded)) return NO;
-    BOOL back=!self.rejected && self.movementX<=-80 &&
+    BOOL back=!self.rejected && (self.movementX<=-80 || (self.bidirectional && self.movementX>=80)) &&
         fabs(self.movementX)>=self.verticalDistance*2 &&
-        self.oppositeDistance<=fabs(self.movementX)*0.2 &&
+        (self.horizontalDistance-fabs(self.movementX))/2<=fabs(self.movementX)*0.2 &&
         event.timestamp-self.startedAt<=2.0 &&
         event.timestamp-self.lastNavigationAt>=0.45;
+    NSInteger step=self.movementX<0 ? -1 : 1;
     [self cancel];
-    if (back) self.lastNavigationAt=event.timestamp;
+    if (back) { self.lastNavigationAt=event.timestamp; self.navigationDirection=step; }
     return back;
 }
 @end
@@ -89,7 +94,7 @@ static BOOL FSBackSwipeHasHorizontalScroller(NSView *view) {
 - (instancetype)initWithWindow:(NSWindow *)window view:(NSView *)view navigateBack:(void (^)(NSDictionary *))navigateBack {
     if (!(self=[super init])) return nil;
     self.window=window;self.view=view;self.navigateBack=navigateBack;
-    self.recognizer=[FSSwipeBackRecognizer new];
+    self.recognizer=[FSSwipeBackRecognizer new];self.recognizer.bidirectional=YES;
     __weak FSSwipeNavigation *weakSelf=self;
     self.monitor=[NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskScrollWheel|NSEventMaskSwipe handler:^NSEvent *(NSEvent *event) {
         [weakSelf observe:event]; return event;
@@ -116,7 +121,7 @@ static BOOL FSBackSwipeHasHorizontalScroller(NSView *view) {
     if ([self.recognizer observe:event] && self.navigateBack) {
         // Flutter performs the route/modal and horizontal-table checks. Points
         // are in Flutter view logical coordinates, before application scaling.
-        self.navigateBack(@{@"x":@(self.origin.x),@"y":@(self.origin.y)});
+        self.navigateBack(@{@"x":@(self.origin.x),@"y":@(self.origin.y),@"direction":@(self.recognizer.navigationDirection)});
     }
 }
 - (void)invalidate {

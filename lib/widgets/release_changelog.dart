@@ -11,7 +11,7 @@ class ReleaseChangelog extends StatelessWidget {
     super.key,
   });
 
-  static const version = '2.0.1';
+  static const version = '2.0.2';
   final bool english, tv, mobile;
 
   @override
@@ -19,25 +19,46 @@ class ReleaseChangelog extends StatelessWidget {
     final title = Theme.of(context).textTheme;
     final entries = [
       (
-        Icons.filter_alt_outlined,
+        Icons.favorite_rounded,
         english
-            ? 'Filter fields no longer overlap. The country picker now includes “Exclude Russia” on phones and desktop.'
-            : 'Поля фильтра больше не накладываются друг на друга. «Не Россия» теперь доступна на телефонах и компьютерах.',
+            ? 'Saved favorites, queue items and selected source providers now use the purple focus accent. Provider filters no longer have checkboxes.'
+            : 'Избранное, очередь и выбранные провайдеры выделены фиолетовым акцентом фокуса. У фильтров провайдеров убраны галочки.',
       ),
+      if (!tv)
+        (
+          Icons.swipe,
+          english
+              ? 'Swipe left or right in the catalogue to switch between Films, Series and Games where available.'
+              : 'Свайпайте влево и вправо в каталоге для перехода между фильмами, сериалами и играми, если они доступны.',
+        ),
+      if (mobile)
+        (
+          Icons.search,
+          english
+              ? 'Compact search opens over the section switch, with voice search, filters and refresh in one pill.'
+              : 'Компактный поиск раскрывается поверх переключателя разделов. Голосовой поиск, фильтры и обновление находятся внутри.',
+        ),
       if (!tv && !mobile) ...[
         (
-          Icons.touch_app_outlined,
+          Icons.mic,
           english
-              ? 'Hold a poster, use a secondary click or Force Click on the trackpad to open its action menu.'
-              : 'Удерживайте постер или используйте вторичный клик либо Force Click трекпада, чтобы открыть меню действий.',
+              ? 'Voice search on macOS and fixed icon actions inside search. Poster hover and context menus match TV.'
+              : 'Голосовой поиск на macOS и компактные кнопки внутри поиска. Наведение на постеры и контекстное меню приведены к стилю ТВ.',
         ),
         (
-          Icons.motion_photos_on_outlined,
+          Icons.tune,
           english
-              ? 'A TV-style catalogue header and rounded controls with animated labels, search, season and episode filters. Turn animations off in Settings.'
-              : 'Шапка каталога в стиле ТВ и круглые кнопки с раскрытием подписей. Обновлены поиск, сезоны, серии и список найденного. Анимации можно отключить в настройках.',
+              ? 'Back buttons keep page titles in place. Downloads, About and animation settings now use the shared controls style.'
+              : 'Кнопка «Назад» больше не сдвигает заголовки. Обновлён стиль кнопок загрузок, «О приложении» и переключателя анимаций.',
         ),
       ],
+      if (tv)
+        (
+          Icons.history,
+          english
+              ? 'Hold a history entry to open its title or watch. In source results, the first Back press returns focus to the start of the list.'
+              : 'Удерживайте запись истории, чтобы перейти к карточке или смотреть. В найденных источниках первое нажатие «Назад» возвращает фокус к началу списка.',
+        ),
     ];
     return AlertDialog(
       scrollable: true,

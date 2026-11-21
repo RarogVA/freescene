@@ -1,4 +1,6 @@
+import '../widgets/mobile_catalog_search.dart';
 import '../widgets/catalog_style.dart';
+import '../navigation/catalog_section_swipe.dart';
 import '../widgets/release_changelog.dart';
 import '../history/watch_history.dart';
 import '../history/watch_history_page.dart';
@@ -16,6 +18,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../catalog/catalog_controller.dart';
 import '../catalog/catalog_models.dart';
+import '../catalog/title_context_menu.dart';
 import '../catalog/source_seasons.dart';
 import '../catalog/catalog_filter_dialog.dart';
 import '../catalog/cached_poster.dart';
@@ -170,7 +173,13 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
   late final watched = WatchedController(AndroidRuntime.channel)..refresh();
 
   final navigator = GlobalKey<NavigatorState>();
-  late final remote = RemoteFocus(enabled: widget.runtime.tv);
+  String? sourceBackTarget;
+  late final remote = RemoteFocus(
+    enabled: widget.runtime.tv,
+    onSelected: (id) {
+      if (sourceBackTarget != id) sourceBackTarget = null;
+    },
+  );
   late final traversal = RemoteTraversalPolicy(
     remote,
     horizontalGroups: const [
@@ -430,6 +439,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
   }
 
   void open(CatalogTitle title) {
+    sourceBackTarget = null;
     returnTile = 'title-${title.kind.name}-${title.id}';
     sourceLimit = 8;
     hiddenSourceProviders.clear();
@@ -442,103 +452,12 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
   Future<void> titleMenu(CatalogTitle title) async {
     final tile = 'title-${title.kind.name}-${title.id}';
     final result = await dialog<String>(
-      Builder(
-        builder: (context) {
-          Widget item(
-            String id,
-            IconData icon,
-            String verb,
-            String meaning, {
-            bool first = false,
-            bool enabled = true,
-          }) {
-            final glyph = Icon(icon, size: 22);
-            return Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Semantics(
-                label: meaning,
-                child: FilledButton(
-                  key: ValueKey('title-menu-$id'),
-                  autofocus: first,
-                  onPressed: enabled ? () => Navigator.pop(context, id) : null,
-                  child: ExcludeSemantics(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [Text(verb), const SizedBox(width: 10), glyph],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }
-
-          Widget listItem(
-            String id,
-            FavoritesController list,
-            IconData icon,
-            String add,
-            String remove,
-          ) {
-            final saved = list.contains(title);
-            return item(
-              id,
-              icon,
-              saved
-                  ? tr('Убрать из', 'Remove from')
-                  : tr('Добавить в', 'Add to'),
-              saved ? remove : add,
-            );
-          }
-
-          final marked = watched.titleWatched(title);
-          return AlertDialog(
-            scrollable: true,
-            title: Text(
-              title.title(preferences.english),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            content: SizedBox(
-              width: 310,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  item(
-                    'watch',
-                    Icons.play_arrow_rounded,
-                    tr('Смотреть', 'Watch'),
-                    tr('Смотреть', 'Watch'),
-                    first: true,
-                  ),
-                  listItem(
-                    'favorite',
-                    favorites,
-                    Icons.favorite_rounded,
-                    tr('Добавить в избранное', 'Add to favorites'),
-                    tr('Убрать из избранного', 'Remove from favorites'),
-                  ),
-                  listItem(
-                    'queue',
-                    queue,
-                    Icons.playlist_play_rounded,
-                    tr('Добавить в очередь', 'Add to queue'),
-                    tr('Убрать из очереди', 'Remove from queue'),
-                  ),
-                  item(
-                    'watched',
-                    Icons.visibility_outlined,
-                    marked
-                        ? tr('Просмотрено', 'Watched')
-                        : tr('Отметить', 'Mark'),
-                    tr('Отметить просмотренным', 'Mark as watched'),
-                    enabled: !marked,
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+      TitleContextMenu(
+        title: title,
+        english: preferences.english,
+        favorite: favorites.contains(title),
+        queued: queue.contains(title),
+        watched: watched.titleWatched(title),
       ),
       restore: tile,
     );
@@ -591,6 +510,27 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
         historyPage.currentState?.exitSelection() == true) {
       return;
     }
+    if (widget.runtime.tv && screen == 'catalog' && catalog.selected != null) {
+      final node = FocusManager.instance.primaryFocus;
+      final id = node is RemoteFocusNode ? node.id : null;
+      final rows = filteredSources;
+      final inList = rows.any(
+        (source) =>
+            id == 'source-${source.row.provider.name}-${source.row.id}' ||
+            id == 'watched-${source.row.provider.name}-${source.row.id}',
+      );
+      if (inList && id != sourceBackTarget) {
+        final first = rows.firstWhere(
+          (source) => source.canWatch,
+          orElse: () => rows.first,
+        );
+        sourceBackTarget = 'source-${first.row.provider.name}-${first.row.id}';
+        resetSourceScroll();
+        remote.restore(sourceBackTarget, fallback: 'source-search');
+        return;
+      }
+    }
+    sourceBackTarget = null;
     cancelPlayback();
     if (catalog.selected != null) {
       catalog.back();
@@ -641,7 +581,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
   Future<void> search({bool voice = false}) async {
     if (modal) return;
     cancelPlayback();
-    if (voice && widget.runtime.tv) {
+    if (voice) {
       final result = await dialog<String>(
         AndroidVoiceDialog(english: preferences.english, listen: widget.voice),
         restore: 'voice',
@@ -653,47 +593,11 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
       }
       return;
     }
-    String? initialError;
-    if (voice) {
-      modal = true;
-      String? result;
-      try {
-        result =
-            await (widget.voice?.call() ??
-                AndroidRuntime.channel.invokeMethod<String>('voiceSearch', {
-                  'language': preferences.english ? 'en-US' : 'ru-RU',
-                }));
-      } catch (error) {
-        initialError =
-            error is PlatformException && error.code == 'voice_permission'
-            ? tr(
-                'Разрешите доступ к микрофону для голосового поиска. Пока можно ввести запрос вручную.',
-                'Allow microphone access for voice search, or type your search.',
-              )
-            : tr(
-                'Голосовой ввод недоступен. Введите запрос вручную.',
-                'Voice input unavailable. Type your search.',
-              );
-      } finally {
-        modal = false;
-      }
-      if (!mounted) return;
-      if (initialError == null) {
-        if (result != null && result.trim().isNotEmpty) {
-          await browse(search: result.trim());
-          if (mounted) remote.restore('search');
-        } else {
-          remote.restore('voice');
-        }
-        return;
-      }
-    }
     final query = await dialog<String>(
       AndroidSearchDialog(
         initial: catalog.search,
         english: preferences.english,
         voice: widget.voice,
-        initialError: initialError,
         allowVoice: !widget.runtime.tv,
       ),
       restore: 'search',
@@ -1080,6 +984,12 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                                         remote: remote,
                                         onBack: () => unawaited(back()),
                                         onPlay: playHistory,
+                                        onOpenTitle: (entry) async {
+                                          final title = entry.catalogTitle;
+                                          if (title == null) return;
+                                          setState(() => screen = 'catalog');
+                                          open(title);
+                                        },
                                       )
                                     : screen == 'downloads'
                                     ? AndroidDownloads(
@@ -1088,7 +998,21 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                                         english: preferences.english,
                                       )
                                     : catalog.selected == null
-                                    ? _catalog()
+                                    ? CatalogSectionSwipe(
+                                        key: const ValueKey(
+                                          'catalog-section-swipe',
+                                        ),
+                                        value: catalog.kind,
+                                        kinds: const [
+                                          CatalogKind.movies,
+                                          CatalogKind.series,
+                                        ],
+                                        onChanged: widget.runtime.tv
+                                            ? null
+                                            : (kind) =>
+                                                  unawaited(browse(kind: kind)),
+                                        child: _catalog(),
+                                      )
                                     : _details(),
                               ),
                             ],
@@ -1401,6 +1325,22 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
       final title = catalog.selected;
       final detail = title != null;
       final query = detail ? sourceQuery : catalog.search;
+      if (!detail) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+          child: MobileCatalogSearch(
+            kindSwitch: _androidKindSwitch(context),
+            query: catalog.search,
+            english: preferences.english,
+            filterActive: catalog.filter.active,
+            onSearch: (value) => unawaited(browse(search: value)),
+            onVoice: () => unawaited(search(voice: true)),
+            onFilter: () => unawaited(filters()),
+            onRefresh: () => unawaited(browse()),
+          ),
+        );
+      }
+
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
         child: Column(
@@ -1410,9 +1350,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                 _mobileIcon(
                   detail ? 'detail-back' : 'filter',
                   detail ? Icons.arrow_back : Icons.filter_alt_outlined,
-                  detail
-                      ? tr('К каталогу', 'Back to catalogue')
-                      : tr('Фильтры', 'Filters'),
+                  detail ? tr('Назад', 'Back') : tr('Фильтры', 'Filters'),
                   () => unawaited(detail ? back() : filters()),
                   flat: true,
                   selected: !detail && catalog.filter.active,
@@ -2250,9 +2188,6 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                             );
                           },
                           selected: !hiddenSourceProviders.contains(provider),
-                          icon: hiddenSourceProviders.contains(provider)
-                              ? Icons.check_box_outline_blank
-                              : Icons.check_box,
                         ),
                   ],
                 ),

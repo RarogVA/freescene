@@ -58,8 +58,8 @@ class TvCollectionButton extends StatelessWidget {
       flat: true,
       radius: 24,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Tooltip(
-        message: label,
+      child: Semantics(
+        label: label,
         child: ExcludeSemantics(
           child: Builder(
             builder: (context) {

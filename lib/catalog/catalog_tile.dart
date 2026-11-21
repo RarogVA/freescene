@@ -4,6 +4,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../widgets/catalog_style.dart';
+
 /// The foreground border and actions follow the entire card, including controls.
 class CatalogTile extends StatefulWidget {
   const CatalogTile({
@@ -93,32 +95,41 @@ class _CatalogTileState extends State<CatalogTile> {
       onFocusChange: (value) => setState(() => focused = value),
       child: _CatalogTileInteraction(
         active: hovered || focused,
-        child: Card(
-          clipBehavior: Clip.antiAlias,
-          borderOnForeground: true,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-            side: BorderSide(
-              width: 1.5,
-              color: hovered || focused
-                  ? Theme.of(context).colorScheme.primary
-                  : Colors.transparent,
+        child: AnimatedScale(
+          scale:
+              (hovered || focused) && !MediaQuery.disableAnimationsOf(context)
+              ? 1.035
+              : 1,
+          duration: motionDuration(context, 180),
+          curve: Curves.easeOutCubic,
+          child: Card(
+            clipBehavior: Clip.antiAlias,
+            borderOnForeground: true,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: BorderSide(
+                width: 3,
+                color: hovered || focused
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.transparent,
+              ),
             ),
-          ),
-          child: Listener(
-            onPointerDown: (event) => pointer = event.pointer,
-            onPointerUp: (_) => pointer = null,
-            onPointerCancel: (_) => pointer = null,
-            child: InkWell(
-              focusNode: widget.focusNode,
-              onTapDown: (_) =>
-                  controlClick = HardwareKeyboard.instance.isControlPressed,
-              onTap: () => controlClick && widget.onContextMenu != null
-                  ? openMenu()
-                  : widget.onTap(),
-              onLongPress: widget.onContextMenu == null ? null : openMenu,
-              onSecondaryTap: widget.onContextMenu == null ? null : openMenu,
-              child: widget.child,
+            child: Listener(
+              onPointerDown: (event) => pointer = event.pointer,
+              onPointerUp: (_) => pointer = null,
+              onPointerCancel: (_) => pointer = null,
+              child: InkWell(
+                focusNode: widget.focusNode,
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+                onTapDown: (_) =>
+                    controlClick = HardwareKeyboard.instance.isControlPressed,
+                onTap: () => controlClick && widget.onContextMenu != null
+                    ? openMenu()
+                    : widget.onTap(),
+                onLongPress: widget.onContextMenu == null ? null : openMenu,
+                onSecondaryTap: widget.onContextMenu == null ? null : openMenu,
+                child: widget.child,
+              ),
             ),
           ),
         ),

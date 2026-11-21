@@ -157,39 +157,32 @@ class _DownloadsPageState extends State<DownloadsPage> {
     _ => tr('Загрузка', 'Downloading'),
   };
 
-  Widget _header() => LayoutBuilder(
-    builder: (context, constraints) {
-      final compact = constraints.maxWidth < 640;
-      final openTorrent = tr('Открыть .torrent', 'Open .torrent');
-      final addMagnet = tr('Добавить magnet', 'Add magnet');
-      return Row(
-        key: const ValueKey('downloads-header'),
+  Widget _header() => DesktopPageHeader(
+    key: const ValueKey('downloads-header'),
+    leading: DesktopActionButton(
+      key: const ValueKey('downloads-back'),
+      label: tr('Назад', 'Back'),
+      onPressed: widget.onBack,
+      icon: Icons.arrow_back_rounded,
+    ),
+    title: Text(
+      tr('Загрузки', 'Downloads'),
+      key: const ValueKey('downloads-title'),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600),
+    ),
+    trailing: LayoutBuilder(
+      builder: (context, bounds) => Row(
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Flexible(
-            child: DesktopActionButton(
-              key: const ValueKey('downloads-back'),
-              label: tr('К каталогу', 'Back to catalogue'),
-              onPressed: widget.onBack,
-              icon: Icons.arrow_back_rounded,
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: (bounds.maxWidth - 52).clamp(44, double.infinity),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              tr('Загрузки', 'Downloads'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: compact ? 24 : 28,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Flexible(
             child: DesktopActionButton(
               key: const ValueKey('downloads-open-torrent'),
-              label: openTorrent,
+              label: tr('Добавить torrent', 'Add torrent'),
               onPressed: _addTorrent,
               icon: Icons.add_rounded,
             ),
@@ -198,14 +191,14 @@ class _DownloadsPageState extends State<DownloadsPage> {
           Flexible(
             child: DesktopActionButton(
               key: const ValueKey('downloads-add-magnet'),
-              label: addMagnet,
+              label: tr('Добавить magnet', 'Add magnet'),
               onPressed: _addMagnet,
               icon: Icons.link_rounded,
             ),
           ),
         ],
-      );
-    },
+      ),
+    ),
   );
 
   @override
@@ -347,7 +340,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                                   task.phase != 'completed')
                                 DesktopActionButton(
                                   icon: task.phase == 'paused'
-                                      ? Icons.play_arrow_rounded
+                                      ? Icons.download_rounded
                                       : task.error.isNotEmpty
                                       ? Icons.refresh_rounded
                                       : Icons.pause_rounded,

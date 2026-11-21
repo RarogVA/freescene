@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'catalog_controller.dart';
 import 'catalog_models.dart';
 import 'catalog_tile.dart';
+import 'title_context_menu.dart';
 import 'favorite_button.dart';
 import 'queue_button.dart';
 import 'favorites.dart';
 import 'source_seasons.dart' as seasons;
 import 'cached_poster.dart';
 import '../widgets/catalog_style.dart';
+import '../navigation/catalog_section_swipe.dart';
 import '../widgets/desktop_controls.dart';
 import '../domain/provider_display.dart';
 import 'source_metadata.dart';
@@ -32,6 +34,7 @@ class CatalogPageView extends StatelessWidget {
     required this.controller,
     required this.english,
     this.kindSwitch,
+    this.onKindChanged,
     this.searchControls,
     this.onUseSource,
     this.onToggleFavorites,
@@ -43,6 +46,7 @@ class CatalogPageView extends StatelessWidget {
   final CatalogController controller;
   final bool english, compactSourceActions;
   final Widget? kindSwitch;
+  final ValueChanged<CatalogKind>? onKindChanged;
   final Widget Function(Widget refresh)? searchControls;
   final Future<void> Function(CatalogSource, bool watch)? onUseSource;
   final VoidCallback? onToggleFavorites;
@@ -54,13 +58,7 @@ class CatalogPageView extends StatelessWidget {
     animation: controller,
     builder: (context, _) {
       if (controller.selected == null) return _listing(context);
-      final details = _details(context, controller.selected!);
-      return Column(
-        children: [
-          _detailsToolbar(controller.selected!),
-          Expanded(child: details),
-        ],
-      );
+      return _details(context, controller.selected!);
     },
   );
   Widget _error(Object error, VoidCallback retry) => Padding(
@@ -113,65 +111,63 @@ class CatalogPageView extends StatelessWidget {
           );
   }
 
-  Widget _detailsToolbar(CatalogTitle title) {
-    final back = controller.queueOnly
-        ? tr('К очереди', 'Back to queue')
-        : controller.favoritesOnly
-        ? tr('К избранному', 'Back to favorites')
-        : tr('К каталогу', 'Back to catalogue');
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-      child: LayoutBuilder(
-        builder: (context, bounds) {
-          final actionWidth = ((bounds.maxWidth - 140) / 2).clamp(44.0, 240.0);
-          return Row(
-            key: const ValueKey('catalog-details-toolbar'),
-            children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: DesktopActionButton(
-                    key: const ValueKey('catalog-back'),
-                    icon: Icons.arrow_back_rounded,
-                    label: back,
-                    onPressed: controller.back,
-                  ),
-                ),
-              ),
-              if (controller.queue case final queue?
-                  when FavoritesController.eligible(title))
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: actionWidth),
-                  child: QueueButton(
-                    key: ValueKey(
-                      'queue-detail-${title.kind.name}-${title.id}',
-                    ),
-                    title: title,
-                    queue: queue,
-                    english: english,
-                  ),
-                ),
-              if (controller.favorites case final favorites?
-                  when FavoritesController.eligible(title)) ...[
-                const SizedBox(width: 8),
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: actionWidth),
-                  child: FavoriteButton(
-                    key: ValueKey(
-                      'favorite-detail-${title.kind.name}-${title.id}',
-                    ),
-                    title: title,
-                    favorites: favorites,
-                    english: english,
-                  ),
-                ),
-              ],
-            ],
-          );
-        },
-      ),
-    );
-  }
+  Widget _detailsToolbar(Widget search) => Padding(
+    padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+    child: Row(
+      key: const ValueKey('catalog-details-toolbar'),
+      children: [
+        SizedBox(
+          width: 132,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: DesktopActionButton(
+              key: const ValueKey('catalog-back'),
+              icon: Icons.arrow_back_rounded,
+              label: tr('Назад', 'Back'),
+              onPressed: controller.back,
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(child: search),
+      ],
+    ),
+  );
+
+  Widget _titleActions(CatalogTitle title) => Padding(
+    padding: const EdgeInsets.only(top: 16),
+    child: Wrap(
+      key: const ValueKey('catalog-title-actions'),
+      spacing: 16,
+      runSpacing: 12,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (title.kind != CatalogKind.games && title.trailer != null)
+          DesktopActionButton(
+            key: const ValueKey('catalog-trailer'),
+            onPressed: onTrailer == null ? null : () => onTrailer!(title),
+            icon: Icons.movie_outlined,
+            label: tr('Трейлер', 'Trailer'),
+          ),
+        if (controller.favorites case final favorites?
+            when FavoritesController.eligible(title))
+          FavoriteButton(
+            key: ValueKey('favorite-detail-${title.kind.name}-${title.id}'),
+            title: title,
+            favorites: favorites,
+            english: english,
+          ),
+        if (controller.queue case final queue?
+            when FavoritesController.eligible(title))
+          QueueButton(
+            key: ValueKey('queue-detail-${title.kind.name}-${title.id}'),
+            title: title,
+            queue: queue,
+            english: english,
+          ),
+      ],
+    ),
+  );
 
   void _toggleFavorites() {
     if (onToggleFavorites case final callback?) {
@@ -214,7 +210,7 @@ class CatalogPageView extends StatelessWidget {
     final collection = controller.queueOnly
         ? controller.queue
         : controller.favorites;
-    final refresh = DesktopActionButton(
+    final refresh = DesktopSearchAction(
       key: const ValueKey('catalog-refresh'),
       icon: Icons.refresh_rounded,
       label: tr('Обновить', 'Refresh'),
@@ -282,75 +278,23 @@ class CatalogPageView extends StatelessWidget {
     final eligible = FavoritesController.eligible(title);
     final result = await showDialog<String>(
       context: context,
-      builder: (context) {
-        Widget action(
-          String id,
-          IconData icon,
-          String label, {
-          bool enabled = true,
-        }) => Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: DesktopActionButton(
-            key: ValueKey('title-menu-$id'),
-            icon: icon,
-            label: label,
-            alwaysExpanded: true,
-            onPressed: enabled ? () => Navigator.pop(context, id) : null,
-          ),
-        );
-        return AlertDialog(
-          scrollable: true,
-          title: Text(
-            title.title(english),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          content: SizedBox(
-            width: 320,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                action(
-                  'watch',
-                  Icons.play_arrow_rounded,
-                  tr('Открыть карточку', 'Open title'),
-                ),
-                if (eligible && favorites != null)
-                  action(
-                    'favorite',
-                    Icons.favorite_border_rounded,
-                    favorites.contains(title)
-                        ? tr('Убрать из избранного', 'Remove from favorites')
-                        : tr('В избранное', 'Add to favorites'),
-                    enabled:
-                        favorites.ready &&
-                        !favorites.loading &&
-                        !favorites.saving,
-                  ),
-                if (eligible && queue != null)
-                  action(
-                    'queue',
-                    Icons.playlist_play_rounded,
-                    queue.contains(title)
-                        ? tr('Убрать из очереди', 'Remove from queue')
-                        : tr('В очередь', 'Add to queue'),
-                    enabled: queue.ready && !queue.loading && !queue.saving,
-                  ),
-                if (eligible && watched != null)
-                  action(
-                    'watched',
-                    Icons.visibility_outlined,
-                    watched.titleWatched(title)
-                        ? tr('Просмотрено', 'Watched')
-                        : tr('Отметить просмотренным', 'Mark as watched'),
-                    enabled: !watched.titleWatched(title),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
+      animationStyle: MediaQuery.disableAnimationsOf(context)
+          ? AnimationStyle.noAnimation
+          : null,
+      builder: (_) => TitleContextMenu(
+        title: title,
+        english: english,
+        favorite: eligible ? favorites?.contains(title) : null,
+        queued: eligible ? queue?.contains(title) : null,
+        watched: eligible ? watched?.titleWatched(title) : null,
+        favoriteEnabled:
+            favorites != null &&
+            favorites.ready &&
+            !favorites.loading &&
+            !favorites.saving,
+        queueEnabled:
+            queue != null && queue.ready && !queue.loading && !queue.saving,
+      ),
     );
     if (!context.mounted) return;
     try {
@@ -382,140 +326,146 @@ class CatalogPageView extends StatelessWidget {
           const Expanded(child: Center(child: CircularProgressIndicator()))
         else
           Expanded(
-            child: _AutoPagedCatalogue(
-              controller: controller,
-              key: ValueKey(
-                'catalog-${controller.favoritesOnly}-${controller.queueOnly}-${controller.kind}-${controller.search}-${controller.filter.hashCode}',
-              ),
-              slivers: [
-                if (controller.localCollectionOnly &&
-                    (controller.queueOnly
-                                ? controller.queue
-                                : controller.favorites)
-                            ?.error !=
-                        null)
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    sliver: SliverToBoxAdapter(
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              tr(
-                                controller.queueOnly
-                                    ? 'Не удалось прочитать очередь. Повторите попытку.'
-                                    : 'Не удалось прочитать избранное. Повторите попытку.',
-                                controller.queueOnly
-                                    ? 'Could not read the queue. Try again.'
-                                    : 'Could not read favorites. Try again.',
-                              ),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed:
-                                (controller.queueOnly
-                                        ? controller.queue
-                                        : controller.favorites)
-                                    ?.restore,
-                            child: Text(tr('Повторить', 'Retry')),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                if (controller.error != null)
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    sliver: SliverToBoxAdapter(
-                      child: _error(
-                        controller.error!,
-                        () => controller.items.isEmpty
-                            ? controller.browse()
-                            : controller.loadMore(),
-                      ),
-                    ),
-                  ),
-                if (controller.items.isEmpty &&
-                    controller.error == null &&
-                    (!controller.localCollectionOnly ||
-                        (controller.queueOnly
-                                    ? controller.queue
-                                    : controller.favorites)
-                                ?.error ==
-                            null))
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: Text(_emptyListingMessage())),
-                  ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-                  sliver: SliverGrid(
-                    gridDelegate:
-                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 220,
-                          mainAxisExtent: 298,
-                          crossAxisSpacing: 20,
-                          mainAxisSpacing: 20,
-                        ),
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final item = controller.items[index];
-                      return CatalogTile(
-                        key: ValueKey('title-${item.id}'),
-                        onTap: () => controller.open(item),
-                        onContextMenu: () => _titleMenu(context, item),
-                        child: Stack(
-                          fit: StackFit.expand,
+            child: CatalogSectionSwipe(
+              key: const ValueKey('catalog-section-swipe'),
+              value: controller.kind,
+              kinds: CatalogKind.values,
+              onChanged: onKindChanged,
+              child: _AutoPagedCatalogue(
+                controller: controller,
+                key: ValueKey(
+                  'catalog-${controller.favoritesOnly}-${controller.queueOnly}-${controller.kind}-${controller.search}-${controller.filter.hashCode}',
+                ),
+                slivers: [
+                  if (controller.localCollectionOnly &&
+                      (controller.queueOnly
+                                  ? controller.queue
+                                  : controller.favorites)
+                              ?.error !=
+                          null)
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      sliver: SliverToBoxAdapter(
+                        child: Row(
                           children: [
-                            PosterCardContent(
-                              title: item,
-                              english: english,
-                              favorite: false,
-                              queued: false,
+                            Expanded(
+                              child: Text(
+                                tr(
+                                  controller.queueOnly
+                                      ? 'Не удалось прочитать очередь. Повторите попытку.'
+                                      : 'Не удалось прочитать избранное. Повторите попытку.',
+                                  controller.queueOnly
+                                      ? 'Could not read the queue. Try again.'
+                                      : 'Could not read favorites. Try again.',
+                                ),
+                              ),
                             ),
-                            if (controller.queue case final queue?
-                                when FavoritesController.eligible(item))
-                              Positioned(
-                                bottom: posterCaptionHeight(context) + 8,
-                                left: 8,
-                                child: QueueButton(
-                                  key: ValueKey(
-                                    'queue-tile-${item.kind.name}-${item.id}',
-                                  ),
-                                  title: item,
-                                  queue: queue,
-                                  english: english,
-                                  overPoster: true,
-                                ),
-                              ),
-                            if (controller.favorites case final favorites?
-                                when FavoritesController.eligible(item))
-                              Positioned(
-                                top: 8,
-                                right: 8,
-                                child: FavoriteButton(
-                                  key: ValueKey(
-                                    'favorite-tile-${item.kind.name}-${item.id}',
-                                  ),
-                                  title: item,
-                                  favorites: favorites,
-                                  english: english,
-                                  overPoster: true,
-                                ),
-                              ),
+                            TextButton(
+                              onPressed:
+                                  (controller.queueOnly
+                                          ? controller.queue
+                                          : controller.favorites)
+                                      ?.restore,
+                              child: Text(tr('Повторить', 'Retry')),
+                            ),
                           ],
                         ),
-                      );
-                    }, childCount: controller.items.length),
-                  ),
-                ),
-                if (controller.loadingMore)
-                  const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Center(child: CircularProgressIndicator()),
+                      ),
+                    ),
+                  if (controller.error != null)
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      sliver: SliverToBoxAdapter(
+                        child: _error(
+                          controller.error!,
+                          () => controller.items.isEmpty
+                              ? controller.browse()
+                              : controller.loadMore(),
+                        ),
+                      ),
+                    ),
+                  if (controller.items.isEmpty &&
+                      controller.error == null &&
+                      (!controller.localCollectionOnly ||
+                          (controller.queueOnly
+                                      ? controller.queue
+                                      : controller.favorites)
+                                  ?.error ==
+                              null))
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(child: Text(_emptyListingMessage())),
+                    ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                    sliver: SliverGrid(
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 220,
+                            mainAxisExtent: 298,
+                            crossAxisSpacing: 20,
+                            mainAxisSpacing: 20,
+                          ),
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final item = controller.items[index];
+                        return CatalogTile(
+                          key: ValueKey('title-${item.id}'),
+                          onTap: () => controller.open(item),
+                          onContextMenu: () => _titleMenu(context, item),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              PosterCardContent(
+                                title: item,
+                                english: english,
+                                favorite: false,
+                                queued: false,
+                              ),
+                              if (controller.queue case final queue?
+                                  when FavoritesController.eligible(item))
+                                Positioned(
+                                  bottom: posterCaptionHeight(context) + 8,
+                                  left: 8,
+                                  child: QueueButton(
+                                    key: ValueKey(
+                                      'queue-tile-${item.kind.name}-${item.id}',
+                                    ),
+                                    title: item,
+                                    queue: queue,
+                                    english: english,
+                                    overPoster: true,
+                                  ),
+                                ),
+                              if (controller.favorites case final favorites?
+                                  when FavoritesController.eligible(item))
+                                Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: FavoriteButton(
+                                    key: ValueKey(
+                                      'favorite-tile-${item.kind.name}-${item.id}',
+                                    ),
+                                    title: item,
+                                    favorites: favorites,
+                                    english: english,
+                                    overPoster: true,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      }, childCount: controller.items.length),
                     ),
                   ),
-              ],
+                  if (controller.loadingMore)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
       ],
@@ -528,6 +478,7 @@ class CatalogPageView extends StatelessWidget {
         if (!providerIsHidden(entry.key)) entry,
     ];
     return SourceTable(
+      toolbarBuilder: _detailsToolbar,
       title: title,
       compactActions: compactSourceActions,
       key: ValueKey('${title.kind}-${title.id}'),
@@ -617,16 +568,7 @@ class CatalogPageView extends StatelessWidget {
           else if (!controller.detailsLoading &&
               controller.detailsError == null)
             Text(tr('Описание отсутствует', 'No description available')),
-          if (title.kind != CatalogKind.games && title.trailer != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: DesktopActionButton(
-                key: const ValueKey('catalog-trailer'),
-                onPressed: onTrailer == null ? null : () => onTrailer!(title),
-                icon: Icons.movie_outlined,
-                label: tr('Трейлер', 'Trailer'),
-              ),
-            ),
+          if (FavoritesController.eligible(title)) _titleActions(title),
           if (title.kind == CatalogKind.games)
             Padding(
               padding: const EdgeInsets.only(top: 16),
@@ -780,11 +722,13 @@ class SourceTable extends StatefulWidget {
     this.title,
     this.onUseSource,
     this.introduction,
+    this.toolbarBuilder,
     this.footer,
     this.compactActions = false,
     super.key,
   });
   final Widget? introduction, footer;
+  final Widget Function(Widget search)? toolbarBuilder;
   final CatalogTitle? title;
   final List<CatalogSource> sources;
   final List<SourceProvider>? providers;
@@ -1004,8 +948,50 @@ class _SourceTableState extends State<SourceTable> {
         ascending = false;
       }
     });
-    return _buildSourceScroll(context, sources, sort);
+    final scroll = _buildSourceScroll(context, sources, sort);
+    if (widget.toolbarBuilder case final toolbar?) {
+      return Column(
+        children: [
+          toolbar(_searchField()),
+          Expanded(child: scroll),
+        ],
+      );
+    }
+    return scroll;
   }
+
+  Widget _searchField({double width = 480, bool inline = false}) =>
+      DesktopSearchField(
+        key: const ValueKey('source-search-pill'),
+        expandedWidth: width,
+        alignment: inline
+            ? AlignmentDirectional.centerStart
+            : AlignmentDirectional.centerEnd,
+        shrinkWrap: inline,
+        fieldKey: const ValueKey('source-search'),
+        clearKey: const ValueKey('source-search-clear'),
+        controller: sourceSearch,
+        label: tr('Поиск по найденному', 'Search these sources'),
+        clearLabel: tr('Очистить поиск по источникам', 'Clear source search'),
+        onChanged: (_) => setState(() {}),
+        trailing: [
+          DesktopSearchAction(
+            key: const ValueKey('source-reset'),
+            label: tr('Сбросить фильтры', 'Reset filters'),
+            selected:
+                sourceSearch.text.isNotEmpty ||
+                season != null ||
+                episode != null ||
+                hiddenProviders.isNotEmpty,
+            icon: Icons.filter_alt_off_outlined,
+            onPressed: () => setState(() {
+              sourceSearch.clear();
+              season = episode = null;
+              hiddenProviders.clear();
+            }),
+          ),
+        ],
+      );
 
   Widget _buildSourceScroll(
     BuildContext context,
@@ -1016,41 +1002,11 @@ class _SourceTableState extends State<SourceTable> {
       final inset = widget.introduction == null ? 0.0 : 24.0;
       final width = constraints.maxWidth - inset * 2;
       final filters = <({double? width, Widget child})>[
-        (
-          width: null,
-          child: DesktopSearchField(
-            key: const ValueKey('source-search-pill'),
-            expandedWidth: width.clamp(44, 240),
-            alignment: AlignmentDirectional.centerStart,
-            shrinkWrap: true,
-            fieldKey: const ValueKey('source-search'),
-            clearKey: const ValueKey('source-search-clear'),
-            controller: sourceSearch,
-            label: tr('Поиск по найденному', 'Search these sources'),
-            clearLabel: tr(
-              'Очистить поиск по источникам',
-              'Clear source search',
-            ),
-            onChanged: (_) => setState(() {}),
+        if (widget.toolbarBuilder == null)
+          (
+            width: null,
+            child: _searchField(width: width.clamp(44, 360), inline: true),
           ),
-        ),
-        (
-          width: null,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 180),
-            child: DesktopActionButton(
-              key: const ValueKey('source-reset'),
-              label: tr('Сбросить фильтры', 'Reset filters'),
-              size: 44,
-              onPressed: () => setState(() {
-                sourceSearch.clear();
-                season = episode = null;
-                hiddenProviders.clear();
-              }),
-              icon: Icons.filter_alt_off_outlined,
-            ),
-          ),
-        ),
         if (widget.series)
           (
             width: 190,
@@ -1159,6 +1115,15 @@ class _SourceTableState extends State<SourceTable> {
                         SizedBox(
                           height: 40,
                           child: FilterChip(
+                            showCheckmark: false,
+                            selectedColor: Theme.of(context)
+                                .colorScheme
+                                .primaryContainer,
+                            labelStyle: TextStyle(
+                              color: !hiddenProviders.contains(provider)
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context).colorScheme.onSurface,
+                            ),
                             shape: const StadiumBorder(),
                             key: ValueKey('source-provider-${provider.name}'),
                             label: Text(providerDisplayLabel(provider)),
