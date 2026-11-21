@@ -212,26 +212,26 @@ class _CatalogFilterDialogState extends State<CatalogFilterDialog> {
                     (v) => setState(() => genre = v),
                   ),
                   if (widget.kind != CatalogKind.games) ...[
-                    if (widget.tv) const SizedBox(height: 12),
+                    const SizedBox(height: 20),
                     options(
                       tr('Страна', 'Country'),
                       country,
                       loaded!.countries,
                       (v) => setState(() => country = v),
-                      countryPicker: widget.tv,
+                      countryPicker: true,
                     ),
                   ],
                 ],
               );
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Row(
             children: [
               Expanded(
                 child: yearField(
                   'filter-year',
-                  tr('Год / от', 'Year / from'),
+                  tr('Год от', 'From year'),
                   year,
                 ),
               ),
@@ -239,7 +239,7 @@ class _CatalogFilterDialogState extends State<CatalogFilterDialog> {
               Expanded(
                 child: yearField(
                   'filter-year-to',
-                  tr('До (необязательно)', 'To (optional)'),
+                  tr('Год до', 'To year'),
                   yearTo,
                 ),
               ),
@@ -274,6 +274,7 @@ class _CatalogFilterDialogState extends State<CatalogFilterDialog> {
               value: hd,
               onChanged: (v) => setState(() => hd = v!),
             ),
+          const SizedBox(height: 20),
           if (widget.kind == CatalogKind.series)
             choiceField<bool>(
               value: ended,
@@ -285,8 +286,7 @@ class _CatalogFilterDialogState extends State<CatalogFilterDialog> {
               ],
               onChanged: (v) => setState(() => ended = v),
             ),
-          if (widget.tv && widget.kind == CatalogKind.series)
-            const SizedBox(height: 12),
+          if (widget.kind == CatalogKind.series) const SizedBox(height: 20),
           choiceField<CatalogSort>(
             value: sort,
             label: tr('Сортировка', 'Sort'),

@@ -11,6 +11,7 @@ import 'favorites.dart';
 import 'source_seasons.dart' as seasons;
 import 'cached_poster.dart';
 import '../widgets/catalog_style.dart';
+import '../widgets/desktop_controls.dart';
 import '../domain/provider_display.dart';
 import 'source_metadata.dart';
 import 'watched.dart';
@@ -31,6 +32,7 @@ class CatalogPageView extends StatelessWidget {
     required this.controller,
     required this.english,
     this.kindSwitch,
+    this.searchControls,
     this.onUseSource,
     this.onToggleFavorites,
     this.onToggleQueue,
@@ -41,6 +43,7 @@ class CatalogPageView extends StatelessWidget {
   final CatalogController controller;
   final bool english, compactSourceActions;
   final Widget? kindSwitch;
+  final Widget Function(Widget refresh)? searchControls;
   final Future<void> Function(CatalogSource, bool watch)? onUseSource;
   final VoidCallback? onToggleFavorites;
   final VoidCallback? onToggleQueue;
@@ -110,124 +113,62 @@ class CatalogPageView extends StatelessWidget {
           );
   }
 
-  Widget _toolbar({
-    required String id,
-    required Widget leading,
-    required Widget compactLeading,
-    required Widget trailing,
-    double compactLeadingWidth = 40,
-    double minimumLeadingWidth = 160,
-  }) => Padding(
-    padding: const EdgeInsets.fromLTRB(24, 0, 24, 4),
-    child: LayoutBuilder(
-      builder: (context, constraints) {
-        if (kindSwitch == null) {
-          return SizedBox(
-            key: ValueKey(id),
-            height: 48,
-            child: Row(
-              children: [
-                Expanded(
-                  child: constraints.maxWidth < minimumLeadingWidth + 56
-                      ? compactLeading
-                      : leading,
-                ),
-                trailing,
-              ],
-            ),
-          );
-        }
-        final switchWidth = (constraints.maxWidth / 2)
-            .clamp(360.0, 520.0)
-            .clamp(
-              0.0,
-              (constraints.maxWidth - minimumLeadingWidth * 2 - 24).clamp(
-                0.0,
-                double.infinity,
-              ),
-            );
-        if (switchWidth < 360) {
-          final gap = constraints.maxWidth < 400 ? 8.0 : 12.0;
-          return Row(
-            key: ValueKey(id),
-            children: [
-              SizedBox(
-                width: compactLeadingWidth,
-                height: 48,
-                child: compactLeading,
-              ),
-              SizedBox(width: gap),
-              Expanded(child: Align(child: kindSwitch)),
-              SizedBox(width: gap),
-              trailing,
-            ],
-          );
-        }
-        return Row(
-          key: ValueKey(id),
-          children: [
-            Expanded(child: leading),
-            const SizedBox(width: 12),
-            SizedBox(width: switchWidth, child: kindSwitch),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Align(alignment: Alignment.centerRight, child: trailing),
-            ),
-          ],
-        );
-      },
-    ),
-  );
-
   Widget _detailsToolbar(CatalogTitle title) {
     final back = controller.queueOnly
         ? tr('К очереди', 'Back to queue')
         : controller.favoritesOnly
         ? tr('К избранному', 'Back to favorites')
         : tr('К каталогу', 'Back to catalogue');
-    return _toolbar(
-      id: 'catalog-details-toolbar',
-      leading: Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          key: const ValueKey('catalog-back'),
-          onPressed: controller.back,
-          icon: const Icon(Icons.arrow_back),
-          label: Text(back, maxLines: 1, overflow: TextOverflow.ellipsis),
-        ),
-      ),
-      compactLeading: IconButton(
-        key: const ValueKey('catalog-back'),
-        onPressed: controller.back,
-        tooltip: back,
-        icon: const Icon(Icons.arrow_back),
-      ),
-      trailing: SizedBox(
-        width: 104,
-        height: 48,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            if (controller.queue case final queue?
-                when FavoritesController.eligible(title))
-              QueueButton(
-                key: ValueKey('queue-detail-${title.kind.name}-${title.id}'),
-                title: title,
-                queue: queue,
-                english: english,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      child: LayoutBuilder(
+        builder: (context, bounds) {
+          final actionWidth = ((bounds.maxWidth - 140) / 2).clamp(44.0, 240.0);
+          return Row(
+            key: const ValueKey('catalog-details-toolbar'),
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: DesktopActionButton(
+                    key: const ValueKey('catalog-back'),
+                    icon: Icons.arrow_back_rounded,
+                    label: back,
+                    onPressed: controller.back,
+                  ),
+                ),
               ),
-            if (controller.favorites case final favorites?
-                when FavoritesController.eligible(title)) ...[
-              const SizedBox(width: 8),
-              FavoriteButton(
-                key: ValueKey('favorite-detail-${title.kind.name}-${title.id}'),
-                title: title,
-                favorites: favorites,
-                english: english,
-              ),
+              if (controller.queue case final queue?
+                  when FavoritesController.eligible(title))
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: actionWidth),
+                  child: QueueButton(
+                    key: ValueKey(
+                      'queue-detail-${title.kind.name}-${title.id}',
+                    ),
+                    title: title,
+                    queue: queue,
+                    english: english,
+                  ),
+                ),
+              if (controller.favorites case final favorites?
+                  when FavoritesController.eligible(title)) ...[
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: actionWidth),
+                  child: FavoriteButton(
+                    key: ValueKey(
+                      'favorite-detail-${title.kind.name}-${title.id}',
+                    ),
+                    title: title,
+                    favorites: favorites,
+                    english: english,
+                  ),
+                ),
+              ],
             ],
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -258,46 +199,14 @@ class CatalogPageView extends StatelessWidget {
     }
   }
 
-  Widget _collectionButton(
-    BuildContext context, {
-    required bool queue,
-    required bool compact,
-  }) {
+  Widget _collectionButton({required bool queue}) {
     final selected = queue ? controller.queueOnly : controller.favoritesOnly;
-    final label = queue ? tr('Очередь', 'Queue') : tr('Избранное', 'Favorites');
-    final colors = Theme.of(context).colorScheme;
-    final icon = Icon(
-      queue
-          ? Icons.playlist_play
-          : selected
-          ? Icons.favorite
-          : Icons.favorite_border,
-    );
-    final callback = queue ? _toggleQueue : _toggleFavorites;
-    final key = ValueKey(queue ? 'catalog-queue' : 'catalog-favorites');
-    return Semantics(
-      toggled: selected,
-      child: compact
-          ? IconButton.outlined(
-              key: key,
-              onPressed: callback,
-              tooltip: label,
-              style: IconButton.styleFrom(
-                backgroundColor: selected ? colors.primaryContainer : null,
-                foregroundColor: selected ? colors.onPrimaryContainer : null,
-              ),
-              icon: icon,
-            )
-          : OutlinedButton.icon(
-              key: key,
-              onPressed: callback,
-              style: OutlinedButton.styleFrom(
-                backgroundColor: selected ? colors.primaryContainer : null,
-                foregroundColor: selected ? colors.onPrimaryContainer : null,
-              ),
-              icon: icon,
-              label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-            ),
+    return DesktopActionButton(
+      key: ValueKey(queue ? 'catalog-queue' : 'catalog-favorites'),
+      icon: queue ? Icons.playlist_play_rounded : Icons.favorite_border_rounded,
+      label: queue ? tr('Очередь', 'Queue') : tr('Избранное', 'Favorites'),
+      selected: selected,
+      onPressed: queue ? _toggleQueue : _toggleFavorites,
     );
   }
 
@@ -305,45 +214,163 @@ class CatalogPageView extends StatelessWidget {
     final collection = controller.queueOnly
         ? controller.queue
         : controller.favorites;
-    return _toolbar(
-      id: 'catalog-listing-toolbar',
-      minimumLeadingWidth: 285,
-      compactLeadingWidth: 104,
-      leading: Row(
-        children: [
-          Flexible(
-            child: _collectionButton(context, queue: false, compact: false),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: _collectionButton(context, queue: true, compact: false),
-          ),
-        ],
-      ),
-      compactLeading: Row(
-        children: [
-          _collectionButton(context, queue: false, compact: true),
-          const SizedBox(width: 8),
-          _collectionButton(context, queue: true, compact: true),
-        ],
-      ),
-      trailing: SizedBox(
-        width: 40,
-        height: 48,
-        child: IconButton(
-          key: const ValueKey('catalog-refresh'),
-          tooltip: controller.queueOnly
-              ? tr('Обновить очередь', 'Refresh queue')
-              : controller.favoritesOnly
-              ? tr('Обновить избранное', 'Refresh favorites')
-              : tr('Обновить каталог', 'Refresh catalogue'),
-          onPressed: () => controller.localCollectionOnly
-              ? collection?.restore()
-              : controller.browse(),
-          icon: const Icon(Icons.refresh),
-        ),
+    final refresh = DesktopActionButton(
+      key: const ValueKey('catalog-refresh'),
+      icon: Icons.refresh_rounded,
+      label: tr('Обновить', 'Refresh'),
+      onPressed: () => controller.localCollectionOnly
+          ? collection?.restore()
+          : controller.browse(),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      child: LayoutBuilder(
+        builder: (context, bounds) {
+          final narrow = bounds.maxWidth < 900;
+          // Reserve the segment width: captions grow right without moving it.
+          final switchWidth = narrow
+              ? (bounds.maxWidth - 320).clamp(130.0, 360.0)
+              : (bounds.maxWidth * .42).clamp(300.0, 520.0);
+          final collectionWidth =
+              ((bounds.maxWidth - switchWidth - (narrow ? 16 : 288)) / 2).clamp(
+                44.0,
+                170.0,
+              );
+          final navigation = <Widget>[
+            if (kindSwitch != null) ...[
+              SizedBox(width: switchWidth, child: kindSwitch),
+              const SizedBox(width: 8),
+            ],
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: collectionWidth),
+              child: _collectionButton(queue: false),
+            ),
+            const SizedBox(width: 8),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: collectionWidth),
+              child: _collectionButton(queue: true),
+            ),
+          ];
+          final search =
+              searchControls?.call(refresh) ??
+              Align(alignment: Alignment.centerRight, child: refresh);
+          return narrow
+              ? Column(
+                  key: const ValueKey('catalog-listing-toolbar'),
+                  children: [
+                    Row(children: navigation),
+                    const SizedBox(height: 8),
+                    SizedBox(height: 44, child: search),
+                  ],
+                )
+              : Row(
+                  key: const ValueKey('catalog-listing-toolbar'),
+                  children: [
+                    ...navigation,
+                    const SizedBox(width: 12),
+                    Expanded(child: search),
+                  ],
+                );
+        },
       ),
     );
+  }
+
+  Future<void> _titleMenu(BuildContext context, CatalogTitle title) async {
+    final favorites = controller.favorites, queue = controller.queue;
+    final watched = WatchedScope.of(context);
+    final eligible = FavoritesController.eligible(title);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        Widget action(
+          String id,
+          IconData icon,
+          String label, {
+          bool enabled = true,
+        }) => Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: DesktopActionButton(
+            key: ValueKey('title-menu-$id'),
+            icon: icon,
+            label: label,
+            alwaysExpanded: true,
+            onPressed: enabled ? () => Navigator.pop(context, id) : null,
+          ),
+        );
+        return AlertDialog(
+          scrollable: true,
+          title: Text(
+            title.title(english),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          content: SizedBox(
+            width: 320,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                action(
+                  'watch',
+                  Icons.play_arrow_rounded,
+                  tr('Открыть карточку', 'Open title'),
+                ),
+                if (eligible && favorites != null)
+                  action(
+                    'favorite',
+                    Icons.favorite_border_rounded,
+                    favorites.contains(title)
+                        ? tr('Убрать из избранного', 'Remove from favorites')
+                        : tr('В избранное', 'Add to favorites'),
+                    enabled:
+                        favorites.ready &&
+                        !favorites.loading &&
+                        !favorites.saving,
+                  ),
+                if (eligible && queue != null)
+                  action(
+                    'queue',
+                    Icons.playlist_play_rounded,
+                    queue.contains(title)
+                        ? tr('Убрать из очереди', 'Remove from queue')
+                        : tr('В очередь', 'Add to queue'),
+                    enabled: queue.ready && !queue.loading && !queue.saving,
+                  ),
+                if (eligible && watched != null)
+                  action(
+                    'watched',
+                    Icons.visibility_outlined,
+                    watched.titleWatched(title)
+                        ? tr('Просмотрено', 'Watched')
+                        : tr('Отметить просмотренным', 'Mark as watched'),
+                    enabled: !watched.titleWatched(title),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (!context.mounted) return;
+    try {
+      switch (result) {
+        case 'watch':
+          await controller.open(title);
+        case 'favorite':
+          await favorites!.toggle(title);
+        case 'queue':
+          await queue!.toggle(title);
+        case 'watched':
+          await watched!.markTitle(title);
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(catalogError(error, english))));
+      }
+    }
   }
 
   Widget _listing(BuildContext context) {
@@ -435,6 +462,7 @@ class CatalogPageView extends StatelessWidget {
                       return CatalogTile(
                         key: ValueKey('title-${item.id}'),
                         onTap: () => controller.open(item),
+                        onContextMenu: () => _titleMenu(context, item),
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
@@ -545,11 +573,11 @@ class CatalogPageView extends StatelessWidget {
                   if (entry.value.hasMore &&
                       !entry.value.loading &&
                       entry.value.error == null)
-                    TextButton(
+                    DesktopActionButton(
+                      icon: Icons.expand_more_rounded,
+                      label:
+                          '${tr('Ещё', 'More')} ${providerDisplayLabel(entry.key)}',
                       onPressed: () => controller.loadMoreSources(entry.key),
-                      child: Text(
-                        '${tr('Ещё', 'More')} ${providerDisplayLabel(entry.key)}',
-                      ),
                     ),
                 ],
               ),
@@ -592,11 +620,11 @@ class CatalogPageView extends StatelessWidget {
           if (title.kind != CatalogKind.games && title.trailer != null)
             Padding(
               padding: const EdgeInsets.only(top: 16),
-              child: OutlinedButton.icon(
+              child: DesktopActionButton(
                 key: const ValueKey('catalog-trailer'),
                 onPressed: onTrailer == null ? null : () => onTrailer!(title),
-                icon: const Icon(Icons.movie_outlined),
-                label: Text(tr('Трейлер', 'Trailer')),
+                icon: Icons.movie_outlined,
+                label: tr('Трейлер', 'Trailer'),
               ),
             ),
           if (title.kind == CatalogKind.games)
@@ -836,6 +864,7 @@ class _SourceTableState extends State<SourceTable> {
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       foregroundColor: colors.onSurface,
+      backgroundColor: colors.surfaceContainerHigh,
       side: BorderSide(color: colors.outlineVariant),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
     );
@@ -873,12 +902,15 @@ class _SourceTableState extends State<SourceTable> {
           ),
         );
       }
-      return OutlinedButton.icon(
-        key: actionKey,
-        style: style,
-        onPressed: enabled ? () => _use(source, watch) : null,
-        icon: icon,
-        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+      return Align(
+        child: DesktopActionButton(
+          key: actionKey,
+          size: 32,
+          onPressed: enabled ? () => _use(source, watch) : null,
+          icon: watch ? Icons.play_arrow_rounded : Icons.download_outlined,
+          glyph: icon,
+          label: label,
+        ),
       );
     }
 
@@ -983,118 +1015,114 @@ class _SourceTableState extends State<SourceTable> {
     builder: (context, constraints) {
       final inset = widget.introduction == null ? 0.0 : 24.0;
       final width = constraints.maxWidth - inset * 2;
-      final filters = <({double width, Widget child})>[
+      final filters = <({double? width, Widget child})>[
         (
-          width: 240,
-          child: TextField(
-            key: const ValueKey('source-search'),
+          width: null,
+          child: DesktopSearchField(
+            key: const ValueKey('source-search-pill'),
+            expandedWidth: width.clamp(44, 240),
+            alignment: AlignmentDirectional.centerStart,
+            shrinkWrap: true,
+            fieldKey: const ValueKey('source-search'),
+            clearKey: const ValueKey('source-search-clear'),
             controller: sourceSearch,
+            label: tr('Поиск по найденному', 'Search these sources'),
+            clearLabel: tr(
+              'Очистить поиск по источникам',
+              'Clear source search',
+            ),
             onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              hintText: tr('Поиск по найденному', 'Search these sources'),
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
-              prefixIcon: const Icon(Icons.search, size: 18),
-              prefixIconConstraints: const BoxConstraints(minWidth: 36),
-              suffixIcon: sourceSearch.text.isEmpty
-                  ? null
-                  : IconButton(
-                      key: const ValueKey('source-search-clear'),
-                      tooltip: tr(
-                        'Очистить поиск по источникам',
-                        'Clear source search',
-                      ),
-                      icon: const Icon(Icons.close, size: 18),
-                      onPressed: () => setState(sourceSearch.clear),
-                    ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
           ),
         ),
-        if (widget.series)
-          (
-            width: 136,
-            child: DropdownButton<int>(
-              key: const ValueKey('source-season'),
-              value: season,
-              isExpanded: true,
-              hint: Text(
-                tr('Любой сезон', 'Any season'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              items: [
-                DropdownMenuItem(
-                  value: null,
-                  child: Text(tr('Любой сезон', 'Any season')),
-                ),
-                for (final value in seasons.availableSourceSeasons(
-                  widget.sources,
-                ))
-                  DropdownMenuItem(
-                    value: value,
-                    child: Text(
-                      value == 0
-                          ? tr('Спецвыпуски', 'Specials')
-                          : '${tr('Сезон', 'Season')} $value',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-              ],
-              onChanged: (value) => setState(() {
-                season = value;
-                episode = null;
-              }),
-            ),
-          ),
-        if (widget.series)
-          (
-            width: 136,
-            child: DropdownButton<int>(
-              key: const ValueKey('source-episode'),
-              value: episode,
-              isExpanded: true,
-              hint: Text(tr('Любая серия', 'Any episode')),
-              items: [
-                DropdownMenuItem(
-                  value: null,
-                  child: Text(tr('Любая серия', 'Any episode')),
-                ),
-                for (final value in seasons.availableSourceEpisodes(
-                  widget.sources,
-                  season: season,
-                ))
-                  DropdownMenuItem(
-                    value: value,
-                    child: Text(
-                      '${tr('Серия', 'Episode')} $value',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-              ],
-              onChanged: (value) => setState(() => episode = value),
-            ),
-          ),
         (
-          width: 40,
-          child: IconButton.filledTonal(
-            key: const ValueKey('source-reset'),
-            tooltip: tr('Сбросить фильтры', 'Reset filters'),
-            onPressed: () => setState(() {
-              sourceSearch.clear();
-              season = episode = null;
-              hiddenProviders.clear();
-            }),
-            icon: const Icon(Icons.filter_alt_off_outlined, size: 20),
+          width: null,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 180),
+            child: DesktopActionButton(
+              key: const ValueKey('source-reset'),
+              label: tr('Сбросить фильтры', 'Reset filters'),
+              size: 44,
+              onPressed: () => setState(() {
+                sourceSearch.clear();
+                season = episode = null;
+                hiddenProviders.clear();
+              }),
+              icon: Icons.filter_alt_off_outlined,
+            ),
           ),
         ),
+        if (widget.series)
+          (
+            width: 190,
+            child: DesktopPicker(
+              icon: Icons.video_library_outlined,
+              child: DropdownButton<int>(
+                key: const ValueKey('source-season'),
+                value: season,
+                isExpanded: true,
+                hint: Text(
+                  tr('Любой сезон', 'Any season'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: null,
+                    child: Text(tr('Любой сезон', 'Any season')),
+                  ),
+                  for (final value in seasons.availableSourceSeasons(
+                    widget.sources,
+                  ))
+                    DropdownMenuItem(
+                      value: value,
+                      child: Text(
+                        value == 0
+                            ? tr('Спецвыпуски', 'Specials')
+                            : '${tr('Сезон', 'Season')} $value',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: (value) => setState(() {
+                  season = value;
+                  episode = null;
+                }),
+              ),
+            ),
+          ),
+        if (widget.series)
+          (
+            width: 190,
+            child: DesktopPicker(
+              icon: Icons.playlist_play_rounded,
+              child: DropdownButton<int>(
+                key: const ValueKey('source-episode'),
+                value: episode,
+                isExpanded: true,
+                hint: Text(tr('Любая серия', 'Any episode')),
+                items: [
+                  DropdownMenuItem(
+                    value: null,
+                    child: Text(tr('Любая серия', 'Any episode')),
+                  ),
+                  for (final value in seasons.availableSourceEpisodes(
+                    widget.sources,
+                    season: season,
+                  ))
+                    DropdownMenuItem(
+                      value: value,
+                      child: Text(
+                        '${tr('Серия', 'Episode')} $value',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: (value) => setState(() => episode = value),
+              ),
+            ),
+          ),
       ];
       final background = Theme.of(context).scaffoldBackgroundColor;
       final tableColor = Theme.of(context).colorScheme.surfaceContainerLow;
@@ -1114,8 +1142,8 @@ class _SourceTableState extends State<SourceTable> {
                   children: [
                     for (final filter in filters)
                       SizedBox(
-                        width: filter.width.clamp(0, width),
-                        height: 40,
+                        width: filter.width?.clamp(0, width),
+                        height: 44,
                         child: filter.child,
                       ),
                   ],
@@ -1131,6 +1159,7 @@ class _SourceTableState extends State<SourceTable> {
                         SizedBox(
                           height: 40,
                           child: FilterChip(
+                            shape: const StadiumBorder(),
                             key: ValueKey('source-provider-${provider.name}'),
                             label: Text(providerDisplayLabel(provider)),
                             padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -1163,7 +1192,7 @@ class _SourceTableState extends State<SourceTable> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  '${tr('Строк', 'Rows')}: ${sources.length} / ${widget.sources.length}',
+                  '${tr('Найдено', 'Results')}: ${sources.length} / ${widget.sources.length}',
                 ),
               ),
             ),
@@ -1171,17 +1200,16 @@ class _SourceTableState extends State<SourceTable> {
             if (widget.series)
               Align(
                 alignment: Alignment.centerRight,
-                child: TextButton.icon(
+                child: DesktopActionButton(
                   onPressed: () => sort(6, !ascending),
-                  icon: Icon(
-                    sortColumn == 6 && ascending
-                        ? Icons.arrow_upward
-                        : Icons.arrow_downward,
-                    size: 14,
-                  ),
-                  label: Text(tr('Сезон / серия', 'Season / episode')),
+                  alwaysExpanded: true,
+                  icon: sortColumn == 6 && ascending
+                      ? Icons.arrow_upward_rounded
+                      : Icons.arrow_downward_rounded,
+                  label: tr('Сезон / серия', 'Season / episode'),
                 ),
               ),
+            const SizedBox(height: 12),
           ],
         ),
       );
@@ -1270,17 +1298,15 @@ class _SourceTableState extends State<SourceTable> {
                 ),
               if (!widget.game) ...[
                 const SizedBox(width: 8),
-                IconButton(
+                DesktopActionButton(
                   key: ValueKey('source-watched-$key'),
-                  tooltip: tr('Просмотрено', 'Watched'),
-                  isSelected:
+                  size: 40,
+                  revealLabel: false,
+                  label: tr('Просмотрено', 'Watched'),
+                  selected:
                       title != null &&
                       watched?.sourceWatched(title, source) == true,
-                  selectedIcon: Icon(
-                    Icons.visibility_outlined,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  icon: const Icon(Icons.visibility_outlined),
+                  icon: Icons.visibility_outlined,
                   onPressed: title == null || watched == null
                       ? null
                       : () async {

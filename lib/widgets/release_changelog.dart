@@ -11,7 +11,7 @@ class ReleaseChangelog extends StatelessWidget {
     super.key,
   });
 
-  static const version = '2.0.0';
+  static const version = '2.0.1';
   final bool english, tv, mobile;
 
   @override
@@ -19,38 +19,25 @@ class ReleaseChangelog extends StatelessWidget {
     final title = Theme.of(context).textTheme;
     final entries = [
       (
-        Icons.palette_outlined,
+        Icons.filter_alt_outlined,
         english
-            ? 'New light and dark themes, rounded posters and an F icon that follows your theme.'
-            : 'Светлая и тёмная темы, скруглённые постеры и знак F, который меняет цвета вместе с темой.',
+            ? 'Filter fields no longer overlap. The country picker now includes “Exclude Russia” on phones and desktop.'
+            : 'Поля фильтра больше не накладываются друг на друга. «Не Россия» теперь доступна на телефонах и компьютерах.',
       ),
-      if (tv)
-        (
-          Icons.settings_remote_outlined,
-          english
-              ? 'Press OK to open a title. Hold OK to watch, save to favorites or add to your queue.'
-              : 'Нажмите ОК, чтобы открыть карточку. Удерживайте ОК, чтобы начать просмотр, добавить в избранное или в очередь.',
-        )
-      else if (mobile)
+      if (!tv && !mobile) ...[
         (
           Icons.touch_app_outlined,
           english
-              ? 'Tap a poster to open it. Hold it to see actions. Your lists are in the bottom navigation.'
-              : 'Касание постера открывает карточку, удержание — меню действий. Избранное и очередь доступны в «Списках» на нижней панели.',
-        )
-      else
-        (
-          Icons.mouse_outlined,
-          english
-              ? 'Hover over a poster to add a title to favorites or your queue.'
-              : 'Наведите указатель на постер, чтобы добавить фильм в избранное или в очередь.',
+              ? 'Hold a poster, use a secondary click or Force Click on the trackpad to open its action menu.'
+              : 'Удерживайте постер или используйте вторичный клик либо Force Click трекпада, чтобы открыть меню действий.',
         ),
-      (
-        Icons.motion_photos_on_outlined,
-        english
-            ? 'You can turn interface animations off in Settings.'
-            : 'Анимации интерфейса можно отключить в настройках.',
-      ),
+        (
+          Icons.motion_photos_on_outlined,
+          english
+              ? 'A TV-style catalogue header and rounded controls with animated labels, search, season and episode filters. Turn animations off in Settings.'
+              : 'Шапка каталога в стиле ТВ и круглые кнопки с раскрытием подписей. Обновлены поиск, сезоны, серии и список найденного. Анимации можно отключить в настройках.',
+        ),
+      ],
     ];
     return AlertDialog(
       scrollable: true,

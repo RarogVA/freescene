@@ -22,6 +22,7 @@ import 'settings/settings_store.dart';
 import 'settings/license_document.dart';
 import 'theme/freescene_theme.dart';
 import 'widgets/catalog_style.dart';
+import 'widgets/desktop_controls.dart';
 import 'widgets/release_changelog.dart';
 import 'catalog/catalog_models.dart';
 import 'catalog/catalog_controller.dart';
@@ -448,22 +449,12 @@ class _FreeSceneAppState extends State<FreeSceneApp>
           !_showFavorites &&
           !_showQueue;
       final active = enabled && _catalog!.filter.active;
-      final colors = Theme.of(context).colorScheme;
-      return Semantics(
-        toggled: active,
-        child: IconButton.filledTonal(
-          key: const ValueKey('catalog-filter'),
-          tooltip: text('Фильтр', 'Filter'),
-          isSelected: active,
-          style: active
-              ? IconButton.styleFrom(
-                  backgroundColor: colors.errorContainer,
-                  foregroundColor: colors.onErrorContainer,
-                )
-              : null,
-          onPressed: enabled ? _filterCatalog : null,
-          icon: const Icon(Icons.filter_alt_outlined),
-        ),
+      return DesktopActionButton(
+        key: const ValueKey('catalog-filter'),
+        label: text('Фильтр', 'Filter'),
+        selected: active,
+        onPressed: enabled ? _filterCatalog : null,
+        icon: Icons.filter_alt_outlined,
       );
     }
 
@@ -827,53 +818,6 @@ class _FreeSceneAppState extends State<FreeSceneApp>
               Expanded(
                 child: Column(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          _catalogFilterButton(),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ValueListenableBuilder<TextEditingValue>(
-                              valueListenable: _search,
-                              builder: (context, value, _) => TextField(
-                                key: const ValueKey('catalog-search'),
-                                controller: _search,
-                                enabled:
-                                    _catalog != null && _catalogKind != null,
-                                onChanged: _searchChanged,
-                                onSubmitted: (value) =>
-                                    _searchChanged(value, immediate: true),
-                                decoration: InputDecoration(
-                                  hintText: text('Поиск', 'Search'),
-                                  prefixIcon: const Icon(Icons.search),
-                                  suffixIcon: value.text.isEmpty
-                                      ? null
-                                      : IconButton(
-                                          key: const ValueKey(
-                                            'catalog-search-clear',
-                                          ),
-                                          tooltip: text(
-                                            'Очистить поиск',
-                                            'Clear search',
-                                          ),
-                                          onPressed: () {
-                                            _search.clear();
-                                            _searchChanged('', immediate: true);
-                                          },
-                                          icon: const Icon(Icons.close),
-                                        ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(24),
-                                  ),
-                                  isDense: true,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                     if (_catalogKind != null && _catalog == null)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
@@ -913,6 +857,26 @@ class _FreeSceneAppState extends State<FreeSceneApp>
                               controller: _catalog!,
                               english: _preferences.english,
                               kindSwitch: _catalogSwitch(),
+                              searchControls: (refresh) => DesktopSearchField(
+                                key: const ValueKey('catalog-search-pill'),
+                                fieldKey: const ValueKey('catalog-search'),
+                                clearKey: const ValueKey(
+                                  'catalog-search-clear',
+                                ),
+                                controller: _search,
+                                label: text('Поиск', 'Search'),
+                                clearLabel: text(
+                                  'Очистить поиск',
+                                  'Clear search',
+                                ),
+                                expandedWidth: 480,
+                                trailing: [_catalogFilterButton(), refresh],
+                                onChanged: _searchChanged,
+                                onCleared: () =>
+                                    _searchChanged('', immediate: true),
+                                onSubmitted: (value) =>
+                                    _searchChanged(value, immediate: true),
+                              ),
                               onUseSource: _torrents == null
                                   ? null
                                   : _useCatalogSource,
@@ -1036,11 +1000,11 @@ class _FreeSceneAppState extends State<FreeSceneApp>
         child: Row(
           key: const ValueKey('settings-header'),
           children: [
-            IconButton(
+            DesktopActionButton(
               key: const ValueKey('settings-back'),
-              tooltip: text('Назад к каталогу', 'Back to catalogue'),
+              label: text('Назад к каталогу', 'Back to catalogue'),
               onPressed: () => _selectPage(_lastCatalogPage),
-              icon: const Icon(Icons.arrow_back),
+              icon: Icons.arrow_back_rounded,
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -1125,10 +1089,45 @@ class _FreeSceneAppState extends State<FreeSceneApp>
                     ),
                     _settingControl(
                       text('Анимации', 'Animations'),
-                      Switch(
-                        value: _preferences.tvAnimations,
-                        onChanged: (value) =>
-                            _update(_preferences.copyWith(tvAnimations: value)),
+                      RadioGroup<bool>(
+                        groupValue: _preferences.tvAnimations,
+                        onChanged: (value) {
+                          if (value != null) {
+                            _update(_preferences.copyWith(tvAnimations: value));
+                          }
+                        },
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (final enabled in [true, false])
+                              InkWell(
+                                key: ValueKey('settings-animations-$enabled'),
+                                borderRadius: BorderRadius.circular(24),
+                                onTap: () => _update(
+                                  _preferences.copyWith(tvAnimations: enabled),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Radio<bool>(value: enabled),
+                                    Text(
+                                      enabled
+                                          ? text(
+                                              'Включить анимации',
+                                              'Enable animations',
+                                            )
+                                          : text(
+                                              'Отключить анимации',
+                                              'Disable animations',
+                                            ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                     _settingControl(

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'catalog_models.dart';
 import 'catalog_tile.dart';
 import 'favorites.dart';
+import '../widgets/desktop_controls.dart';
 
 /// Shared appearance and rollback feedback for independently saved collections.
 class SavedTitleButton extends StatelessWidget {
@@ -17,6 +18,7 @@ class SavedTitleButton extends StatelessWidget {
     required this.icon,
     required this.selectedIcon,
     this.overPoster = false,
+    this.addGlyph,
     super.key,
   });
   final CatalogTitle title;
@@ -24,6 +26,7 @@ class SavedTitleButton extends StatelessWidget {
   final String addLabel, removeLabel, failureLabel;
   final IconData icon, selectedIcon;
   final bool overPoster;
+  final Widget? addGlyph;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -48,11 +51,22 @@ class SavedTitleButton extends StatelessWidget {
             color: colors.primary.withValues(alpha: selected ? 0.8 : 0.35),
           ),
         ),
-        icon: Icon(selected ? selectedIcon : icon, size: 21),
+        icon: !selected && addGlyph != null
+            ? addGlyph!
+            : Icon(selected ? selectedIcon : icon, size: 21),
       );
       return overPoster
           ? CatalogTileAction(selected: selected, child: button)
-          : button;
+          : DesktopActionButton(
+              label: selected ? removeLabel : addLabel,
+              selected: selected,
+              icon: selected ? selectedIcon : icon,
+              glyph: selected ? null : addGlyph,
+              onPressed:
+                  controller.ready && !controller.loading && !controller.saving
+                  ? () => unawaited(_toggle(context))
+                  : null,
+            );
     },
   );
 

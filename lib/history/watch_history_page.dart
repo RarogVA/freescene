@@ -6,6 +6,7 @@ import '../android/tv_widgets.dart';
 import '../catalog/source_format.dart';
 import '../domain/provider_display.dart';
 import 'watch_history.dart';
+import '../widgets/desktop_controls.dart';
 
 class WatchHistoryPage extends StatefulWidget {
   const WatchHistoryPage({
@@ -140,10 +141,11 @@ class WatchHistoryPageState extends State<WatchHistoryPage> {
         child: child,
       );
     }
-    return FilledButton.tonal(
+    return DesktopActionButton(
       key: ValueKey(id),
       onPressed: onPressed,
-      child: child,
+      icon: icon ?? Icons.check_rounded,
+      label: label,
     );
   }
 

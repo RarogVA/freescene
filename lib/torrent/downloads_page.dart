@@ -1,3 +1,5 @@
+import '../widgets/desktop_controls.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -163,11 +165,13 @@ class _DownloadsPageState extends State<DownloadsPage> {
       return Row(
         key: const ValueKey('downloads-header'),
         children: [
-          IconButton(
-            key: const ValueKey('downloads-back'),
-            tooltip: tr('Назад', 'Back'),
-            onPressed: widget.onBack,
-            icon: const Icon(Icons.arrow_back),
+          Flexible(
+            child: DesktopActionButton(
+              key: const ValueKey('downloads-back'),
+              label: tr('К каталогу', 'Back to catalogue'),
+              onPressed: widget.onBack,
+              icon: Icons.arrow_back_rounded,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -182,35 +186,23 @@ class _DownloadsPageState extends State<DownloadsPage> {
             ),
           ),
           const SizedBox(width: 12),
-          if (compact) ...[
-            IconButton.filled(
+          Flexible(
+            child: DesktopActionButton(
               key: const ValueKey('downloads-open-torrent'),
-              tooltip: openTorrent,
+              label: openTorrent,
               onPressed: _addTorrent,
-              icon: const Icon(Icons.add),
+              icon: Icons.add_rounded,
             ),
-            const SizedBox(width: 8),
-            IconButton.outlined(
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: DesktopActionButton(
               key: const ValueKey('downloads-add-magnet'),
-              tooltip: addMagnet,
+              label: addMagnet,
               onPressed: _addMagnet,
-              icon: const Icon(Icons.link),
+              icon: Icons.link_rounded,
             ),
-          ] else ...[
-            FilledButton.icon(
-              key: const ValueKey('downloads-open-torrent'),
-              onPressed: _addTorrent,
-              icon: const Icon(Icons.add),
-              label: Text(openTorrent),
-            ),
-            const SizedBox(width: 12),
-            OutlinedButton.icon(
-              key: const ValueKey('downloads-add-magnet'),
-              onPressed: _addMagnet,
-              icon: const Icon(Icons.link),
-              label: Text(addMagnet),
-            ),
-          ],
+          ),
         ],
       );
     },
@@ -340,7 +332,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                             runSpacing: 8,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              FilledButton.tonalIcon(
+                              DesktopActionButton(
                                 onPressed:
                                     (task.isVideoDownload
                                         ? task.phase == 'completed'
@@ -348,12 +340,17 @@ class _DownloadsPageState extends State<DownloadsPage> {
                                               task.videos.isNotEmpty)
                                     ? () => _watch(task)
                                     : null,
-                                icon: const Icon(Icons.play_arrow),
-                                label: Text(tr('Смотреть', 'Watch')),
+                                icon: Icons.play_arrow_rounded,
+                                label: tr('Смотреть', 'Watch'),
                               ),
                               if (!task.isVideoDownload ||
                                   task.phase != 'completed')
-                                OutlinedButton(
+                                DesktopActionButton(
+                                  icon: task.phase == 'paused'
+                                      ? Icons.play_arrow_rounded
+                                      : task.error.isNotEmpty
+                                      ? Icons.refresh_rounded
+                                      : Icons.pause_rounded,
                                   onPressed: () => _run(() async {
                                     await controller.command(
                                       task.phase == 'paused' ||
@@ -364,19 +361,16 @@ class _DownloadsPageState extends State<DownloadsPage> {
                                       {'id': task.id},
                                     );
                                   }),
-                                  child: Text(
-                                    task.phase == 'paused'
-                                        ? tr('Продолжить', 'Resume')
-                                        : task.error.isNotEmpty
-                                        ? tr('Повторить', 'Retry')
-                                        : tr('Пауза', 'Pause'),
-                                  ),
+                                  label: task.phase == 'paused'
+                                      ? tr('Продолжить', 'Resume')
+                                      : task.error.isNotEmpty
+                                      ? tr('Повторить', 'Retry')
+                                      : tr('Пауза', 'Pause'),
                                 ),
-                              IconButton(
-                                tooltip: tr('Удалить', 'Remove'),
+                              DesktopActionButton(
+                                label: tr('Удалить', 'Remove'),
                                 onPressed: () => _remove(task),
-                                color: Theme.of(context).colorScheme.error,
-                                icon: const Icon(Icons.delete_outline),
+                                icon: Icons.delete_outline,
                               ),
                             ],
                           ),
