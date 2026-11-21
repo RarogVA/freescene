@@ -110,6 +110,19 @@ Future<void> activate(WidgetTester tester, String id) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> holdPoster(WidgetTester tester) async {
+  focusNode(tester, 'title-movies-0').requestFocus();
+  await tester.pumpAndSettle();
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.select);
+  await tester.pump(const Duration(milliseconds: 650));
+  await tester.pumpAndSettle();
+  expect(find.byKey(const ValueKey('title-menu-watch')), findsOneWidget);
+  await tester.sendKeyRepeatEvent(LogicalKeyboardKey.select);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.select);
+  await tester.pumpAndSettle();
+  expect(find.byKey(const ValueKey('title-menu-watch')), findsOneWidget);
+}
+
 void main() {
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -231,9 +244,6 @@ void main() {
           expect(FocusManager.instance.primaryFocus, focusNode(tester, id));
         }
         await activate(tester, 'title-movies-0');
-        expect(find.byKey(const ValueKey('title-menu-watch')), findsOneWidget);
-        await tester.sendKeyEvent(LogicalKeyboardKey.select);
-        await tester.pumpAndSettle();
         expect(find.byType(TvDetailHero), findsOneWidget);
         expect(control('detail-description'), findsOneWidget);
         await activate(tester, 'detail-description');
@@ -308,6 +318,93 @@ void main() {
     },
   );
 
+  for (final appearance in AppAppearance.values) {
+    testWidgets(
+      'TV filter rows and focused options are distinct in ${appearance.name}',
+      (tester) async {
+        final oldLoader = CatalogDictionaries.loader;
+        addTearDown(() => CatalogDictionaries.loader = oldLoader);
+        CatalogDictionaries.loader = () async => CatalogDictionaries({
+          'genres': [
+            for (var i = 0; i < 18; i++)
+              {'id': '$i', 'ru': 'Жанр $i', 'en': 'Genre $i'},
+          ],
+          'countries': [],
+          'gameGenres': [],
+        });
+        await launch(tester, preferences: Preferences(appearance: appearance));
+        focusNode(tester, 'search').requestFocus();
+        await tester.pumpAndSettle();
+        await activate(tester, 'filter');
+        Finder field(String label) => find.widgetWithText(FilledButton, label);
+        final genre = field('Жанр'), country = field('Страна');
+        expect(
+          tester.getRect(country).top - tester.getRect(genre).bottom,
+          greaterThanOrEqualTo(12),
+        );
+        final colors = Theme.of(tester.element(genre)).colorScheme;
+        Future<void> key(LogicalKeyboardKey key) async {
+          await tester.sendKeyEvent(key);
+          await tester.pumpAndSettle();
+        }
+
+        Finder option(String label) => find.descendant(
+          of: find.byType(SimpleDialog),
+          matching: field(label),
+        );
+        Color? fill(String label) => tester
+            .widget<Material>(
+              find
+                  .descendant(
+                    of: option(label),
+                    matching: find.byType(Material),
+                  )
+                  .first,
+            )
+            .color;
+        final trigger = Focus.of(tester.element(find.text('Жанр')));
+        trigger.requestFocus();
+        await tester.pumpAndSettle();
+        await key(LogicalKeyboardKey.select);
+        expect(fill('Все'), colors.primary);
+        for (var i = 0; i < 12; i++) {
+          await key(LogicalKeyboardKey.arrowDown);
+        }
+        expect(fill('Жанр 11'), colors.primary);
+        expect(fill('Все'), colors.surfaceContainerHigh);
+        expect(option('Жанр 11').hitTestable(), findsOneWidget);
+        await key(LogicalKeyboardKey.select);
+        expect(trigger.hasFocus, isTrue);
+        expect(
+          find.descendant(of: genre, matching: find.text('Жанр 11')),
+          findsOneWidget,
+        );
+        await key(LogicalKeyboardKey.select);
+        expect(fill('Жанр 11'), colors.primary);
+        expect(option('Жанр 11').hitTestable(), findsOneWidget);
+        await key(LogicalKeyboardKey.escape);
+        await key(LogicalKeyboardKey.arrowDown);
+        await key(LogicalKeyboardKey.select);
+        expect(fill('Все'), colors.primary);
+        await key(LogicalKeyboardKey.arrowUp);
+        expect(fill('Не Россия'), colors.primary);
+        expect(
+          find.descendant(
+            of: option('Все'),
+            matching: find.byIcon(Icons.check_rounded),
+          ),
+          findsOneWidget,
+        );
+        await key(LogicalKeyboardKey.select);
+        expect(
+          find.descendant(of: country, matching: find.text('Не Россия')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'TV year controls navigate vertically and open the editor only on OK',
     (tester) async {
@@ -356,7 +453,7 @@ void main() {
       Preferences? saved;
       await launch(tester, save: (p) async => saved = p);
       for (final choice in ['favorite', 'queue', 'watched']) {
-        await activate(tester, 'title-movies-0');
+        await holdPoster(tester);
         await tester.tap(find.byKey(ValueKey('title-menu-$choice')));
         await tester.pumpAndSettle();
         expect(
@@ -364,7 +461,7 @@ void main() {
           focusNode(tester, 'title-movies-0'),
         );
       }
-      await activate(tester, 'title-movies-0');
+      await holdPoster(tester);
       expect(find.text('Убрать из'), findsNWidgets(2));
       expect(find.text('Просмотрено'), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -462,9 +559,6 @@ void main() {
 
     await checkReachability('home');
     await activate(tester, 'title-movies-0');
-    expect(find.byKey(const ValueKey('title-menu-watch')), findsOneWidget);
-    await tester.sendKeyEvent(LogicalKeyboardKey.select);
-    await tester.pumpAndSettle();
     await checkReachability('detail-back');
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());

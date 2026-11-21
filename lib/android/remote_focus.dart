@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:flutter/gestures.dart' show kLongPressTimeout;
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 
 import 'android_theme.dart';
@@ -263,6 +267,7 @@ class RemoteButton extends StatefulWidget {
     required this.focus,
     required this.onPressed,
     required this.child,
+    this.onLongPress,
     this.selected = false,
     this.selectedBackground,
     this.selectedForeground,
@@ -276,7 +281,7 @@ class RemoteButton extends StatefulWidget {
   });
   final String id;
   final RemoteFocus focus;
-  final VoidCallback? onPressed;
+  final VoidCallback? onPressed, onLongPress;
   final Widget child;
   final bool selected;
   final Color? selectedBackground, selectedForeground;
@@ -291,6 +296,54 @@ class RemoteButton extends StatefulWidget {
 class _RemoteButtonState extends State<RemoteButton> {
   late final node = RemoteFocusNode(widget.id);
   bool focused = false;
+  Timer? holdTimer;
+  LogicalKeyboardKey? heldKey;
+  bool openedMenu = false;
+
+  void clearPress() {
+    if (heldKey == null) return;
+    holdTimer?.cancel();
+    holdTimer = null;
+    heldKey = null;
+    openedMenu = false;
+    FocusManager.instance.removeEarlyKeyEventHandler(finishPress);
+  }
+
+  KeyEventResult startPress(FocusNode _, KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        !node.hasPrimaryFocus ||
+        !const [
+          LogicalKeyboardKey.select,
+          LogicalKeyboardKey.enter,
+          LogicalKeyboardKey.numpadEnter,
+          LogicalKeyboardKey.gameButtonA,
+          LogicalKeyboardKey.space,
+        ].contains(event.logicalKey))
+      return KeyEventResult.ignored;
+    if (heldKey != null) return KeyEventResult.handled;
+    heldKey = event.logicalKey;
+    // The menu takes focus while OK is still held. Consume its repeats and
+    // release before they reach the newly focused menu action.
+    FocusManager.instance.addEarlyKeyEventHandler(finishPress);
+    holdTimer = Timer(kLongPressTimeout, () {
+      if (!node.hasPrimaryFocus || widget.onLongPress == null) return;
+      openedMenu = true;
+      widget.onLongPress!();
+    });
+    return KeyEventResult.handled;
+  }
+
+  KeyEventResult finishPress(KeyEvent event) {
+    if (event.logicalKey != heldKey) return KeyEventResult.ignored;
+    if (event is KeyUpEvent) {
+      final activate =
+          !openedMenu && node.hasPrimaryFocus && !event.synthesized;
+      clearPress();
+      if (activate) widget.onPressed?.call();
+    }
+    return KeyEventResult.handled;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -310,6 +363,7 @@ class _RemoteButtonState extends State<RemoteButton> {
 
   @override
   void dispose() {
+    clearPress();
     widget.focus.unregister(widget.id, node);
     node.dispose();
     super.dispose();
@@ -324,9 +378,11 @@ class _RemoteButtonState extends State<RemoteButton> {
       key: ValueKey('remote-${widget.id}'),
       focusNode: node,
       onPressed: widget.onPressed,
+      onLongPress: widget.onLongPress,
       onFocusChange: (value) {
         if (!widget.focus.enabled) return;
         setState(() => focused = value);
+        if (!value && !openedMenu) clearPress();
         if (value) {
           widget.focus.selected(widget.id);
           Scrollable.ensureVisible(context, alignment: 0.5);
@@ -388,7 +444,14 @@ class _RemoteButtonState extends State<RemoteButton> {
       scale: focused && widget.tile && animate ? 1.035 : 1,
       duration: animate ? const Duration(milliseconds: 180) : Duration.zero,
       curve: Curves.easeOutCubic,
-      child: button,
+      child: widget.onLongPress == null
+          ? button
+          : Focus(
+              canRequestFocus: false,
+              skipTraversal: true,
+              onKeyEvent: startPress,
+              child: button,
+            ),
     );
   }
 }

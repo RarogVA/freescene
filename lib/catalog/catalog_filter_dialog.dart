@@ -124,34 +124,58 @@ class _CatalogFilterDialogState extends State<CatalogFilterDialog> {
     );
   }
 
+  Widget choiceField<T>({
+    required String label,
+    required T? value,
+    required List<({T? value, String label})> choices,
+    required ValueChanged<T?> onChanged,
+  }) {
+    final current = choices.indexWhere((entry) => entry.value == value);
+    if (!widget.tv) {
+      return DropdownButtonFormField<T>(
+        initialValue: current < 0 ? null : value,
+        isExpanded: true,
+        decoration: InputDecoration(labelText: label),
+        items: [
+          for (final entry in choices)
+            DropdownMenuItem(
+              value: entry.value,
+              child: Text(entry.label, overflow: TextOverflow.ellipsis),
+            ),
+        ],
+        onChanged: onChanged,
+      );
+    }
+    final index = current < 0
+        ? choices.indexWhere((entry) => entry.value == null)
+        : current;
+    return _TvFilterPicker(
+      label: label,
+      choices: [for (final e in choices) e.label],
+      selected: index,
+      onChanged: (i) => onChanged(choices[i].value),
+    );
+  }
+
   Widget options(
     String title,
     String? value,
     List<FilterOption> choices,
     ValueChanged<String?> change, {
     bool countryPicker = false,
-  }) => DropdownButtonFormField<String>(
-    initialValue:
-        (countryPicker && value == CatalogFilter.outsideFourCountries) ||
-            choices.any((c) => c.id == value)
-        ? value
-        : null,
-    isExpanded: true,
-    decoration: InputDecoration(labelText: title),
-    items: [
-      if (countryPicker)
-        DropdownMenuItem(
-          value: CatalogFilter.outsideFourCountries,
-          child: Text(tr('Не Россия', 'Exclude Russia and selected countries')),
-        ),
-      DropdownMenuItem(value: null, child: Text(tr('Все', 'Any'))),
-      for (final c in choices)
-        DropdownMenuItem(
-          value: c.id,
-          child: Text(c.label(widget.english), overflow: TextOverflow.ellipsis),
-        ),
-    ],
+  }) => choiceField<String>(
+    label: title,
+    value: value,
     onChanged: change,
+    choices: [
+      if (countryPicker)
+        (
+          value: CatalogFilter.outsideFourCountries,
+          label: tr('Не Россия', 'Exclude Russia and selected countries'),
+        ),
+      (value: null, label: tr('Все', 'Any')),
+      for (final c in choices) (value: c.id, label: c.label(widget.english)),
+    ],
   );
   @override
   Widget build(BuildContext context) => AlertDialog(
@@ -187,7 +211,8 @@ class _CatalogFilterDialogState extends State<CatalogFilterDialog> {
                         : loaded!.genres,
                     (v) => setState(() => genre = v),
                   ),
-                  if (widget.kind != CatalogKind.games)
+                  if (widget.kind != CatalogKind.games) ...[
+                    if (widget.tv) const SizedBox(height: 12),
                     options(
                       tr('Страна', 'Country'),
                       country,
@@ -195,6 +220,7 @@ class _CatalogFilterDialogState extends State<CatalogFilterDialog> {
                       (v) => setState(() => country = v),
                       countryPicker: widget.tv,
                     ),
+                  ],
                 ],
               );
             },
@@ -249,37 +275,31 @@ class _CatalogFilterDialogState extends State<CatalogFilterDialog> {
               onChanged: (v) => setState(() => hd = v!),
             ),
           if (widget.kind == CatalogKind.series)
-            DropdownButtonFormField<bool>(
-              initialValue: ended,
-              decoration: InputDecoration(
-                labelText: tr('Статус сериала', 'Series status'),
-              ),
-              items: [
-                DropdownMenuItem(value: null, child: Text(tr('Любой', 'Any'))),
-                DropdownMenuItem(
-                  value: true,
-                  child: Text(tr('Завершён', 'Completed')),
-                ),
-                DropdownMenuItem(
-                  value: false,
-                  child: Text(tr('Продолжается', 'Ongoing')),
-                ),
+            choiceField<bool>(
+              value: ended,
+              label: tr('Статус сериала', 'Series status'),
+              choices: [
+                (value: null, label: tr('Любой', 'Any')),
+                (value: true, label: tr('Завершён', 'Completed')),
+                (value: false, label: tr('Продолжается', 'Ongoing')),
               ],
               onChanged: (v) => setState(() => ended = v),
             ),
-          DropdownButtonFormField<CatalogSort>(
-            initialValue: sort,
-            decoration: InputDecoration(labelText: tr('Сортировка', 'Sort')),
-            items: [
+          if (widget.tv && widget.kind == CatalogKind.series)
+            const SizedBox(height: 12),
+          choiceField<CatalogSort>(
+            value: sort,
+            label: tr('Сортировка', 'Sort'),
+            choices: [
               for (final v in CatalogSort.values)
-                DropdownMenuItem(
+                (
                   value: v,
-                  child: Text(switch (v) {
+                  label: switch (v) {
                     CatalogSort.popularity => tr('Популярность', 'Popularity'),
                     CatalogSort.newest => tr('Новые', 'Newest'),
                     CatalogSort.rating => tr('Рейтинг', 'Rating'),
                     CatalogSort.title => tr('Название', 'Title'),
-                  }),
+                  },
                 ),
             ],
             onChanged: (v) => setState(() => sort = v!),
@@ -299,4 +319,103 @@ class _CatalogFilterDialogState extends State<CatalogFilterDialog> {
       FilledButton(onPressed: apply, child: Text(tr('Применить', 'Apply'))),
     ],
   );
+}
+
+class _TvFilterPicker extends StatelessWidget {
+  const _TvFilterPicker({
+    required this.label,
+    required this.choices,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final String label;
+  final List<String> choices;
+  final int selected;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final style = ButtonStyle(
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      backgroundColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.focused)
+            ? colors.primary
+            : colors.surfaceContainerHigh,
+      ),
+      foregroundColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.focused)
+            ? colors.onPrimary
+            : colors.onSurface,
+      ),
+    );
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton(
+        style: style,
+        onPressed: () async {
+          final choice = await showDialog<int>(
+            context: context,
+            animationStyle: MediaQuery.disableAnimationsOf(context)
+                ? AnimationStyle.noAnimation
+                : null,
+            builder: (dialog) => SimpleDialog(
+              title: Text(label),
+              contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              children: [
+                for (var i = 0; i < choices.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Builder(
+                      builder: (row) => Semantics(
+                        selected: i == selected,
+                        child: FilledButton(
+                          autofocus: i == selected,
+                          style: style,
+                          onFocusChange: (focused) {
+                            if (focused) {
+                              Scrollable.ensureVisible(row, alignment: .5);
+                            }
+                          },
+                          onPressed: () => Navigator.pop(dialog, i),
+                          child: Row(
+                            children: [
+                              Expanded(child: Text(choices[i])),
+                              if (i == selected)
+                                const Icon(Icons.check_rounded),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+          if (context.mounted && choice != null) onChanged(choice);
+        },
+        child: Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 3,
+              child: Text(choices[selected], textAlign: TextAlign.end),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.expand_more_rounded),
+          ],
+        ),
+      ),
+    );
+  }
 }

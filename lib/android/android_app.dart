@@ -421,7 +421,6 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
             String meaning, {
             bool first = false,
             bool enabled = true,
-            bool iconLast = false,
           }) {
             final glyph = Icon(icon, size: 22);
             return Padding(
@@ -435,13 +434,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                   child: ExcludeSemantics(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (!iconLast) glyph,
-                        if (!iconLast) const SizedBox(width: 10),
-                        Text(verb),
-                        if (iconLast) const SizedBox(width: 10),
-                        if (iconLast) glyph,
-                      ],
+                      children: [Text(verb), const SizedBox(width: 10), glyph],
                     ),
                   ),
                 ),
@@ -464,7 +457,6 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                   ? tr('Убрать из', 'Remove from')
                   : tr('Добавить в', 'Add to'),
               saved ? remove : add,
-              iconLast: true,
             );
           }
 
@@ -508,7 +500,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                     Icons.visibility_outlined,
                     marked
                         ? tr('Просмотрено', 'Watched')
-                        : tr('Отметить просмотренным', 'Mark as watched'),
+                        : tr('Отметить', 'Mark'),
                     tr('Отметить просмотренным', 'Mark as watched'),
                     enabled: !marked,
                   ),
@@ -1878,7 +1870,8 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
     key: ValueKey('title-${title.kind.name}-${title.id}'),
     id: 'title-${title.kind.name}-${title.id}',
     focus: remote,
-    onPressed: () => widget.runtime.tv ? titleMenu(title) : open(title),
+    onPressed: () => open(title),
+    onLongPress: widget.runtime.tv ? () => unawaited(titleMenu(title)) : null,
     tile: true,
     radius: widget.runtime.tv ? 18 : 12,
     padding: EdgeInsets.zero,

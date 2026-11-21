@@ -7,7 +7,7 @@ FreeScene объединяет каталог, поиск по нескольк�
 просмотренное и выбирайте подходящий вариант по качеству, озвучке и размеру.
 Интерфейс адаптирован для мыши, сенсорного экрана и телевизионного пульта.
 
-**[Скачать для Android TV](https://github.com/RarogVA/freescene/releases/tag/v1.8.9)** · [Скачать для Android и macOS](https://github.com/RarogVA/freescene/releases/latest)
+**[Скачать для Android TV](https://github.com/RarogVA/freescene/releases/tag/v1.8.10)** · [Скачать для Android и macOS](https://github.com/RarogVA/freescene/releases/latest)
 · [Сообщить о проблеме](https://github.com/RarogVA/freescene/issues)
 
 ## Возможности
