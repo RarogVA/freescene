@@ -1,54 +1,9 @@
-import '../catalog/watched.dart';
-
 import 'package:flutter/material.dart';
 
-import '../catalog/cached_poster.dart';
+import '../widgets/catalog_style.dart';
 import '../catalog/catalog_models.dart';
 import '../catalog/poster_cache.dart';
 import 'remote_focus.dart';
-
-Duration tvMotionDuration(BuildContext context, [int milliseconds = 180]) =>
-    MediaQuery.disableAnimationsOf(context)
-    ? Duration.zero
-    : Duration(milliseconds: milliseconds);
-
-double tvPosterCaptionHeight(BuildContext context) =>
-    MediaQuery.textScalerOf(context).scale(60) + 28;
-
-class TvBrandIcon extends StatelessWidget {
-  const TvBrandIcon({this.size = 52, super.key});
-  final double size;
-  @override
-  Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return Center(
-      child: SizedBox.square(
-        dimension: size,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(size * .21),
-          clipBehavior: Clip.antiAlias,
-          child: AnimatedSwitcher(
-            duration: tvMotionDuration(context),
-            child: Transform.scale(
-              key: ValueKey('tv-brand-${dark ? 'dark' : 'light'}'),
-              scale: 1.18,
-              child: Image.asset(
-                dark
-                    ? 'assets/branding/tv-preview-icon.png'
-                    : 'assets/branding/tv-preview-icon-light.png',
-                width: size,
-                height: size,
-                filterQuality: FilterQuality.high,
-                cacheWidth: (size * MediaQuery.devicePixelRatioOf(context) * 2)
-                    .ceil(),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class TvBackButton extends StatelessWidget {
   const TvBackButton({
@@ -75,28 +30,6 @@ class TvBackButton extends StatelessWidget {
   );
 }
 
-class TvSurface extends StatelessWidget {
-  const TvSurface({required this.child, super.key});
-  final Widget child;
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [colors.surfaceContainerHigh, colors.surfaceContainerLow],
-        ),
-        border: Border.all(color: colors.outlineVariant.withValues(alpha: .65)),
-      ),
-      child: child,
-    );
-  }
-}
-
 /// The same remote button stays focused while its caption appears or disappears.
 class TvCollectionButton extends StatelessWidget {
   const TvCollectionButton({
@@ -116,7 +49,7 @@ class TvCollectionButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => TvSurface(
+  Widget build(BuildContext context) => PillSurface(
     child: RemoteButton(
       id: id,
       focus: focus,
@@ -137,7 +70,7 @@ class TvCollectionButton extends StatelessWidget {
                   Icon(icon, size: 21),
                   TweenAnimationBuilder<double>(
                     tween: Tween(end: focused ? 1.0 : 0.0),
-                    duration: tvMotionDuration(context, 220),
+                    duration: motionDuration(context, 220),
                     curve: Curves.easeOutCubic,
                     child: Padding(
                       padding: const EdgeInsetsDirectional.only(start: 8),
@@ -154,6 +87,61 @@ class TvCollectionButton extends StatelessWidget {
                 ],
               );
             },
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Move a laid-out toolbar behind a fixed rounded clip. The list of posters
+/// and the search actions do not rebuild on animation ticks.
+class TvSearchPill extends StatefulWidget {
+  const TvSearchPill({
+    required this.keepOpen,
+    required this.content,
+    super.key,
+  });
+
+  final bool Function() keepOpen;
+  final Widget Function(bool expanded, double width) content;
+
+  @override
+  State<TvSearchPill> createState() => _TvSearchPillState();
+}
+
+class _TvSearchPillState extends State<TvSearchPill> {
+  bool expanded = false;
+
+  @override
+  Widget build(BuildContext context) => Focus(
+    canRequestFocus: false,
+    skipTraversal: true,
+    onFocusChange: (value) {
+      if (expanded != value && (value || !widget.keepOpen())) {
+        setState(() => expanded = value);
+      }
+    },
+    child: LayoutBuilder(
+      builder: (context, bounds) => RepaintBoundary(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(30),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(end: expanded ? 0.0 : 1.0),
+            duration: motionDuration(context, 180),
+            curve: Curves.easeOutCubic,
+            child: RepaintBoundary(
+              child: PillSurface(
+                child: widget.content(expanded, bounds.maxWidth),
+              ),
+            ),
+            builder: (_, fraction, bar) => Transform.translate(
+              offset: Offset(
+                (bounds.maxWidth - 58).clamp(0.0, double.infinity) * fraction,
+                0,
+              ),
+              child: bar,
+            ),
           ),
         ),
       ),
@@ -190,7 +178,7 @@ class TvEntrance extends StatelessWidget {
   @override
   Widget build(BuildContext context) => TweenAnimationBuilder<double>(
     tween: Tween(begin: 0, end: 1),
-    duration: tvMotionDuration(context, 240),
+    duration: motionDuration(context, 240),
     curve: Curves.easeOutCubic,
     child: child,
     builder: (context, value, child) => Opacity(
@@ -200,213 +188,6 @@ class TvEntrance extends StatelessWidget {
         child: child,
       ),
     ),
-  );
-}
-
-/// Static surfaces keep the TV preview inexpensive on low-memory devices.
-class TvPosterArtwork extends StatelessWidget {
-  const TvPosterArtwork({
-    required this.title,
-    this.cache,
-    this.decodeWidth = 240,
-    super.key,
-  });
-  final CatalogTitle title;
-  final PosterDiskCache? cache;
-  final int decodeWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final placeholder = DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [colors.surfaceContainerHighest, colors.surfaceContainerLow],
-        ),
-      ),
-      child: Center(
-        child: Icon(
-          title.kind == CatalogKind.series
-              ? Icons.live_tv_outlined
-              : Icons.local_movies_outlined,
-          size: 44,
-          color: colors.onSurfaceVariant,
-        ),
-      ),
-    );
-    return title.poster == null
-        ? placeholder
-        : CachedPoster(
-            uri: title.poster!,
-            fallback: title.posterFallback,
-            cache: cache,
-            decodeWidth: decodeWidth,
-            placeholder: placeholder,
-          );
-  }
-}
-
-class TvPosterContent extends StatelessWidget {
-  const TvPosterContent({
-    required this.title,
-    required this.english,
-    required this.favorite,
-    required this.queued,
-    this.cache,
-    super.key,
-  });
-  final CatalogTitle title;
-  final bool english, favorite, queued;
-  final PosterDiskCache? cache;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final marked = WatchedScope.of(context)?.titleWatched(title) == true;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                TvPosterArtwork(title: title, cache: cache),
-                if (title.poster != null)
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        stops: [0, .45, 1],
-                        colors: [
-                          Color(0x33000000),
-                          Colors.transparent,
-                          Color(0x66000000),
-                        ],
-                      ),
-                    ),
-                  ),
-                if (title.rating != null)
-                  Positioned(
-                    left: 10,
-                    top: 10,
-                    child: _PosterBadge(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.star_rounded,
-                            size: 15,
-                            color: Color(0xffefbd88),
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            title.rating!.toStringAsFixed(1),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                if (favorite || queued || marked)
-                  Positioned(
-                    right: 10,
-                    bottom: 10,
-                    child: _PosterBadge(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (WatchedScope.of(context)?.titleWatched(title) ==
-                              true)
-                            const Icon(
-                              Icons.visibility_outlined,
-                              size: 16,
-                              color: Colors.white,
-                            ),
-                          if (favorite)
-                            const Icon(
-                              Icons.favorite,
-                              size: 16,
-                              color: Colors.white,
-                            ),
-                          if (favorite && queued) const SizedBox(width: 6),
-                          if (queued)
-                            const Icon(
-                              Icons.playlist_play,
-                              size: 18,
-                              color: Colors.white,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: tvPosterCaptionHeight(context),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Tooltip(
-                    message: title.title(english),
-                    child: Text(
-                      title.title(english),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        height: 1.2,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    [
-                      if (title.year != null) '${title.year}',
-                      title.kind == CatalogKind.series
-                          ? (english ? 'Series' : 'Сериал')
-                          : (english ? 'Film' : 'Фильм'),
-                    ].join(' · '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PosterBadge extends StatelessWidget {
-  const _PosterBadge({required this.child});
-  final Widget child;
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-    decoration: BoxDecoration(
-      color: const Color(0xd9101216),
-      borderRadius: BorderRadius.circular(7),
-    ),
-    child: child,
   );
 }
 
@@ -458,7 +239,7 @@ class _TvDetailHeroState extends State<TvDetailHero> {
             child: SizedBox(
               width: 136,
               height: 204,
-              child: TvPosterArtwork(title: title, cache: cache),
+              child: PosterArtwork(title: title, cache: cache),
             ),
           ),
           const SizedBox(width: 28),
@@ -519,7 +300,7 @@ class _TvDetailHeroState extends State<TvDetailHero> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         TvAnimatedSize(
-                          duration: tvMotionDuration(context, 240),
+                          duration: motionDuration(context, 240),
                           alignment: Alignment.topLeft,
                           curve: Curves.easeInOutCubic,
                           child: Text(

@@ -28,7 +28,7 @@ void main() {
           widget is DecoratedBox &&
           widget.decoration is BoxDecoration &&
           (widget.decoration as BoxDecoration).color ==
-              theme.colorScheme.primary,
+              theme.colorScheme.onSurface,
     );
     final selected = tester.getRect(thumb);
     for (final kind in CatalogKind.values) {

@@ -72,10 +72,10 @@ class WatchedHistoryTest {
     @Test fun lightAndDarkPlayerAccentsFollowSavedAppearance() {
         val context = RuntimeEnvironment.getApplication()
         PlayerColors.configure(context, false)
-        assertEquals(android.graphics.Color.rgb(82, 99, 199), PlayerColors.accent)
+        assertEquals(android.graphics.Color.rgb(103, 85, 182), PlayerColors.accent)
         PlayerColors.restore(context)
-        assertEquals(android.graphics.Color.rgb(82, 99, 199), PlayerColors.accent)
+        assertEquals(android.graphics.Color.rgb(103, 85, 182), PlayerColors.accent)
         PlayerColors.configure(context, true)
-        assertEquals(android.graphics.Color.rgb(221, 166, 108), PlayerColors.accent)
+        assertEquals(android.graphics.Color.rgb(189, 179, 255), PlayerColors.accent)
     }
 }

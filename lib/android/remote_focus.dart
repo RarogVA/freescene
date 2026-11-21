@@ -318,8 +318,9 @@ class _RemoteButtonState extends State<RemoteButton> {
           LogicalKeyboardKey.numpadEnter,
           LogicalKeyboardKey.gameButtonA,
           LogicalKeyboardKey.space,
-        ].contains(event.logicalKey))
+        ].contains(event.logicalKey)) {
       return KeyEventResult.ignored;
+    }
     if (heldKey != null) return KeyEventResult.handled;
     heldKey = event.logicalKey;
     // The menu takes focus while OK is still held. Consume its repeats and
@@ -402,7 +403,7 @@ class _RemoteButtonState extends State<RemoteButton> {
                       : colors.secondaryContainer)
             : widget.tile
             ? colors.surfaceContainer
-            : widget.flat && widget.focus.enabled
+            : widget.flat
             ? Colors.transparent
             : null,
         foregroundColor: focused && !widget.tile && !outlineOnly
@@ -422,7 +423,10 @@ class _RemoteButtonState extends State<RemoteButton> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(widget.radius),
         ),
-        animationDuration: widget.focus.enabled ? Duration.zero : null,
+        animationDuration:
+            widget.focus.enabled || MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : null,
       ),
       child: widget.tile
           ? DecoratedBox(

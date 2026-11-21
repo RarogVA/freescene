@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/catalog_style.dart';
 import 'catalog_models.dart';
 
 /// A single moving thumb keeps the three catalogue sections mutually exclusive.
@@ -31,21 +32,7 @@ class CatalogKindSwitch extends StatelessWidget {
           final compact = constraints.maxWidth < 270;
           return Stack(
             children: [
-              AnimatedAlign(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeInOutCubic,
-                alignment: Alignment(value.index - 1.0, 0),
-                child: FractionallySizedBox(
-                  widthFactor: 1 / 3,
-                  heightFactor: 1,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: colors.primary,
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                  ),
-                ),
-              ),
+              CatalogSelectionThumb(index: value.index, count: 3),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -58,12 +45,14 @@ class CatalogKindSwitch extends StatelessWidget {
                           onPressed: () => onChanged(kind),
                           style: TextButton.styleFrom(
                             foregroundColor: value == kind
-                                ? colors.onPrimary
+                                ? colors.surface
                                 : colors.onSecondaryContainer,
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             visualDensity: VisualDensity.standard,
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: compact ? 0 : 8,
+                            ),
                             shape: const StadiumBorder(),
                           ),
                           child: Tooltip(

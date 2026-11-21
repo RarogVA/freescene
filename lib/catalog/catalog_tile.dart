@@ -39,7 +39,7 @@ class _CatalogTileState extends State<CatalogTile> {
           clipBehavior: Clip.antiAlias,
           borderOnForeground: true,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(18),
             side: BorderSide(
               width: 1.5,
               color: hovered || focused

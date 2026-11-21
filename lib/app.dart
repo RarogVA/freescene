@@ -21,6 +21,7 @@ import 'torrent/downloads_page.dart';
 import 'settings/settings_store.dart';
 import 'settings/license_document.dart';
 import 'theme/freescene_theme.dart';
+import 'widgets/catalog_style.dart';
 import 'catalog/catalog_models.dart';
 import 'catalog/catalog_controller.dart';
 import 'catalog/catalog_page.dart';
@@ -654,6 +655,9 @@ class _FreeSceneAppState extends State<FreeSceneApp>
     }
   }
 
+  late final darkTheme = FreeSceneTheme.create(true);
+  late final lightTheme = FreeSceneTheme.create(false);
+
   @override
   Widget build(BuildContext context) {
     final dark = _preferences.appearance == AppAppearance.dark;
@@ -667,7 +671,10 @@ class _FreeSceneAppState extends State<FreeSceneApp>
         locale: Locale(_preferences.language.name),
         supportedLocales: const [Locale('ru'), Locale('en')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: FreeSceneTheme.create(dark),
+        theme: dark ? darkTheme : lightTheme,
+        themeAnimationDuration: _preferences.tvAnimations
+            ? kThemeAnimationDuration
+            : Duration.zero,
         builder: (context, child) => LayoutBuilder(
           builder: (context, constraints) {
             final factor = _preferences.scale / 100;
@@ -680,7 +687,12 @@ class _FreeSceneAppState extends State<FreeSceneApp>
               child: SizedBox.fromSize(
                 size: size,
                 child: MediaQuery(
-                  data: MediaQuery.of(context).copyWith(size: size),
+                  data: MediaQuery.of(context).copyWith(
+                    size: size,
+                    disableAnimations:
+                        !_preferences.tvAnimations ||
+                        MediaQuery.disableAnimationsOf(context),
+                  ),
                   child: child!,
                 ),
               ),
@@ -692,101 +704,107 @@ class _FreeSceneAppState extends State<FreeSceneApp>
             children: [
               AnimatedContainer(
                 key: const ValueKey('sidebar'),
-                duration: const Duration(milliseconds: 240),
+                duration: _preferences.tvAnimations
+                    ? const Duration(milliseconds: 240)
+                    : Duration.zero,
                 curve: Curves.easeInOutCubic,
                 width: _sidebarCollapsed ? 76 : 200,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final compact = constraints.maxWidth < 180;
-                    final dense = constraints.maxHeight < 600;
-                    return SingleChildScrollView(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight: constraints.maxHeight,
-                        ),
-                        child: IntrinsicHeight(
-                          child: Column(
-                            children: [
-                              const SizedBox(height: 24),
-                              _sidebarButton(
-                                context,
-                                key: const ValueKey('sidebar-home'),
-                                compact: compact,
-                                dense: dense,
-                                label: text('Домой', 'Home'),
-                                leading: const Icon(Icons.home_outlined),
-                                onTap: _goHome,
-                              ),
-                              const Spacer(),
-                              for (final entry in [
-                                (
-                                  _Page.downloads,
-                                  Icons.download_outlined,
-                                  text('Загрузки', 'Downloads'),
-                                ),
-                                (
-                                  _Page.history,
-                                  Icons.history,
-                                  text('История', 'History'),
-                                ),
-                                (
-                                  _Page.settings,
-                                  Icons.settings_outlined,
-                                  text('Настройки', 'Settings'),
-                                ),
-                              ])
+                padding: const EdgeInsets.fromLTRB(8, 8, 0, 8),
+                child: Material(
+                  color: dark
+                      ? const Color(0xff232325)
+                      : const Color(0xffededf0),
+                  borderRadius: BorderRadius.circular(24),
+                  clipBehavior: Clip.antiAlias,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 180;
+                      final dense = constraints.maxHeight < 600;
+                      return SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
+                          ),
+                          child: IntrinsicHeight(
+                            child: Column(
+                              children: [
+                                const SizedBox(height: 24),
                                 _sidebarButton(
                                   context,
-                                  key: ValueKey('sidebar-${entry.$1.name}'),
+                                  key: const ValueKey('sidebar-home'),
                                   compact: compact,
                                   dense: dense,
-                                  label: entry.$3,
-                                  leading: Icon(entry.$2),
-                                  selected: _page == entry.$1,
-                                  onTap: () => _selectPage(entry.$1),
+                                  label: text('Домой', 'Home'),
+                                  leading: const Icon(Icons.home_outlined),
+                                  onTap: _goHome,
                                 ),
-                              _sidebarButton(
-                                context,
-                                key: const ValueKey('sidebar-toggle'),
-                                compact: compact,
-                                dense: dense,
-                                label: _sidebarCollapsed
-                                    ? text('Развернуть', 'Expand')
-                                    : text('Свернуть', 'Collapse'),
-                                leading: Icon(
-                                  _sidebarCollapsed
-                                      ? Icons.keyboard_double_arrow_right
-                                      : Icons.keyboard_double_arrow_left,
-                                ),
-                                onTap: () => _update(
-                                  _preferences.copyWith(
-                                    sidebarCollapsed: !_sidebarCollapsed,
+                                const Spacer(),
+                                for (final entry in [
+                                  (
+                                    _Page.downloads,
+                                    Icons.download_outlined,
+                                    text('Загрузки', 'Downloads'),
+                                  ),
+                                  (
+                                    _Page.history,
+                                    Icons.history,
+                                    text('История', 'History'),
+                                  ),
+                                  (
+                                    _Page.settings,
+                                    Icons.settings_outlined,
+                                    text('Настройки', 'Settings'),
+                                  ),
+                                ])
+                                  _sidebarButton(
+                                    context,
+                                    key: ValueKey('sidebar-${entry.$1.name}'),
+                                    compact: compact,
+                                    dense: dense,
+                                    label: entry.$3,
+                                    leading: Icon(entry.$2),
+                                    selected: _page == entry.$1,
+                                    onTap: () => _selectPage(entry.$1),
+                                  ),
+                                _sidebarButton(
+                                  context,
+                                  key: const ValueKey('sidebar-toggle'),
+                                  compact: compact,
+                                  dense: dense,
+                                  label: _sidebarCollapsed
+                                      ? text('Развернуть', 'Expand')
+                                      : text('Свернуть', 'Collapse'),
+                                  leading: Icon(
+                                    _sidebarCollapsed
+                                        ? Icons.keyboard_double_arrow_right
+                                        : Icons.keyboard_double_arrow_left,
+                                  ),
+                                  onTap: () => _update(
+                                    _preferences.copyWith(
+                                      sidebarCollapsed: !_sidebarCollapsed,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              _sidebarButton(
-                                context,
-                                key: const ValueKey('about-branding'),
-                                compact: compact,
-                                dense: dense,
-                                label: 'FreeScene',
-                                onTap: _showAbout,
-                                leading: Image.asset(
-                                  'assets/branding/app-icon.png',
-                                  width: 30,
-                                  height: 30,
+                                _sidebarButton(
+                                  context,
+                                  key: const ValueKey('about-branding'),
+                                  compact: compact,
+                                  dense: dense,
+                                  label: 'FreeScene',
+                                  onTap: _showAbout,
+                                  leading: const BrandIcon(size: 30),
                                 ),
-                              ),
-                              const SizedBox(height: 12),
-                            ],
+                                const SizedBox(height: 12),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
-              const VerticalDivider(width: 1),
+              const SizedBox(width: 5),
               Expanded(
                 child: Column(
                   children: [
@@ -1084,6 +1102,14 @@ class _FreeSceneAppState extends State<FreeSceneApp>
                         onSelectionChanged: (value) => _update(
                           _preferences.copyWith(appearance: value.single),
                         ),
+                      ),
+                    ),
+                    _settingControl(
+                      text('Анимации', 'Animations'),
+                      Switch(
+                        value: _preferences.tvAnimations,
+                        onChanged: (value) =>
+                            _update(_preferences.copyWith(tvAnimations: value)),
                       ),
                     ),
                     _settingControl(

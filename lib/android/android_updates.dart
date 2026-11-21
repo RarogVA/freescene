@@ -1,9 +1,10 @@
+import '../widgets/catalog_style.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../settings/license_document.dart';
 import 'android_runtime.dart';
-import 'tv_widgets.dart';
 
 /// Metadata only; the native layer verifies and retains the downloaded APK.
 class AndroidUpdates {
@@ -220,13 +221,7 @@ class _AndroidAboutDialogState extends State<AndroidAboutDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            widget.tv
-                ? const TvBrandIcon(size: 64)
-                : Image.asset(
-                    'assets/branding/app-icon.png',
-                    width: 64,
-                    height: 64,
-                  ),
+            const BrandIcon(size: 64),
             const SizedBox(height: 8),
             Text(
               'FreeScene',

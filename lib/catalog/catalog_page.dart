@@ -10,6 +10,7 @@ import 'queue_button.dart';
 import 'favorites.dart';
 import 'source_seasons.dart' as seasons;
 import 'cached_poster.dart';
+import '../widgets/catalog_style.dart';
 import '../domain/provider_display.dart';
 import 'source_metadata.dart';
 import 'watched.dart';
@@ -425,7 +426,7 @@ class CatalogPageView extends StatelessWidget {
                     gridDelegate:
                         const SliverGridDelegateWithMaxCrossAxisExtent(
                           maxCrossAxisExtent: 220,
-                          mainAxisExtent: 330,
+                          mainAxisExtent: 298,
                           crossAxisSpacing: 20,
                           mainAxisSpacing: 20,
                         ),
@@ -434,65 +435,45 @@ class CatalogPageView extends StatelessWidget {
                       return CatalogTile(
                         key: ValueKey('title-${item.id}'),
                         onTap: () => controller.open(item),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                        child: Stack(
+                          fit: StackFit.expand,
                           children: [
-                            Expanded(
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  CatalogPoster(title: item),
-                                  if (controller.queue case final queue?
-                                      when FavoritesController.eligible(item))
-                                    Positioned(
-                                      top: 8,
-                                      left: 8,
-                                      child: QueueButton(
-                                        key: ValueKey(
-                                          'queue-tile-${item.kind.name}-${item.id}',
-                                        ),
-                                        title: item,
-                                        queue: queue,
-                                        english: english,
-                                        overPoster: true,
-                                      ),
-                                    ),
-                                  if (controller.favorites case final favorites?
-                                      when FavoritesController.eligible(item))
-                                    Positioned(
-                                      top: 8,
-                                      right: 8,
-                                      child: FavoriteButton(
-                                        key: ValueKey(
-                                          'favorite-tile-${item.kind.name}-${item.id}',
-                                        ),
-                                        title: item,
-                                        favorites: favorites,
-                                        english: english,
-                                        overPoster: true,
-                                      ),
-                                    ),
-                                ],
-                              ),
+                            PosterCardContent(
+                              title: item,
+                              english: english,
+                              favorite: false,
+                              queued: false,
                             ),
-                            Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item.title(english),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                            if (controller.queue case final queue?
+                                when FavoritesController.eligible(item))
+                              Positioned(
+                                bottom: posterCaptionHeight(context) + 8,
+                                left: 8,
+                                child: QueueButton(
+                                  key: ValueKey(
+                                    'queue-tile-${item.kind.name}-${item.id}',
                                   ),
-                                  const SizedBox(height: 4),
-                                  TitleMetadata(title: item, english: english),
-                                ],
+                                  title: item,
+                                  queue: queue,
+                                  english: english,
+                                  overPoster: true,
+                                ),
                               ),
-                            ),
+                            if (controller.favorites case final favorites?
+                                when FavoritesController.eligible(item))
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: FavoriteButton(
+                                  key: ValueKey(
+                                    'favorite-tile-${item.kind.name}-${item.id}',
+                                  ),
+                                  title: item,
+                                  favorites: favorites,
+                                  english: english,
+                                  overPoster: true,
+                                ),
+                              ),
                           ],
                         ),
                       );

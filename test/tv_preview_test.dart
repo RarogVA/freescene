@@ -203,6 +203,57 @@ void main() {
     },
   );
 
+  testWidgets(
+    'search reverses on focus changes without rebuilding the poster grid',
+    (tester) async {
+      await launch(tester);
+      final poster = find.byWidgetPredicate(
+        (widget) => widget is RemoteButton && widget.id == 'title-movies-0',
+      );
+      final initialPoster = tester.widget(poster);
+      final search = control('search');
+      final closedX = tester.getTopLeft(search).dx;
+      focusNode(tester, 'search').requestFocus();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 70));
+      final halfway = tester.getTopLeft(search).dx;
+      expect(halfway, lessThan(closedX));
+      expect(identical(tester.widget(poster), initialPoster), isTrue);
+      focusNode(tester, 'kind-movies').requestFocus();
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(search).dx, closeTo(closedX, .1));
+      expect(control('filter'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'film and series indicator moves independently of its segment labels',
+    (tester) async {
+      await launch(tester);
+      final slider = find.descendant(
+        of: find.byKey(const ValueKey('android-kind-switch')),
+        matching: find.byType(SlideTransition),
+      );
+      final thumb = find.descendant(
+        of: slider,
+        matching: find.byType(DecoratedBox),
+      );
+      final left = tester.getCenter(thumb).dx;
+      final right = tester.getCenter(control('kind-series')).dx;
+      focusNode(tester, 'kind-series').requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 70));
+      expect(tester.getCenter(thumb).dx, inExclusiveRange(left, right));
+      expect(tester.getCenter(control('kind-series')).dx, right);
+      await tester.pumpAndSettle();
+      expect(tester.getCenter(thumb).dx, closeTo(right, .1));
+    },
+  );
+
   testWidgets('disabled animation expands a focused collection in one frame', (
     tester,
   ) async {

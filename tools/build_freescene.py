@@ -96,7 +96,7 @@ def main():
         'signature': ('persistent self-signed; strict integrity and certificate-pinned requirements verified'
                       if signing else 'local ad hoc; deep strict verification passed'),
         'signing': signing,
-        'interfaceFont': 'Play Regular/Bold (SIL OFL 1.1)',
+        'interfaceFont': 'System UI; Play in the native player (SIL OFL 1.1)',
         'updateHelper': f'embedded {args.arch} executable; strict signature verified',
         'bundle': str(bundle), 'diskImage': str(image),
         'vlcSourceCompanion': str(args.vlc_sources) if args.vlc_sources else None,

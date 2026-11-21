@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / 'assets/branding/app-icon.png'
+SOURCE = ROOT / 'assets/branding/tv-preview-icon.png'
 
 
 def resize(size, target):
