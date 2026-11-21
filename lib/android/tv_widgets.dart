@@ -312,30 +312,37 @@ class _TvDetailHeroState extends State<TvDetailHero> {
                             style: style,
                           ),
                         ),
-                        if (overflow)
+                        if (trailer != null || overflow)
                           Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: RemoteButton(
-                              id: 'detail-description',
-                              focus: widget.focus,
-                              flat: true,
-                              radius: 24,
-                              onPressed: () =>
-                                  setState(() => expanded = !expanded),
-                              child: Text(
-                                expanded
-                                    ? (english ? 'Show less' : 'Свернуть')
-                                    : (english
-                                          ? 'Full description'
-                                          : 'Полное описание'),
-                              ),
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Wrap(
+                              spacing: 12,
+                              runSpacing: 8,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                ?trailer,
+                                if (overflow)
+                                  RemoteButton(
+                                    id: 'detail-description',
+                                    focus: widget.focus,
+                                    radius: 24,
+                                    onPressed: () =>
+                                        setState(() => expanded = !expanded),
+                                    child: Text(
+                                      expanded
+                                          ? (english ? 'Show less' : 'Свернуть')
+                                          : (english
+                                                ? 'Full description'
+                                                : 'Полное описание'),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                       ],
                     );
                   },
                 ),
-                if (trailer != null) ...[const SizedBox(height: 16), trailer],
               ],
             ),
           ),

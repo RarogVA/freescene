@@ -13,6 +13,7 @@ class Preferences {
     this.scale = 100,
     this.sidebarCollapsed = false,
     this.tvAnimations = true,
+    this.lastSeenChangelog,
     Set<NotificationEvent>? notifications,
     Set<SourceProvider>? providers,
   }) : assert([100, 125, 150].contains(scale)),
@@ -26,6 +27,7 @@ class Preferences {
   final int scale;
   final bool sidebarCollapsed;
   final bool tvAnimations;
+  final String? lastSeenChangelog;
   final Set<NotificationEvent> notifications;
   static Set<SourceProvider> get defaultProviders => SourceProvider.values
       .where((p) => p.descriptor?.enabledByDefault == true)
@@ -41,6 +43,7 @@ class Preferences {
     int? scale,
     bool? sidebarCollapsed,
     bool? tvAnimations,
+    String? lastSeenChangelog,
     Set<NotificationEvent>? notifications,
     Set<SourceProvider>? providers,
   }) => Preferences(
@@ -49,6 +52,7 @@ class Preferences {
     scale: scale ?? this.scale,
     sidebarCollapsed: sidebarCollapsed ?? this.sidebarCollapsed,
     tvAnimations: tvAnimations ?? this.tvAnimations,
+    lastSeenChangelog: lastSeenChangelog ?? this.lastSeenChangelog,
     notifications: notifications ?? this.notifications,
     providers: providers ?? this.providers,
   );
@@ -60,6 +64,7 @@ class Preferences {
     'scale': scale,
     'sidebarCollapsed': sidebarCollapsed,
     'tvAnimations': tvAnimations,
+    'lastSeenChangelog': ?lastSeenChangelog,
     'providers': [for (final provider in providers) provider.name],
     'notifications': {
       for (final event in NotificationEvent.values)
@@ -126,6 +131,9 @@ class Preferences {
       scale: scale,
       sidebarCollapsed: sidebarCollapsed,
       tvAnimations: tvAnimations,
+      lastSeenChangelog: json['lastSeenChangelog'] is String
+          ? json['lastSeenChangelog'] as String
+          : null,
       providers: savedProviders == null
           ? null
           : {

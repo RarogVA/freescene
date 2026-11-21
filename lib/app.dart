@@ -22,6 +22,7 @@ import 'settings/settings_store.dart';
 import 'settings/license_document.dart';
 import 'theme/freescene_theme.dart';
 import 'widgets/catalog_style.dart';
+import 'widgets/release_changelog.dart';
 import 'catalog/catalog_models.dart';
 import 'catalog/catalog_controller.dart';
 import 'catalog/catalog_page.dart';
@@ -97,6 +98,7 @@ class _FreeSceneBootstrapState extends State<FreeSceneBootstrap> {
       if (snapshot.hasData) {
         return FreeSceneApp(
           initialPreferences: snapshot.requireData,
+          showChangelogOnStartup: true,
           savePreferences: widget.store.save,
           nativeService: const NativeTorrentService(),
           catalogRepository: _catalogRepository,
@@ -136,6 +138,7 @@ class FreeSceneApp extends StatefulWidget {
     required this.initialPreferences,
     required this.savePreferences,
     this.nativeService,
+    this.showChangelogOnStartup = false,
     this.catalogRepository,
     this.favorites,
     this.queue,
@@ -144,6 +147,7 @@ class FreeSceneApp extends StatefulWidget {
   final Preferences initialPreferences;
   final Future<void> Function(Preferences) savePreferences;
   final NativeTorrentService? nativeService;
+  final bool showChangelogOnStartup;
   final CatalogRepository? catalogRepository;
   final FavoritesController? favorites;
   final QueueController? queue;
@@ -215,16 +219,31 @@ class _FreeSceneAppState extends State<FreeSceneApp>
         english: () => _preferences.english,
         chooseVideo: _chooseVideo,
       );
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        try {
-          await widget.nativeService!.call('requestAppPermissionsIfNeeded');
-        } catch (_) {
-          /* Native status will report unavailable access. */
-        }
-        if (mounted) _torrents?.start();
-      });
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (widget.showChangelogOnStartup &&
+          _preferences.lastSeenChangelog != ReleaseChangelog.version) {
+        await showDialog<void>(
+          context: _navigator.currentContext!,
+          animationStyle: _preferences.tvAnimations
+              ? null
+              : AnimationStyle.noAnimation,
+          builder: (_) => ReleaseChangelog(english: _preferences.english),
+        );
+        if (!mounted) return;
+        await _update(
+          _preferences.copyWith(lastSeenChangelog: ReleaseChangelog.version),
+        );
+      }
+      if (!mounted || widget.nativeService == null) return;
+      try {
+        await widget.nativeService!.call('requestAppPermissionsIfNeeded');
+      } catch (_) {
+        /* Native status will report unavailable access. */
+      }
+      if (mounted) _torrents?.start();
+    });
     if (widget.catalogRepository != null) {
       widget.catalogRepository!.configureProviders(_preferences.providers);
       _catalog = CatalogController(

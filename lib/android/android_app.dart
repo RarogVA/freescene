@@ -1,4 +1,5 @@
 import '../widgets/catalog_style.dart';
+import '../widgets/release_changelog.dart';
 import '../history/watch_history.dart';
 import '../history/watch_history_page.dart';
 import '../history/history_playback.dart';
@@ -54,6 +55,7 @@ class _AndroidBootstrapState extends State<AndroidBootstrap> {
       if (value != null) {
         return AndroidApp(
           runtime: value.runtime,
+          showChangelogOnStartup: true,
           initialPreferences: value.preferences,
           savePreferences: value.store.save,
           repository: value.repository,
@@ -139,6 +141,7 @@ class AndroidApp extends StatefulWidget {
     this.favorites,
     this.queue,
     this.posterCache,
+    this.showChangelogOnStartup = false,
     this.play,
     this.voice,
     this.exit,
@@ -152,6 +155,7 @@ class AndroidApp extends StatefulWidget {
   final FavoritesController? favorites;
   final QueueController? queue;
   final PosterDiskCache? posterCache;
+  final bool showChangelogOnStartup;
   final Future<void> Function(CatalogSource)? play;
   final Future<String?> Function()? voice;
   final VoidCallback? exit;
@@ -237,7 +241,27 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
     sourcesScroll.addListener(scheduleSourceLoad);
     unawaited(catalog.browse());
     remote.restore('home');
-    unawaited(checkStartupUpdate());
+    if (widget.showChangelogOnStartup &&
+        preferences.lastSeenChangelog != ReleaseChangelog.version) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        await dialog<void>(
+          ReleaseChangelog(
+            english: preferences.english,
+            tv: widget.runtime.tv,
+            mobile: !widget.runtime.tv,
+          ),
+          restore: 'home',
+        );
+        if (!mounted) return;
+        await save(
+          preferences.copyWith(lastSeenChangelog: ReleaseChangelog.version),
+        );
+        if (mounted) await checkStartupUpdate();
+      });
+    } else {
+      unawaited(checkStartupUpdate());
+    }
   }
 
   Future<void> checkStartupUpdate() async {

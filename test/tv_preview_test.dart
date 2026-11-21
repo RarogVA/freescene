@@ -15,7 +15,8 @@ import 'package:freescene/settings/settings_store.dart';
 import 'package:freescene/widgets/catalog_style.dart';
 
 class _Catalogue extends DemoCatalog {
-  _Catalogue({this.count = 18});
+  _Catalogue({this.count = 18, this.withTrailer = false});
+  final bool withTrailer;
   final int count;
   @override
   Future<CatalogPage<CatalogTitle>> list(
@@ -31,6 +32,9 @@ class _Catalogue extends DemoCatalog {
           kind: kind,
           name: 'Фильм с длинным названием $i',
           englishName: 'A film with a long title $i',
+          trailer: withTrailer
+              ? const CatalogTrailer('demo', 'trailer-1')
+              : null,
           year: 2025,
           rating: 8.2,
           description: List.filled(
@@ -143,6 +147,7 @@ void main() {
     WidgetTester tester, {
     Size size = const Size(960, 540),
     int count = 18,
+    bool withTrailer = false,
     Preferences? preferences,
     Future<void> Function(Preferences)? save,
     Future<void> Function(CatalogSource)? play,
@@ -162,7 +167,7 @@ void main() {
         ),
         initialPreferences: preferences ?? Preferences(),
         savePreferences: save ?? (_) async {},
-        repository: _Catalogue(count: count),
+        repository: _Catalogue(count: count, withTrailer: withTrailer),
         play: play ?? (_) async {},
       ),
     );
@@ -268,6 +273,41 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.getSize(control('queue')).width, expanded);
   });
+
+  for (final withTrailer in [false, true]) {
+    testWidgets(
+      'Up from the first provider reaches the bordered hero actions, trailer=$withTrailer',
+      (tester) async {
+        await launch(tester, withTrailer: withTrailer);
+        await activate(tester, 'title-movies-0');
+        final desc = control('detail-description');
+        final button = tester.widget<OutlinedButton>(desc);
+        final side = button.style!.side!.resolve({});
+        expect(side!.color.a, greaterThan(0));
+        if (withTrailer) {
+          final trailer = tester.getRect(control('trailer'));
+          expect(tester.getRect(desc).left, greaterThan(trailer.right));
+          expect(tester.getRect(desc).center.dy, closeTo(trailer.center.dy, 1));
+        }
+        focusNode(tester, 'source-provider-demo').requestFocus();
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        await tester.pumpAndSettle();
+        expect(
+          FocusManager.instance.primaryFocus,
+          focusNode(tester, withTrailer ? 'trailer' : 'detail-description'),
+        );
+        if (withTrailer) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.pumpAndSettle();
+          expect(
+            FocusManager.instance.primaryFocus,
+            focusNode(tester, 'detail-description'),
+          );
+        }
+      },
+    );
+  }
 
   for (final size in [
     const Size(960, 540),

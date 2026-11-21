@@ -218,6 +218,30 @@ class RemoteTraversalPolicy extends FocusTraversalPolicy {
         aligned: overlaps(node.rect, horizontal),
       ));
     }
+    // The fixed toolbar can line up with the first provider even though the
+    // synopsis is between them. Visit the preceding row of content first.
+    if (direction == TraversalDirection.up &&
+        id != null &&
+        id.startsWith('source-provider-')) {
+      final contentAbove = candidates.where((entry) {
+        final node = entry.node;
+        return node is RemoteFocusNode &&
+            (node.id == 'trailer' ||
+                node.id == 'detail-description' ||
+                node.id.startsWith('source-provider-'));
+      }).toList();
+      if (contentAbove.isNotEmpty) {
+        candidates
+          ..clear()
+          ..addAll(contentAbove);
+      } else {
+        final scroll = Scrollable.maybeOf(currentNode.context!)?.position;
+        if (scroll != null && scroll.pixels > scroll.minScrollExtent + 1) {
+          scroll.jumpTo(scroll.minScrollExtent);
+          return true;
+        }
+      }
+    }
     // A poster row/column never wraps diagonally to the next row/column.
     // The left edge is the route to the navigation rail; up from row one
     // returns to the toolbar. At the bottom/right edge focus stays put.
@@ -326,16 +350,22 @@ class _RemoteButtonState extends State<RemoteButton> {
     // The menu takes focus while OK is still held. Consume its repeats and
     // release before they reach the newly focused menu action.
     FocusManager.instance.addEarlyKeyEventHandler(finishPress);
-    holdTimer = Timer(kLongPressTimeout, () {
-      if (!node.hasPrimaryFocus || widget.onLongPress == null) return;
-      openedMenu = true;
-      widget.onLongPress!();
-    });
+    holdTimer = Timer(kLongPressTimeout, openHeldMenu);
     return KeyEventResult.handled;
+  }
+
+  void openHeldMenu() {
+    if (openedMenu || !node.hasPrimaryFocus || widget.onLongPress == null) {
+      return;
+    }
+    holdTimer?.cancel();
+    openedMenu = true;
+    widget.onLongPress!();
   }
 
   KeyEventResult finishPress(KeyEvent event) {
     if (event.logicalKey != heldKey) return KeyEventResult.ignored;
+    if (event is KeyRepeatEvent) openHeldMenu();
     if (event is KeyUpEvent) {
       final activate =
           !openedMenu && node.hasPrimaryFocus && !event.synthesized;
