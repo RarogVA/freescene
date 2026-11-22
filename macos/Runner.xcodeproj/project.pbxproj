@@ -21,6 +21,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		F51229020000000000000001 /* DesktopSpeechFailure.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51229020000000000000002 /* DesktopSpeechFailure.swift */; };
 		F51229010000000000000001 /* DesktopVoiceInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51229010000000000000002 /* DesktopVoiceInput.swift */; };
 		F50000000000000000000001 /* FSNativeBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = F50000000000000000000002 /* FSNativeBridge.mm */; };
 		331C80D8294CF71000263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C80D7294CF71000263BE5 /* RunnerTests.swift */; };
@@ -64,6 +65,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		F51229020000000000000002 /* DesktopSpeechFailure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopSpeechFailure.swift; sourceTree = "<group>"; };
 		F51229010000000000000002 /* DesktopVoiceInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopVoiceInput.swift; sourceTree = "<group>"; };
 		F50000000000000000000002 /* FSNativeBridge.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = FSNativeBridge.mm; path = Native/FSNativeBridge.mm; sourceTree = SOURCE_ROOT; };
 		331C80D5294CF71000263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -177,6 +179,7 @@
 				33CC11122044BFA00003C045 /* MainFlutterWindow.swift */,
 				F51228010000000000000002 /* MainWindowState.swift */,
 				F51229010000000000000002 /* DesktopVoiceInput.swift */,
+				F51229020000000000000002 /* DesktopSpeechFailure.swift */,
 				33E51913231747F40026EE4D /* DebugProfile.entitlements */,
 				33E51914231749380026EE4D /* Release.entitlements */,
 				33CC11242044D66E0003C045 /* Resources */,
@@ -379,6 +382,7 @@
 				33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */,
 				F51228010000000000000001 /* MainWindowState.swift in Sources */,
 				F51229010000000000000001 /* DesktopVoiceInput.swift in Sources */,
+				F51229020000000000000001 /* DesktopSpeechFailure.swift in Sources */,
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,
 				F50000000000000000000001 /* FSNativeBridge.mm in Sources */,
 				335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */,

@@ -33,6 +33,13 @@ final class DesktopVoiceInput: NSObject, FlutterStreamHandler {
         let language = (call.arguments as? [String: Any])?["language"] as? String ?? "ru-RU"
         self.listen(language: language, reply: reply)
       case "voiceCancel": self.finish(nil); reply(nil)
+      case "voiceSettings":
+        // Opening this pane never enables Dictation or changes permission.
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.keyboard?Dictation") else {
+          reply(FlutterError(code: "voice_settings", message: nil, details: nil)); return
+        }
+        if NSWorkspace.shared.open(url) { reply(nil) }
+        else { reply(FlutterError(code: "voice_settings", message: nil, details: nil)) }
       default: reply(FlutterMethodNotImplemented)
       }
     }
@@ -130,7 +137,7 @@ final class DesktopVoiceInput: NSObject, FlutterStreamHandler {
           }
         }
         if let error = error as NSError? {
-          self.fail(error.domain == NSURLErrorDomain ? "voice_network" : (self.partial.isEmpty ? "voice_no_match" : "voice_unavailable"))
+          self.fail(DesktopSpeechFailure.classify(error).rawValue)
         }
       }
     }

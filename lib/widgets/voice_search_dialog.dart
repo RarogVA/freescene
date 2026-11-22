@@ -11,6 +11,7 @@ class VoiceSearchDialog extends StatefulWidget {
     required this.cancel,
     required this.events,
     this.desktop = false,
+    this.openSettings,
     super.key,
   });
 
@@ -18,6 +19,7 @@ class VoiceSearchDialog extends StatefulWidget {
   final Future<String?> Function() listen;
   final Future<void> Function() cancel;
   final Stream<dynamic> events;
+  final Future<void> Function()? openSettings;
 
   @override
   State<VoiceSearchDialog> createState() => _VoiceSearchDialogState();
@@ -34,7 +36,8 @@ class _VoiceSearchDialogState extends State<VoiceSearchDialog>
   StreamSubscription<dynamic>? subscription;
   final retryFocus = FocusNode(debugLabel: 'voice-retry');
   String phase = 'preparing', partial = '';
-  String? error;
+  String? error, errorCode;
+  bool openingSettings = false;
   double level = 0;
   bool active = false, closed = false;
   int generation = 0;
@@ -79,6 +82,7 @@ class _VoiceSearchDialogState extends State<VoiceSearchDialog>
     setState(() {
       active = true;
       error = null;
+      errorCode = null;
       phase = 'preparing';
       partial = '';
       level = 0;
@@ -98,15 +102,24 @@ class _VoiceSearchDialogState extends State<VoiceSearchDialog>
       pulse.stop();
       setState(() {
         active = false;
-        error = _error(
-          failure is PlatformException ? failure.code : 'voice_unavailable',
-        );
+        errorCode = failure is PlatformException
+            ? failure.code
+            : 'voice_unavailable';
+        error = _error(errorCode!);
       });
       retryFocus.requestFocus();
     }
   }
 
   String _error(String code) => switch (code) {
+    'voice_dictation_disabled' => tr(
+      'В macOS отключена Диктовка. Включите её в «Системные настройки → Клавиатура → Диктовка», затем повторите поиск. Разрешение на микрофон — отдельная настройка.',
+      'Dictation is turned off in macOS. Enable it in System Settings → Keyboard → Dictation, then retry. Microphone permission is a separate setting.',
+    ),
+    'voice_assets_missing' => tr(
+      'В macOS не загружены файлы распознавания для этого языка. Добавьте язык в «Клавиатура → Диктовка» и дождитесь загрузки, затем повторите поиск.',
+      'Speech recognition files for this language are not installed. Add the language in Keyboard → Dictation, wait for the download, then retry.',
+    ),
     'voice_permission' =>
       widget.desktop
           ? tr(
@@ -154,6 +167,29 @@ class _VoiceSearchDialogState extends State<VoiceSearchDialog>
               'Voice input unavailable. Check that a speech recognition service is enabled on the TV.',
             ),
   };
+
+  Future<void> _openSettings() async {
+    if (openingSettings || widget.openSettings == null) return;
+    setState(() => openingSettings = true);
+    try {
+      await widget.openSettings!();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              tr(
+                'Откройте «Системные настройки → Клавиатура → Диктовка» вручную.',
+                'Open System Settings → Keyboard → Dictation manually.',
+              ),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => openingSettings = false);
+    }
+  }
 
   void _stop() {
     closed = true;
@@ -248,6 +284,16 @@ class _VoiceSearchDialogState extends State<VoiceSearchDialog>
           ),
         ),
         actions: [
+          if (widget.desktop &&
+              widget.openSettings != null &&
+              (errorCode == 'voice_dictation_disabled' ||
+                  errorCode == 'voice_assets_missing'))
+            FilledButton.icon(
+              key: const ValueKey('voice-settings'),
+              onPressed: openingSettings ? null : _openSettings,
+              icon: const Icon(Icons.settings_outlined),
+              label: Text(tr('Открыть настройки', 'Open Settings')),
+            ),
           if (error != null)
             FilledButton(
               key: const ValueKey('voice-retry'),

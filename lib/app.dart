@@ -295,6 +295,7 @@ class _FreeSceneAppState extends State<FreeSceneApp>
           'language': _preferences.english ? 'en-US' : 'ru-RU',
         }),
         cancel: () => _voiceChannel.invokeMethod<void>('voiceCancel'),
+        openSettings: () => _voiceChannel.invokeMethod<void>('voiceSettings'),
         events: _voiceEvents,
       ),
     );
