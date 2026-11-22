@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:freescene/android/android_updates.dart';
 import 'package:freescene/android/android_runtime.dart';
 import 'package:freescene/android/android_theme.dart';
+import 'package:freescene/android/android_support.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -48,7 +49,7 @@ void main() {
   }
 
   for (final tv in [false, true]) {
-    testWidgets('two token-free actions check, download and install TV=$tv', (
+    testWidgets('About actions check, download and install TV=$tv', (
       tester,
     ) async {
       final calls = <String>[];
@@ -71,9 +72,10 @@ void main() {
       expect(calls, isEmpty);
       expect(find.byType(TextField), findsNothing);
       expect(find.textContaining('токен'), findsNothing);
-      expect(find.byType(FilledButton), findsNWidgets(2));
+      expect(find.byType(FilledButton), findsNWidgets(3));
       expect(find.text('Проверить обновления'), findsOneWidget);
       expect(find.text('Лицензии открытого ПО'), findsOneWidget);
+      expect(find.text('Поддержать разработчика'), findsOneWidget);
       await tester.tap(find.text('Проверить обновления'));
       await tester.pumpAndSettle();
       expect(find.text('Установить обновления'), findsOneWidget);
@@ -152,7 +154,7 @@ void main() {
     const Size(960, 540),
     const Size(1280, 720),
   ]) {
-    testWidgets('two equal-width update actions fit $size', (tester) async {
+    testWidgets('three equal-width About actions fit $size', (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = size;
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -164,10 +166,118 @@ void main() {
       final licenses = tester.getRect(
         find.byKey(const ValueKey('android-about-licenses')),
       );
+      final support = tester.getRect(
+        find.byKey(const ValueKey('android-about-support')),
+      );
       expect(check.width, licenses.width);
       expect(check.left, licenses.left);
       expect(licenses.top, greaterThan(check.bottom));
+      expect(support.width, check.width);
+      expect(support.left, check.left);
+      expect(support.top, greaterThan(licenses.bottom));
+      expect(support.bottom, lessThanOrEqualTo(size.height));
       expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('mobile support opens the external page only on request', (
+    tester,
+  ) async {
+    final calls = <MethodCall>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      AndroidRuntime.channel,
+      (call) async {
+        calls.add(call);
+        return null;
+      },
+    );
+    await show(tester);
+    expect(calls, isEmpty);
+    await tester.tap(find.byKey(const ValueKey('android-about-support')));
+    await tester.pumpAndSettle();
+    expect(calls.map((call) => call.method), ['supportDeveloper']);
+    expect(find.byKey(const ValueKey('developer-support-qr')), findsNothing);
+    expect(find.byType(AndroidAboutDialog), findsOneWidget);
+  });
+
+  testWidgets('missing browser leaves the support link available to copy', (
+    tester,
+  ) async {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      AndroidRuntime.channel,
+      (_) async => throw PlatformException(code: 'browser_unavailable'),
+    );
+    await show(tester, english: true);
+    await tester.tap(find.text('Support the developer'));
+    await tester.pumpAndSettle();
+    expect(find.text('Could not open browser'), findsOneWidget);
+    expect(find.text(developerSupportUrl), findsOneWidget);
+    expect(find.text('Copy link'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final scenario in [
+    (const Size(960, 540), false, 1.0),
+    (const Size(1280, 720), true, 1.0),
+    (const Size(960, 540), true, 1.5),
+  ]) {
+    final (size, english, textScale) = scenario;
+    testWidgets('TV support is offline and remote accessible $scenario', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = size;
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        AndroidRuntime.channel,
+        (_) async => throw StateError('TV support must not open a browser'),
+      );
+      await show(tester, tv: true, english: english, textScale: textScale);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      final support = find.byKey(const ValueKey('android-about-support'));
+      expect(
+        Focus.of(
+          tester.element(
+            find.descendant(of: support, matching: find.byType(Text)),
+          ),
+        ).hasPrimaryFocus,
+        isTrue,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      final qr = find.byKey(const ValueKey('developer-support-qr'));
+      expect(
+        tester.widget<Image>(qr).image,
+        const AssetImage(developerSupportQrAsset),
+      );
+      expect(find.text(developerSupportUrl), findsOneWidget);
+      final bounds = tester.getRect(qr);
+      expect(bounds.top, greaterThanOrEqualTo(0));
+      expect(bounds.bottom, lessThanOrEqualTo(size.height));
+      expect(tester.takeException(), isNull);
+      // The only TV dialog action has initial focus, so OK closes it.
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(qr, findsNothing);
+      expect(find.byType(AndroidAboutDialog), findsOneWidget);
+      expect(
+        Focus.of(
+          tester.element(
+            find.descendant(of: support, matching: find.byType(Text)),
+          ),
+        ).hasPrimaryFocus,
+        isTrue,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(qr, findsNothing);
+      expect(find.byType(AndroidAboutDialog), findsOneWidget);
     });
   }
   for (final scenario in [

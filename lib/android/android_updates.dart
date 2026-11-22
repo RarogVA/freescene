@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../settings/license_document.dart';
 import 'android_runtime.dart';
+import 'android_support.dart';
 
 /// Metadata only; the native layer verifies and retains the downloaded APK.
 class AndroidUpdates {
@@ -102,7 +103,8 @@ class _AndroidAboutDialogState extends State<AndroidAboutDialog> {
     String label,
     VoidCallback? run, {
     bool primary = false,
-  }) => FilledButton(
+    required IconData icon,
+  }) => FilledButton.icon(
     key: ValueKey('android-about-$id'),
     focusNode: primary ? primaryAction : null,
     autofocus: widget.tv && primary,
@@ -113,7 +115,8 @@ class _AndroidAboutDialogState extends State<AndroidAboutDialog> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
     onPressed: busy ? null : run,
-    child: Text(label, textAlign: TextAlign.center),
+    icon: widget.tv ? Icon(icon, size: 20) : null,
+    label: Text(label, textAlign: TextAlign.center),
   );
 
   Future<void> check() => request(() async {
@@ -184,11 +187,23 @@ class _AndroidAboutDialogState extends State<AndroidAboutDialog> {
                 : tr('Установить обновления', 'Install updates')),
         available == null ? check : install,
         primary: true,
+        icon: Icons.sync_rounded,
       ),
       action(
         'licenses',
         tr('Лицензии открытого ПО', 'Open-source licenses'),
         licenses,
+        icon: Icons.description_outlined,
+      ),
+      action(
+        'support',
+        tr('Поддержать разработчика', 'Support the developer'),
+        () => showDeveloperSupport(
+          context,
+          english: widget.english,
+          tv: widget.tv,
+        ),
+        icon: Icons.favorite_border_rounded,
       ),
     ];
     return AlertDialog(

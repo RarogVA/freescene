@@ -51,8 +51,8 @@ FreeScene объединяет каталог, поиск по нескольк�
 
 | Устройство | Файл |
 | --- | --- |
-| Mac с Apple Silicon (M1 и новее) | `FreeScene-…-macos-arm64.dmg` |
-| Mac с процессором Intel | `FreeScene-…-macos-x86_64.dmg` |
+| Mac с Apple Silicon (M1 и новее) | [FreeScene-macos-arm64.dmg](https://github.com/RarogVA/freescene/releases/latest/download/FreeScene-macos-arm64.dmg) |
+| Mac с процессором Intel | [FreeScene-macos-x86_64.dmg](https://github.com/RarogVA/freescene/releases/latest/download/FreeScene-macos-x86_64.dmg) |
 | Android: телефон или планшет | `app-arm64-v8a-mobile-release.apk` |
 | Android TV / Google TV | `app-arm64-v8a-tv-release.apk` |
 | Android с 32-битной ARM-системой | соответствующий APK `armeabi-v7a` |

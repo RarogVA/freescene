@@ -1,13 +1,15 @@
 // Real AppKit layout and state checks; no HTTP, credentials or installed app.
 #import <Cocoa/Cocoa.h>
+#import <CoreText/CoreText.h>
 static BOOL fsEnglish=NO,fsDark=YES;
 #import "../../macos/Native/FSTheme.h"
-static NSFont *FSFont(CGFloat size){return [NSFont systemFontOfSize:size];}
+static NSFont *FSFont(CGFloat size){return [NSFont fontWithName:@"Play" size:size] ?: [NSFont systemFontOfSize:size];}
 #import "../../macos/Native/FSAboutWindow.h"
 
 int main(void){@autoreleasepool {
     [NSApplication sharedApplication];
-    NSApp.applicationIconImage=[[NSImage alloc] initWithSize:NSMakeSize(64,64)];
+    CTFontManagerRegisterFontsForURL((__bridge CFURLRef)[NSURL fileURLWithPath:@"assets/fonts/Play-Regular.ttf"],kCTFontManagerScopeProcess,NULL);
+    NSApp.applicationIconImage=[[NSImage alloc] initWithContentsOfFile:@"macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_1024.png"];
     FSAboutWindow *about=[FSAboutWindow new];
     __block NSUInteger requests=0;
     about.updater.makeHTTP=^{++requests;return [FSGitHubHTTP new];};
@@ -17,11 +19,15 @@ int main(void){@autoreleasepool {
         if([view isKindOfClass:NSButton.class]) ++actions;
         NSCAssert(![view isKindOfClass:NSSecureTextField.class],@"Token input must be absent");
     }
-    NSCAssert(actions==2,@"Only update and licenses actions belong in About");
+    NSCAssert(actions==3,@"About includes updates, licenses and developer support");
     NSRect windowFrame=about.window.frame,checkFrame=about.checkButton.frame,licensesFrame=about.licensesButton.frame;
     NSRect statusFrame=about.statusScroll.frame,progressFrame=about.progress.frame;
     for(NSNumber *english in @[@NO,@YES]) {
         fsEnglish=english.boolValue;[about applyAppearance];
+        NSCAssert([about.supportButton.title isEqualToString:fsEnglish ? @"Support the developer" : @"Поддержать разработчика"],@"Support action follows the interface language");
+        NSCAssert(NSWidth(about.supportButton.frame)==NSWidth(about.checkButton.frame) && NSMinX(about.supportButton.frame)==NSMinX(about.checkButton.frame),@"Support aligns with existing actions");
+        NSCAssert(NSMaxY(about.supportButton.frame)<NSMinY(about.licensesButton.frame),@"Support does not overlap licenses");
+        NSCAssert([about.supportButton.title sizeWithAttributes:@{NSFontAttributeName:about.supportButton.font}].width+28<NSWidth(about.supportButton.frame),@"Localized support title fits with its icon");
         for(NSString *phase in @[@"idle",@"checking",@"available",@"downloading",@"ready",@"installing"]) {
             [about.updater publish:phase message:@""];
             NSCAssert(NSWidth(about.checkButton.frame)==NSWidth(about.licensesButton.frame),@"Actions must have equal widths");
@@ -45,9 +51,14 @@ int main(void){@autoreleasepool {
     [about.window.contentView layoutSubtreeIfNeeded];
     [about.window displayIfNeeded];
     NSView *view=about.window.contentView;
+    view.wantsLayer=YES;view.layer.backgroundColor=about.window.backgroundColor.CGColor;
     NSBitmapImageRep *bitmap=[view bitmapImageRepForCachingDisplayInRect:view.bounds];
     [view cacheDisplayInRect:view.bounds toBitmapImageRep:bitmap];
     [[bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}] writeToFile:@"build/public-updates-about.png" atomically:YES];
+    NSBitmapImageRep *button=[about.supportButton bitmapImageRepForCachingDisplayInRect:about.supportButton.bounds];
+    [about.supportButton cacheDisplayInRect:about.supportButton.bounds toBitmapImageRep:button];
+    [NSFileManager.defaultManager createDirectoryAtPath:@"build/developer-support" withIntermediateDirectories:YES attributes:nil error:nil];
+    [[button representationUsingType:NSBitmapImageFileTypePNG properties:@{}] writeToFile:@"build/developer-support/button-macos.png" atomically:YES];
     [about.window close];
-    printf("{\"passed\":true,\"actions\":2,\"equalWidths\":true,\"states\":12,\"networkUsed\":false}\n");
+    printf("{\"passed\":true,\"actions\":3,\"equalWidths\":true,\"states\":12,\"networkUsed\":false}\n");
 }return 0;}

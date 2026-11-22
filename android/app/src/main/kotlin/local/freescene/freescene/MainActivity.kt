@@ -78,6 +78,7 @@ class MainActivity : FlutterActivity() {
                     "updateCheck", "updateDownload" ->
                         updates.request(call.method, result)
                     "updateInstall" -> downloadNotifications.run(result) { updates.install(this, result) }
+                    "supportDeveloper" -> DeveloperSupport.open(this, result)
                     "playWeb" -> {
                         PlayerColors.configure(this, call.argument<Boolean>("playerDark") != false)
                         val provider = call.argument<String>("provider")

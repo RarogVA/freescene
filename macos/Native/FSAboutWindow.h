@@ -50,6 +50,7 @@
 @property NSProgressIndicator *progress;
 @property NSButton *checkButton;
 @property NSButton *licensesButton;
+@property NSButton *supportButton;
 @property NSWindow *licensesWindow;
 @property NSTextView *licenseText;
 @property (copy) void (^licensesRequested)(void);
@@ -74,20 +75,21 @@
 - (void)show {
     [self.updater cancelStartupCheck];[self dismissStartupOffer];
     if (!self.window) {
-        self.window=[[NSWindow alloc] initWithContentRect:NSMakeRect(0,0,540,388) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable backing:NSBackingStoreBuffered defer:NO];
+        self.window=[[NSWindow alloc] initWithContentRect:NSMakeRect(0,0,540,440) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable backing:NSBackingStoreBuffered defer:NO];
         self.window.releasedWhenClosed=NO; self.window.delegate=self;
-        NSImageView *icon=[NSImageView imageViewWithImage:NSApp.applicationIconImage]; icon.frame=NSMakeRect(230,282,80,80); [self.window.contentView addSubview:icon];
+        NSImageView *icon=[NSImageView imageViewWithImage:NSApp.applicationIconImage]; icon.frame=NSMakeRect(230,334,80,80); [self.window.contentView addSubview:icon];
         NSString *version=[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"";
         NSArray *labels=@[@"FreeScene",[NSString stringWithFormat:@"%@ %@",fsEnglish ? @"Version" : @"Версия",version],@"FreeScene - портал для Вашего удобства!"];
-        CGFloat y=246;
+        CGFloat y=298;
         for(NSUInteger i=0;i<labels.count;++i) { NSTextField *label=[NSTextField labelWithString:labels[i]]; label.font=FSFont(i==0?26:14); label.alignment=NSTextAlignmentCenter; label.frame=NSMakeRect(20,y,500,30); label.tag=10+i; [self.window.contentView addSubview:label]; y-=32; }
-        self.checkButton=[[FSAboutActionButton alloc] initWithFrame:NSMakeRect(120,70,300,44)]; self.checkButton.target=self;self.checkButton.action=@selector(check:);((FSAboutActionButton *)self.checkButton).symbolName=@"arrow.triangle.2.circlepath"; [self.window.contentView addSubview:self.checkButton];
-        self.licensesButton=[[FSAboutActionButton alloc] initWithFrame:NSMakeRect(120,18,300,44)];self.licensesButton.target=self;self.licensesButton.action=@selector(licenses:);((FSAboutActionButton *)self.licensesButton).symbolName=@"doc.text"; [self.window.contentView addSubview:self.licensesButton];
+        self.checkButton=[[FSAboutActionButton alloc] initWithFrame:NSMakeRect(120,122,300,44)]; self.checkButton.target=self;self.checkButton.action=@selector(check:);((FSAboutActionButton *)self.checkButton).symbolName=@"arrow.triangle.2.circlepath"; [self.window.contentView addSubview:self.checkButton];
+        self.licensesButton=[[FSAboutActionButton alloc] initWithFrame:NSMakeRect(120,70,300,44)];self.licensesButton.target=self;self.licensesButton.action=@selector(licenses:);((FSAboutActionButton *)self.licensesButton).symbolName=@"doc.text"; [self.window.contentView addSubview:self.licensesButton];
+        self.supportButton=[[FSAboutActionButton alloc] initWithFrame:NSMakeRect(120,18,300,44)];self.supportButton.target=self;self.supportButton.action=@selector(support:);((FSAboutActionButton *)self.supportButton).symbolName=@"heart"; [self.window.contentView addSubview:self.supportButton];
         // Keep both regions allocated even while idle; only their contents change.
-        self.progress=[[NSProgressIndicator alloc] initWithFrame:NSMakeRect(120,166,300,6)];
+        self.progress=[[NSProgressIndicator alloc] initWithFrame:NSMakeRect(120,218,300,6)];
         self.progress.style=NSProgressIndicatorStyleBar;self.progress.minValue=0;self.progress.maxValue=1;
         [self.window.contentView addSubview:self.progress];
-        self.statusScroll=[[NSScrollView alloc] initWithFrame:NSMakeRect(24,122,492,38)];
+        self.statusScroll=[[NSScrollView alloc] initWithFrame:NSMakeRect(24,174,492,38)];
         self.statusScroll.drawsBackground=NO;self.statusScroll.hasVerticalScroller=YES;self.statusScroll.autohidesScrollers=YES;
         self.status=[NSTextField wrappingLabelWithString:@""];self.status.font=FSFont(11);self.status.alignment=NSTextAlignmentCenter;
         self.status.selectable=YES;self.statusScroll.documentView=self.status;
@@ -106,7 +108,9 @@
     [self updateControls];
     NSString *licensesTitle=fsEnglish ? @"Open-source licences" : @"Лицензии открытого ПО";
     self.licensesButton.title=licensesTitle;
-    self.checkButton.needsDisplay=YES;self.licensesButton.needsDisplay=YES;
+    self.supportButton.title=fsEnglish ? @"Support the developer" : @"Поддержать разработчика";
+    self.supportButton.toolTip=fsEnglish ? @"Open CloudTips in your browser" : @"Открыть CloudTips в браузере";
+    self.checkButton.needsDisplay=YES;self.licensesButton.needsDisplay=YES;self.supportButton.needsDisplay=YES;
     self.licensesWindow.title=licensesTitle;
     self.licensesWindow.appearance=[NSAppearance appearanceNamed:fsDark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
     self.licensesWindow.backgroundColor=FSThemeBackground(fsDark);
@@ -114,6 +118,16 @@
     self.licenseText.textColor=FSThemeText(fsDark);
 }
 - (void)licenses:(id)sender { if(self.licensesRequested) self.licensesRequested(); }
+- (void)support:(id)sender {
+    NSURL *url=[NSURL URLWithString:@"https://pay.cloudtips.ru/p/d45d5d02"];
+    if(![NSWorkspace.sharedWorkspace openURL:url]) {
+        NSAlert *alert=[NSAlert new];
+        alert.messageText=fsEnglish ? @"Could not open browser" : @"Не удалось открыть браузер";
+        alert.informativeText=url.absoluteString;
+        [alert addButtonWithTitle:fsEnglish ? @"Close" : @"Закрыть"];
+        [alert beginSheetModalForWindow:self.window completionHandler:nil];
+    }
+}
 - (void)showLicensesText:(NSString *)text {
     [self.updater cancelStartupCheck];[self dismissStartupOffer];
     if(!self.licensesWindow) {

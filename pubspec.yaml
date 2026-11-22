@@ -1,7 +1,7 @@
 name: freescene
 description: "FreeScene media catalogue for macOS, Android and Android TV"
 publish_to: 'none'
-version: 2.0.2+59
+version: 2.0.3+60
 
 environment:
   sdk: ^3.13.5
@@ -31,6 +31,7 @@ flutter:
     - assets/branding/tv-preview-icon.png
     - assets/branding/tv-preview-icon-light.png
     - assets/branding/LICENSE.txt
+    - assets/support/cloudtips-qr.png
     - assets/fonts/
     - assets/player/
     - licenses/

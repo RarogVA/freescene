@@ -11,7 +11,7 @@ class ReleaseChangelog extends StatelessWidget {
     super.key,
   });
 
-  static const version = '2.0.2';
+  static const version = '2.0.3';
   final bool english, tv, mobile;
 
   @override
@@ -19,45 +19,24 @@ class ReleaseChangelog extends StatelessWidget {
     final title = Theme.of(context).textTheme;
     final entries = [
       (
-        Icons.favorite_rounded,
+        Icons.info_outline,
         english
-            ? 'Saved favorites, queue items and selected source providers now use the purple focus accent. Provider filters no longer have checkboxes.'
-            : 'Избранное, очередь и выбранные провайдеры выделены фиолетовым акцентом фокуса. У фильтров провайдеров убраны галочки.',
+            ? 'Updated the About screen.'
+            : 'Обновлено окно «О приложении».',
       ),
-      if (!tv)
-        (
-          Icons.swipe,
-          english
-              ? 'Swipe left or right in the catalogue to switch between Films, Series and Games where available.'
-              : 'Свайпайте влево и вправо в каталоге для перехода между фильмами, сериалами и играми, если они доступны.',
-        ),
-      if (mobile)
-        (
-          Icons.search,
-          english
-              ? 'Compact search opens over the section switch, with voice search, filters and refresh in one pill.'
-              : 'Компактный поиск раскрывается поверх переключателя разделов. Голосовой поиск, фильтры и обновление находятся внутри.',
-        ),
-      if (!tv && !mobile) ...[
+      if (!tv && !mobile)
         (
           Icons.mic,
           english
-              ? 'Voice search on macOS and fixed icon actions inside search. Poster hover and context menus match TV.'
-              : 'Голосовой поиск на macOS и компактные кнопки внутри поиска. Наведение на постеры и контекстное меню приведены к стилю ТВ.',
+              ? 'Voice search now explains when macOS Dictation is disabled or speech recognition files are missing, and offers a shortcut to settings.'
+              : 'Голосовой поиск объясняет, когда в macOS отключена Диктовка или отсутствуют файлы распознавания, и предлагает перейти к настройкам.',
         ),
-        (
-          Icons.tune,
-          english
-              ? 'Back buttons keep page titles in place. Downloads, About and animation settings now use the shared controls style.'
-              : 'Кнопка «Назад» больше не сдвигает заголовки. Обновлён стиль кнопок загрузок, «О приложении» и переключателя анимаций.',
-        ),
-      ],
       if (tv)
         (
-          Icons.history,
+          Icons.sync_rounded,
           english
-              ? 'Hold a history entry to open its title or watch. In source results, the first Back press returns focus to the start of the list.'
-              : 'Удерживайте запись истории, чтобы перейти к карточке или смотреть. В найденных источниках первое нажатие «Назад» возвращает фокус к началу списка.',
+              ? 'Update and license buttons now have icons matching the desktop app.'
+              : 'Кнопки обновлений и лицензий получили значки в стиле десктопного приложения.',
         ),
     ];
     return AlertDialog(
