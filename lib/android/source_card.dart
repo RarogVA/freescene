@@ -112,7 +112,8 @@ class AndroidSourceCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             foregroundBuilder: (context, focused) => Positioned(
               left: 0,
-              top: 2,
+              top: 0,
+              bottom: 0,
               child: IgnorePointer(
                 child: ExcludeSemantics(
                   child: AnimatedOpacity(
@@ -133,10 +134,8 @@ class AndroidSourceCard extends StatelessWidget {
                         key: ValueKey(
                           'source-play-${row.provider.name}-${row.id}',
                         ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
+                        height: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
                           color: colors.surfaceContainerHigh,
                           borderRadius: BorderRadius.circular(24),

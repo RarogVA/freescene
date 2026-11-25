@@ -84,7 +84,21 @@ void main() {
         final row = find.byKey(const ValueKey('remote-source-fixture-a'));
         final eye = find.byKey(const ValueKey('remote-watched-fixture-a'));
         tester.widget<OutlinedButton>(row).focusNode!.requestFocus();
-        await tester.pump();
+        await tester.pumpAndSettle();
+        final pill = tester.getRect(
+          find.byKey(const ValueKey('source-play-fixture-a')),
+        );
+        final bounds = tester.getRect(row);
+        final eyeBounds = tester.getRect(eye);
+        expect(
+          pill.top - bounds.top,
+          closeTo(bounds.bottom - pill.bottom, .01),
+        );
+        expect(pill.height, closeTo(eyeBounds.height, .01));
+        expect(
+          pill.left - bounds.left,
+          closeTo(bounds.right - eyeBounds.right, .01),
+        );
         expect(tester.getSize(row).height, lessThanOrEqualTo(60));
         final center = tester.getCenter(row).dy;
         for (final item in [
