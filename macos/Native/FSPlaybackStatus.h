@@ -7,6 +7,21 @@ static inline NSString *FSRate(NSNumber *bytes, BOOL english) {
     return rate>=1048576 ? [NSString stringWithFormat:english ? @"%.1f MiB/s" : @"%.1f МиБ/с",rate/1048576] :
         [NSString stringWithFormat:english ? @"%.0f KiB/s" : @"%.0f КиБ/с",rate/1024];
 }
+// These event identifiers come from the torrent engine independently of locale.
+static inline NSString *FSTorrentProblem(NSDictionary *task, BOOL english) {
+    NSString *event = task[@"event"];
+    if ([event isEqual:@"metadataFailed"])
+        return english ? @"Torrent metadata timed out. Retry or check the trackers and DHT." :
+                         @"Истекло время ожидания метаданных. Повторите попытку или проверьте трекеры и DHT.";
+    if ([event isEqual:@"noPeers"])
+        return english ? @"No peers or web seeds are available. Retry or check the source." :
+                         @"Нет доступных пиров или веб-сидов. Повторите попытку или проверьте источник.";
+    if ([event isEqual:@"dhtFailed"])
+        return english ? @"DHT is unavailable. Check the network and retry." :
+                         @"DHT недоступна. Проверьте соединение и повторите попытку.";
+    return task[@"error"] ?: @"";
+}
+
 static inline NSDictionary *FSPlaybackPresentation(NSDictionary *task, NSString *mediaState, BOOL paused, BOOL english) {
     NSString *problem=[task[@"error"] isKindOfClass:NSString.class] ? task[@"error"] : @"";
     BOOL failed=[mediaState isEqual:@"error"] || problem.length>0;
@@ -23,8 +38,8 @@ static inline NSDictionary *FSPlaybackPresentation(NSDictionary *task, NSString 
     id seeds=task[@"seeds"], peers=task[@"peers"];
     NSString *counts=[NSString stringWithFormat:english ? @"Seeds: %@ · Peers: %@" : @"Сиды: %@ · Пиры: %@",
         [seeds isKindOfClass:NSNumber.class] ? seeds : @"—", [peers isKindOfClass:NSNumber.class] ? peers : @"—"];
-    NSString *text=[NSString stringWithFormat:@"%@ · info: %@ · DHT: %@\n%@ · ↓ %@",phase,
-        metadata ? (english ? @"received" : @"получена") : (english ? @"waiting" : @"ожидание"),
+    NSString *text=[NSString stringWithFormat:english ? @"%@ · Metadata: %@ · DHT: %@\n%@ · ↓ %@" : @"%@ · Метаданные: %@ · DHT: %@\n%@ · ↓ %@",phase,
+        metadata ? (english ? @"received" : @"получены") : (english ? @"waiting" : @"ожидание"),
         dhtNames[task[@"dht"] ?: @""] ?: @"—", counts, FSRate(task[@"rate"],english)];
     return @{@"busy":@(busy),@"text":text};
 }

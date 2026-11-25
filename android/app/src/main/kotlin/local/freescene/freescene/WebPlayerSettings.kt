@@ -49,7 +49,8 @@ internal class WebPlayerSettings(
         }, 3000)
     }
     private fun unavailable(kind: String) = show(AlertDialog.Builder(activity).setTitle(title(kind))
-        .setMessage(text("Плеер не предоставил доступ к этой настройке.", "This setting is unavailable in the current player.")))
+        .setMessage(if (kind == "audio") text("Выберите аудиодорожку в плеере провайдера.", "Choose the audio track in the provider player.")
+            else text("Плеер не предоставил доступ к этой настройке.", "This setting is unavailable in the current player.")))
 
     fun received(data: JSONObject) {
         val kind = pending ?: return

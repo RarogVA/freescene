@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'catalog_models.dart';
-import 'catalog_tile.dart';
 import 'favorites.dart';
 import '../widgets/desktop_controls.dart';
 
@@ -17,7 +16,6 @@ class SavedTitleButton extends StatelessWidget {
     required this.failureLabel,
     required this.icon,
     required this.selectedIcon,
-    this.overPoster = false,
     this.addGlyph,
     super.key,
   });
@@ -25,7 +23,6 @@ class SavedTitleButton extends StatelessWidget {
   final FavoritesController controller;
   final String addLabel, removeLabel, failureLabel;
   final IconData icon, selectedIcon;
-  final bool overPoster;
   final Widget? addGlyph;
 
   @override
@@ -33,40 +30,15 @@ class SavedTitleButton extends StatelessWidget {
     listenable: controller,
     builder: (context, _) {
       final selected = controller.contains(title);
-      final colors = Theme.of(context).colorScheme;
-      final button = IconButton.filledTonal(
-        tooltip: selected ? removeLabel : addLabel,
-        isSelected: selected,
+      return DesktopActionButton(
+        label: selected ? removeLabel : addLabel,
+        selected: selected,
+        icon: selected ? selectedIcon : icon,
+        glyph: selected ? null : addGlyph,
         onPressed: controller.ready && !controller.loading && !controller.saving
             ? () => unawaited(_toggle(context))
             : null,
-        style: IconButton.styleFrom(
-          fixedSize: const Size.square(38),
-          backgroundColor: selected
-              ? colors.primaryContainer
-              : colors.surface.withValues(alpha: 0.94),
-          foregroundColor: selected ? colors.primary : colors.onSurface,
-          shape: const CircleBorder(),
-          side: BorderSide(
-            color: colors.primary.withValues(alpha: selected ? 0.8 : 0.35),
-          ),
-        ),
-        icon: !selected && addGlyph != null
-            ? addGlyph!
-            : Icon(selected ? selectedIcon : icon, size: 21),
       );
-      return overPoster
-          ? CatalogTileAction(selected: selected, child: button)
-          : DesktopActionButton(
-              label: selected ? removeLabel : addLabel,
-              selected: selected,
-              icon: selected ? selectedIcon : icon,
-              glyph: selected ? null : addGlyph,
-              onPressed:
-                  controller.ready && !controller.loading && !controller.saving
-                  ? () => unawaited(_toggle(context))
-                  : null,
-            );
     },
   );
 

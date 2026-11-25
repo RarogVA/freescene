@@ -1,10 +1,11 @@
+import '../widgets/download_removal_dialog.dart';
+import '../widgets/app_icons.dart';
 import '../widgets/desktop_controls.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'native_torrent.dart';
-import '../widgets/middle_ellipsis_text.dart';
 
 import 'package:freescene_provider_api/freescene_provider_api.dart';
 
@@ -97,36 +98,8 @@ class _DownloadsPageState extends State<DownloadsPage> {
   Future<void> _remove(TorrentTask task) async {
     final removeFiles = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        constraints: const BoxConstraints.tightFor(width: 560, height: 180),
-        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-        contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-        actionsPadding: const EdgeInsets.fromLTRB(12, 0, 16, 16),
-        title: Text(tr('Удалить загрузку?', 'Remove download?')),
-        content: SizedBox(
-          width: 520,
-          height: 40,
-          child: MiddleEllipsisText(task.title),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(tr('Отмена', 'Cancel')),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(tr('Оставить файлы', 'Keep files')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-              foregroundColor: Theme.of(context).colorScheme.onError,
-            ),
-            child: Text(tr('Удалить с файлами', 'Delete files')),
-          ),
-        ],
-      ),
+      builder: (context) =>
+          DownloadRemovalDialog(title: task.title, english: widget.english),
     );
     if (removeFiles != null) {
       await _run(() async {
@@ -340,7 +313,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                                   task.phase != 'completed')
                                 DesktopActionButton(
                                   icon: task.phase == 'paused'
-                                      ? Icons.download_rounded
+                                      ? AppIcons.download
                                       : task.error.isNotEmpty
                                       ? Icons.refresh_rounded
                                       : Icons.pause_rounded,

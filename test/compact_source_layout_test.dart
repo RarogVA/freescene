@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:freescene/android/android_theme.dart';
@@ -105,7 +106,7 @@ void main() {
           closeTo(center, 1),
         );
         expect(tester.getCenter(eye).dy, closeTo(center, 1));
-        expect(find.text('Watch'), findsNothing);
+        expect(find.text('Watch'), findsNWidgets(2));
         expect(
           tester.widget<OutlinedButton>(row).style!.side!.resolve({})!.color,
           theme.colorScheme.primary,
@@ -244,89 +245,97 @@ void main() {
       expect(find.byTooltip(text), width == 80 ? findsOneWidget : findsNothing);
     }
   });
-  testWidgets(
-    'desktop stacked actions switch to icons without losing their actions',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1100, 700));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      final actions = <bool>[];
-      for (final compact in [false, true, false]) {
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: SourceTable(
-                sources: [source('a'), source('b')],
-                english: true,
-                game: false,
-                series: true,
-                compactActions: compact,
-                onUseSource: (_, watch) async => actions.add(watch),
-              ),
+  testWidgets('desktop actions overlay stable content through hover and focus', (
+    tester,
+  ) async {
+    final actions = <bool>[];
+    for (final width in [1100.0, 800.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 700));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SourceTable(
+              sources: [source('a'), source('b')],
+              english: true,
+              game: false,
+              series: true,
+              onUseSource: (_, watch) async => actions.add(watch),
             ),
           ),
-        );
-        await tester.pumpAndSettle();
-        final watch = find.byKey(const ValueKey('source-watch-fixture/a'));
-        final download = find.byKey(
-          const ValueKey('source-download-fixture/a'),
-        );
-        if (compact) {
-          expect(tester.getCenter(watch).dy, tester.getCenter(download).dy);
-          expect(
-            tester.getRect(watch).right,
-            lessThan(tester.getRect(download).left),
-          );
-        } else {
-          expect(tester.getCenter(watch).dx, tester.getCenter(download).dx);
-          expect(
-            tester.getRect(watch).bottom,
-            lessThan(tester.getRect(download).top),
-          );
-        }
-        expect(
-          tester.getSize(find.byKey(const ValueKey('source-fixture-a'))).height,
-          lessThanOrEqualTo(88),
-        );
-        final y = tester
-            .getCenter(find.byKey(const ValueKey('bubble-provider')).first)
-            .dy;
-        for (final kind in ['quality', 'size', 'duration', 'availability']) {
-          expect(
-            tester.getCenter(find.byKey(ValueKey('bubble-$kind')).first).dy,
-            closeTo(y, 1),
-          );
-        }
-        expect(find.text('Watch'), compact ? findsNothing : findsNWidgets(2));
-        final badges = find.byKey(const ValueKey('bubble-availability'));
-        expect(
-          tester.getRect(badges.first).right,
-          tester.getRect(badges.last).right,
-        );
-        expect(
-          tester.getRect(badges.first).right,
-          closeTo(
-            tester
-                    .getRect(
-                      find.byKey(const ValueKey('source-watched-fixture/a')),
-                    )
-                    .left -
-                8 -
-                12 -
-                100,
-            1,
-          ),
-        );
-        if (compact) {
-          expect(find.byTooltip('Watch'), findsNWidgets(2));
-          expect(tester.getSize(watch), const Size(32, 32));
-        }
-        await tester.tap(watch);
-        await tester.pumpAndSettle();
-        await tester.tap(download);
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
+        ),
+      );
+      await tester.pumpAndSettle();
+      final row = find.byKey(const ValueKey('source-fixture-a'));
+      final name = find.byKey(const ValueKey('source-name-fixture/a'));
+      final badge = find.byKey(const ValueKey('bubble-provider')).first;
+      final watch = find.byKey(const ValueKey('source-watch-fixture/a'));
+      final download = find.byKey(const ValueKey('source-download-fixture/a'));
+      final before = [
+        tester.getRect(name),
+        tester.getRect(badge),
+        tester.getRect(row),
+      ];
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(tester.getTopLeft(row) + const Offset(100, 25));
+      await tester.pumpAndSettle();
+      await mouse.moveTo(tester.getTopLeft(watch) + const Offset(16, 16));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect([
+        tester.getRect(name),
+        tester.getRect(badge),
+        tester.getRect(row),
+      ], before);
+      expect(
+        tester.getRect(watch).right,
+        lessThan(tester.getRect(download).left),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getSize(watch).width, greaterThan(70));
+      for (final action in [watch, download]) {
+        final rect = tester.getRect(action);
+        final card = tester.getRect(row);
+        expect(rect.height, 40);
+        expect(rect.top - card.top, closeTo(card.bottom - rect.bottom, .01));
       }
-      expect(actions, [true, false, true, false, true, false]);
-    },
-  );
+      expect(
+        tester.getRect(watch).right,
+        lessThan(tester.getRect(download).left),
+      );
+      // The left icon stays clickable even while its caption covers the title.
+      await tester.tapAt(tester.getTopLeft(watch) + const Offset(16, 16));
+      await tester.pumpAndSettle();
+      await mouse.moveTo(tester.getTopLeft(download) + const Offset(16, 16));
+      await tester.pumpAndSettle();
+      await tester.tapAt(tester.getTopLeft(download) + const Offset(16, 16));
+      await tester.pumpAndSettle();
+      await mouse.moveTo(Offset.zero);
+      await tester.pumpAndSettle();
+      expect([
+        tester.getRect(name),
+        tester.getRect(badge),
+        tester.getRect(row),
+      ], before);
+      // Hidden pointer actions remain reachable by keyboard.
+      final button = find.descendant(
+        of: watch,
+        matching: find.byType(FilledButton),
+      );
+      Focus.of(
+        tester.element(
+          find.descendant(of: button, matching: find.byType(InkWell)).first,
+        ),
+      ).requestFocus();
+      await tester.pumpAndSettle();
+      expect([
+        tester.getRect(name),
+        tester.getRect(badge),
+        tester.getRect(row),
+      ], before);
+      await mouse.removePointer();
+      expect(tester.takeException(), isNull);
+    }
+    expect(actions, [true, false, true, false]);
+    await tester.binding.setSurfaceSize(null);
+  });
 }

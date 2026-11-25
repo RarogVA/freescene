@@ -1,6 +1,7 @@
 package local.freescene.freescene
 
 import android.app.Activity
+import android.content.Context
 import android.app.AlertDialog
 import android.os.Handler
 import android.os.Looper
@@ -31,6 +32,11 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 /** One platform-decoded player, released whenever the activity is stopped. */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 open class PlayerActivity : Activity() {
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(base)
+        applyOverrideConfiguration(PlaybackLanguage.configuration(base))
+    }
+
     private var idleControls: TvIdleControls? = null
     private var tvFocus: TvPlayerFocus? = null
     private var controlsSuspended = false
@@ -62,7 +68,7 @@ open class PlayerActivity : Activity() {
             val ru = resources.configuration.locales[0].language == "ru"
             status.text = when {
                 target != null -> (if (ru) "Перемотка: " else "Seek: ") + android.text.format.DateUtils.formatElapsedTime(target / 1000)
-                player?.playbackState == Player.STATE_BUFFERING -> if (ru) "Буферизация…" else "Buffering…"
+                player?.playbackState == Player.STATE_BUFFERING -> getString(R.string.player_buffering)
                 else -> audioWarning.orEmpty()
             }
         }
@@ -78,7 +84,7 @@ open class PlayerActivity : Activity() {
             if (!metadata.has("provider")) {
                 val origin = torrentMetadata.optJSONObject("origin")
                 val label = origin?.optString("provider")?.takeIf { it.isNotBlank() }
-                    ?: if (origin?.optString("local") == "torrentFile") "Локальный .torrent" else "Magnet"
+                    ?: if (origin?.optString("local") == "torrentFile") getString(R.string.player_local_torrent) else "Magnet"
                 metadata.put("provider", label)
             }
             metadata.put("sourceType", "torrent")
@@ -136,7 +142,7 @@ open class PlayerActivity : Activity() {
                 if (stopped || isFinishing) return@request
                 val tasks = result.getOrNull()?.optJSONArray("tasks")
                 val task = (0 until (tasks?.length() ?: 0)).map { tasks!!.getJSONObject(it) }.find { it.optString("id") == torrentId }
-                if (task == null) { playbackFailed = true; status.text = "Загрузка недоступна. Вернитесь и повторите." }
+                if (task == null) { playbackFailed = true; status.text = getString(R.string.player_download_unavailable) }
                 else {
                     if (intent.getStringExtra("title").isNullOrBlank()) titleBar.text = task.optString("name", "FreeScene")
                     torrentMetadata = task
@@ -145,17 +151,19 @@ open class PlayerActivity : Activity() {
                     updateEpisodeControls()
                     episodes.visibility = if (intent.getBooleanExtra("series", false) && videos.size > 1 && close.visibility == View.VISIBLE) View.VISIBLE else View.GONE
                     when {
-                        task.optString("error").isNotBlank() -> { playbackFailed = true; status.text = task.optString("error") }
-                        !task.optBoolean("metadata") -> status.text = "Получение списка файлов…"
-                        videos.isEmpty() -> { playbackFailed = true; status.text = "В раздаче нет поддерживаемого видео" }
+                        task.optString("error").isNotBlank() -> { playbackFailed = true; status.setText(R.string.player_open_torrent_failed) }
+                        !task.optBoolean("metadata") -> status.text = getString(R.string.player_getting_files)
+                        videos.isEmpty() -> { playbackFailed = true; status.text = getString(R.string.player_no_video) }
                         player?.playerError != null -> Unit // Keep the decoder error visible until retry/exit.
                         player == null && !preparing && chooser == null && resumeDialog == null -> {
                             if (intent.getBooleanExtra("historyReplay", false) && videos.none { it.optInt("index") == fileIndex }) {
-                                playbackFailed = true;status.text = "Файл из истории недоступен"
+                                playbackFailed = true;status.text = getString(R.string.player_history_file_missing)
                             } else if (fileIndex >= 0 || videos.size == 1) openFile(videos.find { it.optInt("index") == fileIndex } ?: videos.first(), reset = false)
                             else chooseEpisode()
                         }
-                        player?.playbackState == Player.STATE_BUFFERING -> status.text = "Буферизация · ↓ ${task.optLong("rate") / 1024} КиБ/с · Сиды: ${task.optInt("seeds")} · Пиры: ${task.optInt("peers")}"
+                        player?.playbackState == Player.STATE_BUFFERING -> status.text = getString(
+                            R.string.player_torrent_stats, task.optLong("rate") / 1024, task.optInt("seeds"), task.optInt("peers")
+                        )
                         else -> status.text = audioWarning.orEmpty()
                     }
                 }
@@ -190,14 +198,15 @@ open class PlayerActivity : Activity() {
         updateEpisodeControls()
         if (reset) { position = 0; playing = true }
         player?.release(); player = null; view.player = null; playbackReady = false
-        status.text = "Буферизация…"
+        status.text = getString(R.string.player_buffering)
         request("stream", JSONObject().put("file", fileIndex)) { result ->
             preparing = false
             if (stopped || isFinishing) return@request
             result.onSuccess { playMedia(it.getString("url"), "torrent:$torrentId:$fileIndex") }
-                .onFailure { playbackFailed = true; status.text = it.message ?: "Не удалось открыть файл" }
+                .onFailure { playbackFailed = true; status.setText(R.string.player_open_file_failed) }
         }
     }
+    private var audioPreference = AudioPreference(false)
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
         PlayerColors.restore(this)
@@ -224,7 +233,8 @@ open class PlayerActivity : Activity() {
         }
         episodeNavigation = PlayerEpisodeNavigation(view)
         settings = PlayerSettings(this, opened = { suspendControls() }, dismissed = { resumeControls() },
-            scaling = { scale.button.performClick() }) {
+            scaling = { scale.button.performClick() }, automaticAudio = { !audioPreference.manual },
+            audioSelected = { audioPreference.manual = it }) {
             view.player
         }.also { it.bind(view) }
         close = PlayerCloseButton(this).apply {
@@ -393,11 +403,11 @@ open class PlayerActivity : Activity() {
     }
     protected open fun startPlayer() {
         if (torrentId != null) {
-            status.text = "Получение списка файлов…"
+            status.text = getString(R.string.player_getting_files)
             request("prepareStream") { result ->
                 if (stopped || isFinishing) return@request
                 result.onSuccess { startTorrentService(); handler.post(poll) }
-                    .onFailure { playbackFailed = true; status.text = it.message ?: "Не удалось открыть раздачу" }
+                    .onFailure { playbackFailed = true; status.setText(R.string.player_open_torrent_failed) }
             }
         } else {
             val url = intent.getStringExtra("url")!!
@@ -441,8 +451,9 @@ open class PlayerActivity : Activity() {
     }
     protected open fun startTorrentService() { TorrentService.start(this) }
     protected open fun startMedia(url: String) {
+        audioPreference = AudioPreference(PlaybackLanguage.english(this))
         playbackFailed = false
-        if (!PlaybackPolicy.allowed(url) && !TorrentEngine.trustedStream(url)) { status.text = "Недопустимый адрес видео"; return }
+        if (!PlaybackPolicy.allowed(url) && !TorrentEngine.trustedStream(url)) { status.text = getString(R.string.player_invalid_url); return }
         val lowRam = (getSystemService(ACTIVITY_SERVICE) as ActivityManager).isLowRamDevice
         val load = DefaultLoadControl.Builder().setTargetBufferBytes(PlaybackPolicy.bufferBytes(lowRam))
             .setBufferDurationsMs(10000, 30000, 1000, 2000)
@@ -465,6 +476,7 @@ open class PlayerActivity : Activity() {
                 it.addListener(object : Player.Listener {
                     override fun onIsPlayingChanged(isPlaying: Boolean) { watchedClock.sample(isPlaying); watchLaunch.sample(isPlaying) }
                     override fun onTracksChanged(tracks: Tracks) {
+                        audioPreference.apply(it)
                         audioWarning = PlayerAudio.warning(tracks, resources.configuration.locales[0].language == "ru")
                         if (it.playbackState == Player.STATE_READY && it.playerError == null)
                             status.text = audioWarning.orEmpty()
@@ -472,7 +484,7 @@ open class PlayerActivity : Activity() {
                     override fun onPlaybackStateChanged(state: Int) {
                         android.util.Log.i("FreeScenePlayback", "state=$state positionMs=${it.currentPosition} bufferedMs=${it.totalBufferedDuration}")
                         if (state == Player.STATE_READY) { playbackReady = true; playbackFailed = false }
-                        if (state == Player.STATE_BUFFERING) status.text = if (resources.configuration.locales[0].language == "ru") "Буферизация…" else "Buffering…"
+                        if (state == Player.STATE_BUFFERING) status.text = getString(R.string.player_buffering)
                         if (state == Player.STATE_ENDED) saveProgress()
                         if (state == Player.STATE_READY && it.playerError == null)
                             status.text = audioWarning.orEmpty()

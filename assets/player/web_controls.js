@@ -1,6 +1,7 @@
 (function install(config, target, inheritedSink) {
   const window = target || globalThis;
   const document = window.document;
+  globalThis.__freesceneAudioInstall?.(config.englishAudio, window);
   const getComputedStyle = window.getComputedStyle.bind(window);
   if (window.__freesceneControls?.document === document) return;
   try { config.prepare?.(window); } catch (_) {}
@@ -78,6 +79,7 @@
       duration: Number.isFinite(video.duration) ? video.duration : 0,
       paused: video.paused, ended: video.ended, buffering: video.readyState < 3,
       playing: physicallyPlaying(video),
+      audio: window.__freesceneAudio?.tracks(video) || [],
       volume: video.volume, muted: video.muted, seekable: video.seekable.length > 0
     });
   };
@@ -90,6 +92,15 @@
         case 'toggle': if (video.paused) video.play().catch(() => {}); else video.pause(); break;
         case 'seek': if (Number.isFinite(value.value) && Number.isFinite(video.duration)) video.currentTime = Math.max(0, Math.min(video.duration, value.value)); break;
         case 'skip': if (Number.isFinite(value.value) && Math.abs(value.value) <= 10 && Number.isFinite(video.duration)) video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + value.value)); break;
+        case 'audio': {
+          const tracks = video.audioTracks;
+          if (Number.isInteger(value.value) && value.value >= 0 && tracks && value.value < tracks.length) {
+            window.__freesceneAudio?.manual(video);
+            tracks[value.value].enabled = true;
+            if (tracks[value.value].enabled) for (let i = 0; i < tracks.length; i++) if (i !== value.value) tracks[i].enabled = false;
+          }
+          break;
+        }
         case 'mute': video.muted = !video.muted; break;
         case 'volume': if (Number.isFinite(value.value)) {video.muted = false; video.volume = Math.max(0, Math.min(1, value.value));} break;
       }
@@ -102,11 +113,12 @@
     const videos = [...root.querySelectorAll('video')].filter(video => visible(video) && (video.readyState >= 1 || video.currentSrc || video.getAttribute('src')) && !video.closest('.ad,.ads,.advertisement,.video-ads,.ima-ad-container'));
     videos.sort((a,b) => (Number.isFinite(b.duration) ? b.duration : 0) - (Number.isFinite(a.duration) ? a.duration : 0));
     if (selected !== (videos[0] || null)) {restore(); selected = videos[0] || null;}
+    window.__freesceneAudio?.refresh(selected);
     present(selected); report();
     for (const frame of root.querySelectorAll('iframe')) if (visible(frame)) {
       // document.write/srcdoc players do not always receive a WebKit document-start
       // script. Same-origin frames can install the bridge without changing URLs.
-      try { if (frame.contentDocument) { install({prepare: config.prepare}, frame.contentWindow, sink); frame.contentWindow.__freesceneControls?.activate(native, sink); } } catch (_) {}
+      try { if (frame.contentDocument) { install({prepare: config.prepare, englishAudio: config.englishAudio}, frame.contentWindow, sink); frame.contentWindow.__freesceneControls?.activate(native, sink); } } catch (_) {}
       frame.contentWindow?.postMessage({type:'freescene-controls-enable', native}, '*');
     }
   };

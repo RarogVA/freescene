@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -17,11 +18,63 @@ class ProviderSources {
 }
 
 class CatalogController extends ChangeNotifier {
-  CatalogController(this.repository, {this.favorites, this.queue}) {
+  CatalogController(
+    this.repository, {
+    this.favorites,
+    this.queue,
+    this._english = false,
+  }) {
     favorites?.addListener(_favoritesChanged);
     queue?.addListener(_queueChanged);
   }
   final CatalogRepository repository;
+  bool _english;
+  Future<CatalogDictionaries>? _dictionaries;
+
+  void setEnglish(bool value) {
+    if (_english == value) return;
+    _english = value;
+    if (value && !detailsLoading && selected != null) {
+      unawaited(_localizeDetails(selected!, _detailsGeneration));
+    }
+  }
+
+  Future<void> _localizeDetails(CatalogTitle detail, int generation) async {
+    bool current() =>
+        !_disposed && _english && generation == _detailsGeneration;
+    if (!current()) return;
+    try {
+      final dictionaries = await (_dictionaries ??= CatalogDictionaries.load());
+      if (!current()) return;
+      detail = detail.copyWith(
+        englishGenres: dictionaries.translateLabels(
+          detail.genres,
+          detail.kind == CatalogKind.games
+              ? dictionaries.gameGenres
+              : dictionaries.genres,
+        ),
+        englishCountry: dictionaries.translateLabels(
+          detail.country,
+          dictionaries.countries,
+        ),
+      );
+      selected = detail;
+      _changed();
+    } catch (_) {
+      _dictionaries = null;
+    }
+    if (!current() || detail.synopsis(true).isNotEmpty) return;
+    try {
+      final synopsis = await repository.englishSynopsis(detail);
+      if (current() && synopsis != null) {
+        selected = detail.copyWith(englishDescription: synopsis);
+        _changed();
+      }
+    } catch (_) {
+      // A missing translation must not turn the existing card into an error.
+    }
+  }
+
   final FavoritesController? favorites;
   final QueueController? queue;
   bool favoritesOnly = false, queueOnly = false;
@@ -253,6 +306,9 @@ class CatalogController extends ChangeNotifier {
           if (!_disposed && generation == _detailsGeneration) {
             detailsLoading = false;
             _changed();
+            if (_english && selected != null) {
+              unawaited(_localizeDetails(selected!, generation));
+            }
           }
         }
       })(),

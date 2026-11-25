@@ -62,6 +62,10 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "freescene/android")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "configurePlaybackLanguage" -> {
+                        PlaybackLanguage.configure(this, call.argument<Boolean>("english") == true)
+                        result.success(null)
+                    }
                     "watchHistorySnapshot" -> result.success(WatchHistory(this).snapshot())
                     "watchHistoryRemove" -> {
                         val removed = WatchHistory(this).remove(call.argument<List<Any?>>("ids") ?: emptyList<Any?>())

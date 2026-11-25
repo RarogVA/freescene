@@ -306,6 +306,7 @@ class RemoteButton extends StatefulWidget {
     this.tile = false,
     this.segment = false,
     this.alignment = Alignment.center,
+    this.foregroundBuilder,
     super.key,
   });
   final String id;
@@ -318,24 +319,28 @@ class RemoteButton extends StatefulWidget {
   final double radius;
   final bool flat, tile, segment;
   final AlignmentGeometry alignment;
+  final Widget Function(BuildContext, bool)? foregroundBuilder;
   @override
   State<RemoteButton> createState() => _RemoteButtonState();
 }
 
 class _RemoteButtonState extends State<RemoteButton> {
   late final node = RemoteFocusNode(widget.id);
+  final buttonStates = WidgetStatesController();
   bool focused = false;
+  bool pointerPressed = false;
   Timer? holdTimer;
   LogicalKeyboardKey? heldKey;
   bool openedMenu = false;
 
-  void clearPress() {
+  void clearPress({bool rebuild = true}) {
     if (heldKey == null) return;
     holdTimer?.cancel();
     holdTimer = null;
     heldKey = null;
     openedMenu = false;
     FocusManager.instance.removeEarlyKeyEventHandler(finishPress);
+    if (rebuild) setState(() {});
   }
 
   KeyEventResult startPress(FocusNode _, KeyEvent event) {
@@ -351,7 +356,7 @@ class _RemoteButtonState extends State<RemoteButton> {
       return KeyEventResult.ignored;
     }
     if (heldKey != null) return KeyEventResult.handled;
-    heldKey = event.logicalKey;
+    setState(() => heldKey = event.logicalKey);
     // The menu takes focus while OK is still held. Consume its repeats and
     // release before they reach the newly focused menu action.
     FocusManager.instance.addEarlyKeyEventHandler(finishPress);
@@ -364,7 +369,7 @@ class _RemoteButtonState extends State<RemoteButton> {
       return;
     }
     holdTimer?.cancel();
-    openedMenu = true;
+    setState(() => openedMenu = true);
     widget.onLongPress!();
   }
 
@@ -383,7 +388,13 @@ class _RemoteButtonState extends State<RemoteButton> {
   @override
   void initState() {
     super.initState();
+    buttonStates.addListener(updatePointerPress);
     widget.focus.register(widget.id, node);
+  }
+
+  void updatePointerPress() {
+    final pressed = buttonStates.value.contains(WidgetState.pressed);
+    if (pointerPressed != pressed) setState(() => pointerPressed = pressed);
   }
 
   @override
@@ -399,7 +410,9 @@ class _RemoteButtonState extends State<RemoteButton> {
 
   @override
   void dispose() {
-    clearPress();
+    clearPress(rebuild: false);
+    buttonStates.removeListener(updatePointerPress);
+    buttonStates.dispose();
     widget.focus.unregister(widget.id, node);
     node.dispose();
     super.dispose();
@@ -413,12 +426,13 @@ class _RemoteButtonState extends State<RemoteButton> {
     final button = OutlinedButton(
       key: ValueKey('remote-${widget.id}'),
       focusNode: node,
+      statesController: buttonStates,
       onPressed: widget.onPressed,
       onLongPress: widget.onLongPress,
       onFocusChange: (value) {
         if (!widget.focus.enabled) return;
         setState(() => focused = value);
-        if (!value && !openedMenu) clearPress();
+        if (!value && !openedMenu) clearPress(rebuild: false);
         if (value) {
           widget.focus.selected(widget.id);
           Scrollable.ensureVisible(context, alignment: 0.5);
@@ -428,7 +442,7 @@ class _RemoteButtonState extends State<RemoteButton> {
         minimumSize: const Size(48, 48),
         padding: widget.padding,
         alignment: widget.alignment,
-        overlayColor: outlineOnly ? Colors.transparent : null,
+        overlayColor: outlineOnly && !widget.tile ? Colors.transparent : null,
         backgroundColor: focused && !widget.tile && !outlineOnly
             ? colors.primary
             : widget.selected
@@ -475,12 +489,27 @@ class _RemoteButtonState extends State<RemoteButton> {
               ),
               child: widget.child,
             )
-          : widget.child,
+          : widget.foregroundBuilder == null
+          ? widget.child
+          : Stack(
+              alignment: Alignment.centerLeft,
+              children: [
+                widget.child,
+                widget.foregroundBuilder!(context, focused),
+              ],
+            ),
     );
     if (!widget.focus.enabled) return button;
     final animate = !MediaQuery.disableAnimationsOf(context);
+    final pressed = !openedMenu && (heldKey != null || pointerPressed);
     return AnimatedScale(
-      scale: focused && widget.tile && animate ? 1.035 : 1,
+      scale: !widget.tile || !animate
+          ? 1
+          : pressed
+          ? .985
+          : focused
+          ? 1.035
+          : 1,
       duration: animate ? const Duration(milliseconds: 180) : Duration.zero,
       curve: Curves.easeOutCubic,
       child: widget.onLongPress == null

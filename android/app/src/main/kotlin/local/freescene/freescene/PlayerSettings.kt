@@ -19,6 +19,8 @@ import kotlin.math.abs
 internal class PlayerSettings(private val context: Context,
     private val opened: () -> Unit = {}, private val dismissed: () -> Unit = {},
     private val scaling: (() -> Unit)? = null,
+    private val automaticAudio: (() -> Boolean)? = null,
+    private val audioSelected: (Boolean) -> Unit = {},
     private val player: () -> Player?) {
     private var dialog: AlertDialog? = null
     private var returnFocus: View? = null
@@ -118,7 +120,7 @@ internal class PlayerSettings(private val context: Context,
                 Audio(group.mediaTrackGroup, index, names.audioTrackName(group.getTrackFormat(index), ++audioNumber), group.isTrackSelected(index))
             }
         }
-        val automatic = current.trackSelectionParameters.overrides.keys.none { it.type == C.TRACK_TYPE_AUDIO }
+        val automatic = automaticAudio?.invoke() ?: current.trackSelectionParameters.overrides.keys.none { it.type == C.TRACK_TYPE_AUDIO }
         val selected = if (automatic) 0 else tracks.indexOfFirst { it.selected }.let { if (it < 0) -1 else it + 1 }
         val labels = listOf(context.getString(MediaR.string.exo_track_selection_auto)) + tracks.map { it.name }
         show(builder(MediaR.string.exo_track_selection_title_audio)
@@ -130,6 +132,7 @@ internal class PlayerSettings(private val context: Context,
                         group.mediaTrackGroup == chosen.group && chosen.index < group.length && group.isTrackSupported(chosen.index)
                     }
                     if (available) {
+                        audioSelected(chosen != null)
                         val selection = current.trackSelectionParameters.buildUpon()
                             .clearOverridesOfType(C.TRACK_TYPE_AUDIO).setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
                         if (chosen != null) selection.setOverrideForType(TrackSelectionOverride(chosen.group, chosen.index))

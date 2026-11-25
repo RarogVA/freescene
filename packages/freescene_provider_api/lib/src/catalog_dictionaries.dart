@@ -19,6 +19,19 @@ class CatalogDictionaries {
           .map((j) => FilterOption(j))
           .toList();
   final List<FilterOption> genres, gameGenres, countries;
+  String? translateLabels(String? labels, List<FilterOption> options) {
+    if (labels == null) return null;
+    final translations = {for (final o in options) o.ru.toLowerCase(): o.en};
+    final result = <String>[];
+    for (final part in labels.split(RegExp(r'[,;/]'))) {
+      final label = part.trim();
+      if (label.isNotEmpty) {
+        result.add(translations[label.toLowerCase()] ?? label);
+      }
+    }
+    return result.isEmpty ? null : result.join(', ');
+  }
+
   static Future<CatalogDictionaries> Function() loader = () async =>
       CatalogDictionaries({'genres': [], 'gameGenres': [], 'countries': []});
   static Future<CatalogDictionaries> load() => loader();

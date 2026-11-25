@@ -63,7 +63,7 @@ object UpdateRestart {
                 NotificationChannel("app-update", "Обновление FreeScene", NotificationManager.IMPORTANCE_DEFAULT))
             val open = PendingIntent.getActivity(context, NOTICE, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(context, "app-update") else Notification.Builder(context)
-            runCatching { manager.notify(NOTICE, builder.setSmallIcon(android.R.drawable.stat_sys_download_done)
+            runCatching { manager.notify(NOTICE, builder.setSmallIcon(R.drawable.ic_download)
                 .setContentTitle("FreeScene обновлён").setContentText("Открыть приложение")
                 .setContentIntent(open).setAutoCancel(true).build()) }
         }, 2000)

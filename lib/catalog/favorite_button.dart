@@ -9,18 +9,16 @@ class FavoriteButton extends StatelessWidget {
     required this.title,
     required this.favorites,
     required this.english,
-    this.overPoster = false,
     super.key,
   });
   final CatalogTitle title;
   final FavoritesController favorites;
-  final bool english, overPoster;
+  final bool english;
 
   @override
   Widget build(BuildContext context) => SavedTitleButton(
     title: title,
     controller: favorites,
-    overPoster: overPoster,
     icon: Icons.favorite_border,
     addGlyph: const AddFavoriteIcon(),
     selectedIcon: Icons.favorite,

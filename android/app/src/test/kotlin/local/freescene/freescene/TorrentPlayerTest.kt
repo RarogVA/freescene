@@ -34,6 +34,34 @@ class FixtureTorrentPlayer : PlayerActivity() {
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class TorrentPlayerTest {
+    @Test
+    @Config(qualifiers = "ru")
+    fun englishAppOnRussianDeviceLocalizesControlsMenusAndTorrentStatus() {
+        val context = RuntimeEnvironment.getApplication()
+        PlaybackLanguage.configure(context, true)
+        val controller = Robolectric.buildActivity(FixtureTorrentPlayer::class.java,
+            Intent(context, FixtureTorrentPlayer::class.java)
+                .putExtra("torrentId", "a".repeat(40)).putExtra("series", true))
+            .create().start().resume().visible()
+        val activity = controller.get()
+        assertEquals("Close", activity.window.decorView.findViewWithTag<PlayerCloseButton>("player-close").contentDescription)
+        val track = androidx.media3.common.Format.Builder()
+            .setSampleMimeType("audio/aac").setLanguage("ru").setChannelCount(2).build()
+        assertTrue(PlayerTrackNames(activity.resources).getTrackName(track).startsWith("Russian"))
+        assertEquals("Buffering · ↓ 64 KiB/s · Seeds: 3 · Peers: 4",
+            activity.getString(R.string.player_torrent_stats, 64L, 3, 4))
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(10))
+        val picker = ShadowAlertDialog.getLatestAlertDialog()
+        assertEquals("Episode 1", picker.listView.adapter.getItem(0))
+        assertEquals("Close", picker.getButton(android.app.AlertDialog.BUTTON_NEGATIVE).text.toString())
+        controller.pause().stop().destroy()
+
+        PlaybackLanguage.configure(context, false)
+        val webController = Robolectric.buildActivity(WebPlayerActivity::class.java).create()
+        assertEquals("Субтитры", webController.get().getString(R.string.player_subtitles))
+        webController.destroy()
+    }
+
     @Test fun playerOpensBeforeEpisodePickerAndClosePausesTorrent() {
         val controller = Robolectric.buildActivity(FixtureTorrentPlayer::class.java,
             Intent(RuntimeEnvironment.getApplication(), FixtureTorrentPlayer::class.java).putExtra("torrentId", "a".repeat(40)))

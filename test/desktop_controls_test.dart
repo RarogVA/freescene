@@ -279,22 +279,19 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.getRect(search).left, searchRect.left);
       expect(tester.getSize(search).width, 360);
+      expect(reset, findsNothing);
       expect(
-        find.ancestor(of: reset, matching: find.byType(DesktopSearchField)),
-        findsOneWidget,
+        find.widgetWithText(DesktopActionButton, 'Сезон / серия'),
+        findsNothing,
       );
-      final resetLeft = tester.getRect(reset).left;
-      final resetSize = tester.getSize(reset);
-      await mouse.moveTo(tester.getCenter(reset));
-      await tester.pumpAndSettle();
-      expect(tester.getRect(reset).left, resetLeft);
-      expect(tester.getSize(reset), resetSize);
-      final sort = find.widgetWithText(DesktopActionButton, 'Сезон / серия');
-      final firstRow = find.byKey(ValueKey('source-${demoProvider.name}-1'));
+      final counter = find.text('Найдено: 2 / 2');
+      final season = find.byKey(const ValueKey('source-season'));
+      final episode = find.byKey(const ValueKey('source-episode'));
       expect(
-        tester.getRect(firstRow).top - tester.getRect(sort).bottom,
-        greaterThanOrEqualTo(12),
+        tester.getRect(season).top,
+        greaterThan(tester.getRect(counter).bottom),
       );
+      expect(tester.getCenter(season).dy, tester.getCenter(episode).dy);
       await mouse.removePointer();
       await tester.tap(find.byKey(const ValueKey('source-season')));
       await tester.pumpAndSettle();
@@ -312,9 +309,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Release 2'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('source-reset')));
+      await tester.tap(find.byKey(const ValueKey('source-search-clear')));
       await tester.pumpAndSettle();
-      expect(find.text('Release 1'), findsOneWidget);
+      expect(find.text('Release 1'), findsNothing);
       expect(find.text('Release 2'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },

@@ -8,6 +8,10 @@
 #import "FSPlayerPresentation.h"
 NS_ASSUME_NONNULL_BEGIN
 
+typedef NS_ENUM(NSInteger, FSWebPlayerStatus) {
+    FSWebLoading, FSWebReady, FSWebBuffering, FSWebTimedOut, FSWebUnavailable, FSWebNeedsControls
+};
+
 @interface FSProviderView : NSView <WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler>
 @property(nullable) WKWebView *web;
 @property(nullable) FSWatchedClock *watchedClock;
@@ -22,6 +26,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property BOOL nativeControls;
 @property NSURL *source;
 @property NSTextField *message;
+@property(nonatomic) FSWebPlayerStatus playerStatus;
 @property NSView *toolbar;
 @property FSRoundButton *retryButton;
 @property FSRoundButton *episodesButton;
@@ -64,7 +69,9 @@ NS_ASSUME_NONNULL_BEGIN
     [config.userContentController addScriptMessageHandler:self name:@"FreeSceneControls"];
     NSString *controlsPath=[NSBundle.mainBundle.privateFrameworksPath stringByAppendingPathComponent:@"App.framework/Resources/flutter_assets/assets/player/web_controls.js"];
     NSString *controls=[NSString stringWithContentsOfFile:controlsPath encoding:NSUTF8StringEncoding error:nil];
-    NSData *settings=[NSJSONSerialization dataWithJSONObject:@{@"rootSelector":context.progressRootSelector ?: NSNull.null} options:0 error:nil];
+    NSString *audio=[NSString stringWithContentsOfFile:[controlsPath stringByReplacingOccurrencesOfString:@"web_controls.js" withString:@"audio_preference.js"] encoding:NSUTF8StringEncoding error:nil];
+    if(audio.length)[config.userContentController addUserScript:[[WKUserScript alloc] initWithSource:[NSString stringWithFormat:@"(%@)(%@);",audio,fsEnglish ? @"true" : @"false"] injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:NO]];
+    NSData *settings=[NSJSONSerialization dataWithJSONObject:@{@"englishAudio":@(fsEnglish),@"rootSelector":context.progressRootSelector ?: NSNull.null} options:0 error:nil];
     NSString *json=[[NSString alloc] initWithData:settings encoding:NSUTF8StringEncoding];
     NSString *controlConfig=[NSString stringWithFormat:@"Object.assign(%@,{prepare:%@})",json,context.mediaPreparationScript ?: @"null"];
     if(controls.length)[config.userContentController addUserScript:[[WKUserScript alloc] initWithSource:[NSString stringWithFormat:@"(%@)(%@);",controls,controlConfig] injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:NO]];
@@ -117,7 +124,7 @@ NS_ASSUME_NONNULL_BEGIN
     self.playbackTimer=[NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer *timer){[playbackOwner updatePlaybackControls];}];
     [self applyAppearance];
     if(context.contentRules.length) {
-        self.message.stringValue=fsEnglish ? @"Loading video…" : @"Загрузка видео…";
+        self.playerStatus=FSWebLoading;
         __weak FSProviderView *weakSelf=self;
         [WKContentRuleListStore.defaultStore compileContentRuleListForIdentifier:@"FreeScene.Provider.contentRules" encodedContentRuleList:context.contentRules completionHandler:^(WKContentRuleList *rules,NSError *error){
             FSProviderView *owner=weakSelf;
@@ -129,10 +136,26 @@ NS_ASSUME_NONNULL_BEGIN
     } else {self.contentRulesReady=YES;[self retry:nil];}
     return self;
 }
+- (void)setPlayerStatus:(FSWebPlayerStatus)status {
+    _playerStatus = status;
+    [self updateStatusText];
+}
+- (void)updateStatusText {
+    switch (self.playerStatus) {
+        case FSWebLoading: self.message.stringValue = fsEnglish ? @"Loading video…" : @"Загрузка видео…"; break;
+        case FSWebReady: self.message.stringValue = [self officialLabel]; break;
+        case FSWebBuffering: self.message.stringValue = FSL(@"Буферизация…"); break;
+        case FSWebTimedOut: self.message.stringValue = fsEnglish ? @"The player did not respond. Retry or select another source." : @"Плеер не ответил. Повторите или выберите другой источник."; break;
+        case FSWebUnavailable: self.message.stringValue = fsEnglish ? @"Player unavailable. Retry or choose another source." : @"Плеер недоступен. Повторите или выберите другой источник."; break;
+        case FSWebNeedsControls: self.message.stringValue = fsEnglish ? @"Open provider controls to continue" : @"Откройте управление провайдера для продолжения"; break;
+    }
+}
 - (void)applyAppearance {
+    [self updateStatusText];
     self.toolbar.layer.backgroundColor=FSThemePanel(fsDark).CGColor;
     self.message.textColor=FSThemeText(fsDark);self.timeLabel.textColor=FSThemeText(fsDark);
     self.position.trackFillColor=FSThemeAccent(fsDark);[self.position updateBusyAppearance];
+    [self.position setAccessibilityLabel:fsEnglish ? @"Playback position" : @"Позиция воспроизведения"];
     [self.playButton symbol:@"play.fill" label:fsEnglish ? @"Play / pause" : @"Смотреть / пауза"];
     [self.backButton symbol:@"gobackward.10" label:fsEnglish ? @"Rewind 10 seconds" : @"Назад на 10 секунд"];
     [self.forwardButton symbol:@"goforward.10" label:fsEnglish ? @"Forward 10 seconds" : @"Вперёд на 10 секунд"];
@@ -150,7 +173,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)retry:(nullable id)sender {
     [self.watchedClock sample:NO at:NSProcessInfo.processInfo.systemUptime];[self.watchLaunch sample:NO at:NSProcessInfo.processInfo.systemUptime];
     if(self.selectsPlayer && !self.contentRulesReady) return;
-    self.message.stringValue=(fsEnglish ? @"Loading video…" : @"Загрузка видео…");
+    self.playerStatus=FSWebLoading;
     self.lastPlaybackReport=0;self.playbackState=nil;self.position.busy=YES;self.nativeControls=YES;self.loadStarted=NSDate.timeIntervalSinceReferenceDate;
     [self.readiness invalidate];self.readiness=nil;++self.loadGeneration;self.inspectingPlayer=NO;
     if(self.selectsPlayer) {
@@ -168,12 +191,12 @@ NS_ASSUME_NONNULL_BEGIN
         self.inspectingPlayer=NO;
         if([value isEqual:@YES]) {
             self.loadingCover.hidden=YES;[self.readiness invalidate];self.readiness=nil;
-            self.message.stringValue=[self officialLabel];
+            self.playerStatus=FSWebReady;
         } else if(NSDate.timeIntervalSinceReferenceDate-self.loadStarted>30) {
             // A fullscreen/Space transition can delay the timer. Inspect the
             // current document before declaring a player that is ready timed out.
             [self.readiness invalidate];self.readiness=nil;
-            self.message.stringValue=fsEnglish ? @"The player did not respond. Retry or select another source." : @"Плеер не ответил. Повторите или выберите другой источник.";
+            self.playerStatus=FSWebTimedOut;
         }
     }];
 }
@@ -228,12 +251,12 @@ NS_ASSUME_NONNULL_BEGIN
     if(self.selectsPlayer) {
         [self inspectPlayer];return;
     }
-    self.message.stringValue=[self officialLabel];
+    self.playerStatus=FSWebReady;
 }
 - (void)failure:(NSError *)error {
     if (error.code==NSURLErrorCancelled) return;
     [self.readiness invalidate];self.readiness=nil;
-    self.message.stringValue=(fsEnglish ? @"Player unavailable. Retry or choose another source." : @"Плеер недоступен. Повторите или выберите другой источник.");
+    self.playerStatus=FSWebUnavailable;
 }
 - (void)webView:(WKWebView *)web didFailNavigation:(WKNavigation * _Null_unspecified)navigation withError:(NSError *)error { [self failure:error]; }
 - (void)webView:(WKWebView *)web didFailProvisionalNavigation:(WKNavigation * _Null_unspecified)navigation withError:(NSError *)error { [self failure:error]; }
@@ -259,8 +282,23 @@ NS_ASSUME_NONNULL_BEGIN
 }
 - (void)mute:(id)sender { [self sendAction:@"mute" value:nil]; }
 - (void)volume:(NSSlider *)slider { [self sendAction:@"volume" value:@(slider.doubleValue)]; }
+- (void)selectAudio:(NSMenuItem *)sender { [self sendAction:@"audio" value:@(sender.tag)]; }
+- (void)providerAudio:(id)sender { if(self.nativeControls)[self toggleNative:sender]; }
 - (void)showAudio:(id)sender {
     NSMenu *menu=[NSMenu new];menu.font=FSFont(13);
+    NSArray *tracks=[self.playbackState[@"audio"] isKindOfClass:NSArray.class] ? self.playbackState[@"audio"] : @[];
+    for(NSUInteger i=0;i<MIN(tracks.count,32);i++) {
+        NSDictionary *track=tracks[i];if(![track isKindOfClass:NSDictionary.class])continue;
+        NSString *label=[track[@"label"] isKindOfClass:NSString.class] ? track[@"label"] : @"";
+        if(label.length>128)label=[label substringToIndex:128];
+        NSString *language = [track[@"language"] isKindOfClass:NSString.class] ? track[@"language"] : nil;
+        if ([label isEqual:[@(i + 1) stringValue]]) label = @"";
+        NSString *name = FSLocalizedTrackName(language, label, fsEnglish);
+        NSMenuItem *item=[menu addItemWithTitle:name.length ? name : FSNumberedTrack(i+1, fsEnglish) action:@selector(selectAudio:) keyEquivalent:@""];
+        item.target=self;item.tag=i;item.state=[track[@"selected"] isEqual:@YES] ? NSControlStateValueOn : NSControlStateValueOff;
+    }
+    NSMenuItem *provider=[menu addItemWithTitle:fsEnglish ? @"Choose audio in provider player…" : @"Выбрать аудиодорожку в плеере провайдера…" action:@selector(providerAudio:) keyEquivalent:@""];provider.target=self;
+    [menu addItem:NSMenuItem.separatorItem];
     NSMenuItem *mute=[menu addItemWithTitle:fsEnglish ? @"Mute / unmute" : @"Выключить / включить звук" action:@selector(mute:) keyEquivalent:@""];mute.target=self;
     NSMenuItem *volume=[NSMenuItem new];NSSlider *slider=[NSSlider sliderWithValue:[self.playbackState[@"volume"] doubleValue] minValue:0 maxValue:1 target:self action:@selector(volume:)];slider.frame=NSMakeRect(12,0,150,30);slider.continuous=YES;slider.trackFillColor=FSThemeAccent(fsDark);[slider setAccessibilityLabel:fsEnglish ? @"Volume" : @"Громкость"];
     NSView *view=[[NSView alloc] initWithFrame:NSMakeRect(0,0,174,30)];[view addSubview:slider];volume.view=view;[menu addItem:volume];FSPopUpAboveLeft(menu,self.audioButton);
@@ -275,10 +313,10 @@ NS_ASSUME_NONNULL_BEGIN
         self.loadingCover.hidden=YES;self.position.busy=buffering;
         BOOL paused=[self.playbackState[@"paused"] boolValue];
         [self.playButton symbol:paused ? @"play.fill" : @"pause.fill" label:paused ? FSL(@"Продолжить") : FSL(@"Пауза")];
-        self.message.stringValue=buffering ? FSL(@"Буферизация…") : [self officialLabel];
+        self.playerStatus=buffering ? FSWebBuffering : FSWebReady;
     } else if(self.lastPlaybackReport>0 || NSDate.timeIntervalSinceReferenceDate-self.loadStarted>10) {
         [self.watchedClock sample:NO at:NSProcessInfo.processInfo.systemUptime];[self.watchLaunch sample:NO at:NSProcessInfo.processInfo.systemUptime];self.position.busy=NO;
-        self.message.stringValue=fsEnglish ? @"Open provider controls to continue" : @"Откройте управление провайдера для продолжения";
+        self.playerStatus=FSWebNeedsControls;
     }
 }
 - (void)userContentController:(WKUserContentController *)controller didReceiveScriptMessage:(WKScriptMessage *)message {

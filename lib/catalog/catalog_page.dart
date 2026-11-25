@@ -1,3 +1,5 @@
+import '../widgets/app_icons.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -18,10 +20,9 @@ import '../domain/provider_display.dart';
 import 'source_metadata.dart';
 import 'watched.dart';
 import 'truncated_text.dart';
-import 'source_filter.dart';
 import 'source_format.dart';
 export 'source_format.dart' show catalogBytes, sourceEpisodeDisplay;
-import '../domain/availability.dart';
+import '../widgets/source_action_overlay.dart';
 
 String catalogError(Object error, bool english) => error is ProviderError
     ? error.label(english)
@@ -40,11 +41,10 @@ class CatalogPageView extends StatelessWidget {
     this.onToggleFavorites,
     this.onToggleQueue,
     this.onTrailer,
-    this.compactSourceActions = false,
     super.key,
   });
   final CatalogController controller;
-  final bool english, compactSourceActions;
+  final bool english;
   final Widget? kindSwitch;
   final ValueChanged<CatalogKind>? onKindChanged;
   final Widget Function(Widget refresh)? searchControls;
@@ -406,52 +406,18 @@ class CatalogPageView extends StatelessWidget {
                             crossAxisSpacing: 20,
                             mainAxisSpacing: 20,
                           ),
-                      delegate: SliverChildBuilderDelegate((context, index) {
+                      delegate: SliverChildBuilderDelegate((_, index) {
                         final item = controller.items[index];
                         return CatalogTile(
                           key: ValueKey('title-${item.id}'),
                           onTap: () => controller.open(item),
                           onContextMenu: () => _titleMenu(context, item),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              PosterCardContent(
-                                title: item,
-                                english: english,
-                                favorite: false,
-                                queued: false,
-                              ),
-                              if (controller.queue case final queue?
-                                  when FavoritesController.eligible(item))
-                                Positioned(
-                                  bottom: posterCaptionHeight(context) + 8,
-                                  left: 8,
-                                  child: QueueButton(
-                                    key: ValueKey(
-                                      'queue-tile-${item.kind.name}-${item.id}',
-                                    ),
-                                    title: item,
-                                    queue: queue,
-                                    english: english,
-                                    overPoster: true,
-                                  ),
-                                ),
-                              if (controller.favorites case final favorites?
-                                  when FavoritesController.eligible(item))
-                                Positioned(
-                                  top: 8,
-                                  right: 8,
-                                  child: FavoriteButton(
-                                    key: ValueKey(
-                                      'favorite-tile-${item.kind.name}-${item.id}',
-                                    ),
-                                    title: item,
-                                    favorites: favorites,
-                                    english: english,
-                                    overPoster: true,
-                                  ),
-                                ),
-                            ],
+                          child: PosterCardContent(
+                            title: item,
+                            english: english,
+                            favorite:
+                                controller.favorites?.contains(item) ?? false,
+                            queued: controller.queue?.contains(item) ?? false,
                           ),
                         );
                       }, childCount: controller.items.length),
@@ -480,7 +446,6 @@ class CatalogPageView extends StatelessWidget {
     return SourceTable(
       toolbarBuilder: _detailsToolbar,
       title: title,
-      compactActions: compactSourceActions,
       key: ValueKey('${title.kind}-${title.id}'),
       sources: controller.sources,
       providers: controller.providerStates.keys.toList(),
@@ -541,68 +506,109 @@ class CatalogPageView extends StatelessWidget {
   Widget _titleDescription(
     BuildContext context,
     CatalogTitle title,
-  ) => LayoutBuilder(
-    builder: (context, constraints) {
-      final description = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title.title(english),
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            [
-              if (title.year != null) '${title.year}',
-              if (title.rating != null) '★ ${title.rating!.toStringAsFixed(1)}',
-              if (title.genres != null) title.genres!,
-            ].join(' · '),
-          ),
-          if (title.country != null) Text(title.country!),
-          const SizedBox(height: 16),
-          if (controller.detailsLoading) const LinearProgressIndicator(),
-          if (controller.detailsError != null)
-            _error(controller.detailsError!, () => controller.open(title)),
-          if (title.synopsis(english).isNotEmpty)
-            SelectableText(_plainText(title.synopsis(english)))
-          else if (!controller.detailsLoading &&
-              controller.detailsError == null)
-            Text(tr('Описание отсутствует', 'No description available')),
-          if (FavoritesController.eligible(title)) _titleActions(title),
-          if (title.kind == CatalogKind.games)
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Text(
-                tr(
-                  'В каталоге показаны игры с раздачами для macOS. Совместимость с Apple Silicon проверяйте в описании раздачи.',
-                  'These games have macOS sources. Check the release notes for Apple Silicon compatibility.',
-                ),
+  ) => Container(
+    key: const ValueKey('desktop-detail-card'),
+    padding: const EdgeInsets.all(24),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(28),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Theme.of(context).colorScheme.surfaceContainerHigh,
+          Theme.of(context).colorScheme.surfaceContainerLow,
+        ],
+      ),
+      border: Border.all(
+        color: Theme.of(context).colorScheme.outlineVariant
+            .withValues(alpha: .5),
+      ),
+    ),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final description = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title.kind == CatalogKind.series
+                  ? tr('СЕРИАЛ', 'SERIES')
+                  : title.kind == CatalogKind.games
+                  ? tr('ИГРА', 'GAME')
+                  : tr('ФИЛЬМ', 'FILM'),
+              style: TextStyle(
+                fontSize: 11,
+                letterSpacing: 2,
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.bold,
               ),
             ),
-        ],
-      );
-      final poster = SizedBox(
-        width: 180,
-        height: 265,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: CatalogPoster(title: title),
-        ),
-      );
-      return constraints.maxWidth < 600
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [poster, const SizedBox(height: 20), description],
-            )
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                poster,
-                const SizedBox(width: 24),
-                Expanded(child: description),
-              ],
-            );
-    },
+            const SizedBox(height: 8),
+            Text(
+              title.title(english),
+              style: const TextStyle(
+                fontSize: 30,
+                height: 1.15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              [
+                if (title.year != null) '${title.year}',
+                if (title.rating != null)
+                  '★ ${title.rating!.toStringAsFixed(1)}',
+                ?title.genreLabel(english),
+              ].join('   ·   '),
+              style: TextStyle(color: Theme.of(context).colorScheme.primary),
+            ),
+            if (title.countryLabel(english) case final country?) Text(country),
+            const SizedBox(height: 16),
+            if (controller.detailsLoading) const LinearProgressIndicator(),
+            if (controller.detailsError != null)
+              _error(controller.detailsError!, () => controller.open(title)),
+            if (title.synopsis(english).isNotEmpty)
+              SelectableText(_plainText(title.synopsis(english)))
+            else if (!controller.detailsLoading &&
+                controller.detailsError == null)
+              Text(
+                tr('Описание отсутствует', 'No English description available'),
+              ),
+            if (FavoritesController.eligible(title)) _titleActions(title),
+            if (title.kind == CatalogKind.games)
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Text(
+                  tr(
+                    'В каталоге показаны игры с раздачами для macOS. Совместимость с Apple Silicon проверяйте в описании раздачи.',
+                    'These games have macOS sources. Check the release notes for Apple Silicon compatibility.',
+                  ),
+                ),
+              ),
+          ],
+        );
+        final poster = SizedBox(
+          width: 136,
+          height: 204,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: CatalogPoster(title: title),
+          ),
+        );
+        return constraints.maxWidth < 600
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [poster, const SizedBox(height: 20), description],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  poster,
+                  const SizedBox(width: 24),
+                  Expanded(child: description),
+                ],
+              );
+      },
+    ),
   );
 }
 
@@ -724,7 +730,6 @@ class SourceTable extends StatefulWidget {
     this.introduction,
     this.toolbarBuilder,
     this.footer,
-    this.compactActions = false,
     super.key,
   });
   final Widget? introduction, footer;
@@ -732,7 +737,7 @@ class SourceTable extends StatefulWidget {
   final CatalogTitle? title;
   final List<CatalogSource> sources;
   final List<SourceProvider>? providers;
-  final bool english, game, series, compactActions;
+  final bool english, game, series;
   final Future<void> Function(CatalogSource, bool)? onUseSource;
   @override
   State<SourceTable> createState() => _SourceTableState();
@@ -768,8 +773,6 @@ class _SourceTableState extends State<SourceTable> {
     super.dispose();
   }
 
-  int? sortColumn;
-  bool ascending = false;
   String? busy;
   bool? busyWatch;
   final failures = <String, String>{};
@@ -802,16 +805,6 @@ class _SourceTableState extends State<SourceTable> {
 
   Widget _actions(CatalogSource source) {
     final key = '${source.row.provider.name}/${source.row.id}';
-    final colors = Theme.of(context).colorScheme;
-    final style = OutlinedButton.styleFrom(
-      minimumSize: const Size(0, 32),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      foregroundColor: colors.onSurface,
-      backgroundColor: colors.surfaceContainerHigh,
-      side: BorderSide(color: colors.outlineVariant),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-    );
     Widget action(bool watch) {
       final label = watch
           ? tr('Смотреть', 'Watch')
@@ -829,51 +822,30 @@ class _SourceTableState extends State<SourceTable> {
               height: 20,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : Icon(watch ? Icons.play_arrow : Icons.download_outlined, size: 20);
+          : Icon(watch ? Icons.play_arrow : AppIcons.download, size: 20);
       final actionKey = ValueKey('source-${watch ? 'watch' : 'download'}-$key');
-      if (widget.compactActions) {
-        return Tooltip(
-          message: label,
-          child: OutlinedButton(
-            key: actionKey,
-            style: style.copyWith(
-              fixedSize: const WidgetStatePropertyAll(Size.square(32)),
-              padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-              shape: const WidgetStatePropertyAll(CircleBorder()),
-            ),
-            onPressed: enabled ? () => _use(source, watch) : null,
-            child: Semantics(label: label, child: icon),
-          ),
-        );
-      }
-      return Align(
-        child: DesktopActionButton(
-          key: actionKey,
-          size: 32,
-          onPressed: enabled ? () => _use(source, watch) : null,
-          icon: watch ? Icons.play_arrow_rounded : Icons.download_outlined,
-          glyph: icon,
-          label: label,
-        ),
+      return DesktopActionButton(
+        key: actionKey,
+        size: 40,
+        onPressed: enabled ? () => _use(source, watch) : null,
+        icon: watch ? Icons.play_arrow_rounded : AppIcons.download,
+        glyph: icon,
+        label: label,
       );
     }
 
-    if (widget.compactActions) {
-      return Row(
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (!widget.game) ...[action(true), const SizedBox(width: 6)],
-          action(false),
+          if (!widget.game) ...[
+            Flexible(child: action(true)),
+            const SizedBox(width: 6),
+          ],
+          Flexible(child: action(false)),
         ],
-      );
-    }
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (!widget.game) ...[action(true), const SizedBox(height: 4)],
-        action(false),
-      ],
+      ),
     );
   }
 
@@ -901,54 +873,7 @@ class _SourceTableState extends State<SourceTable> {
                       .contains(episode)),
         )
         .toList();
-    if (sortColumn != null) {
-      sources.sort((a, b) {
-        if (sortColumn == 2) {
-          final c = providerDisplayLabel(a.row.provider)
-              .compareTo(providerDisplayLabel(b.row.provider));
-          return ascending ? c : -c;
-        }
-        if (sortColumn == 6) {
-          final x = sourceSeason(a), y = sourceSeason(b);
-          if (x == null) return y == null ? 0 : 1;
-          if (y == null) return -1;
-          final c = x == y
-              ? sourceEpisode(a).compareTo(sourceEpisode(b))
-              : x.compareTo(y);
-          return ascending ? c : -c;
-        }
-        num? value(CatalogSource s) => switch (sortColumn) {
-          1 => sourceHeight(s),
-          3 => s.row.sizeBytes,
-          4 => s.row.durationSeconds,
-          5 =>
-            s.row.isTorrent
-                ? TorrentAvailability(s.row.visibleCounts).score
-                : null,
-          _ => null,
-        };
-        final x = value(a), y = value(b);
-        if (x == null) return y == null ? 0 : 1;
-        if (y == null) return -1;
-        final compared = ascending ? x.compareTo(y) : y.compareTo(x);
-        return compared != 0
-            ? compared
-            : widget.sources.indexOf(a).compareTo(widget.sources.indexOf(b));
-      });
-    }
-    void sort(int column, bool asc) => setState(() {
-      final startsAscending = column == 2 || column == 6;
-      if (sortColumn != column) {
-        sortColumn = column;
-        ascending = startsAscending;
-      } else if (ascending == startsAscending) {
-        ascending = !startsAscending;
-      } else {
-        sortColumn = null;
-        ascending = false;
-      }
-    });
-    final scroll = _buildSourceScroll(context, sources, sort);
+    final scroll = _buildSourceScroll(context, sources);
     if (widget.toolbarBuilder case final toolbar?) {
       return Column(
         children: [
@@ -974,39 +899,16 @@ class _SourceTableState extends State<SourceTable> {
         label: tr('Поиск по найденному', 'Search these sources'),
         clearLabel: tr('Очистить поиск по источникам', 'Clear source search'),
         onChanged: (_) => setState(() {}),
-        trailing: [
-          DesktopSearchAction(
-            key: const ValueKey('source-reset'),
-            label: tr('Сбросить фильтры', 'Reset filters'),
-            selected:
-                sourceSearch.text.isNotEmpty ||
-                season != null ||
-                episode != null ||
-                hiddenProviders.isNotEmpty,
-            icon: Icons.filter_alt_off_outlined,
-            onPressed: () => setState(() {
-              sourceSearch.clear();
-              season = episode = null;
-              hiddenProviders.clear();
-            }),
-          ),
-        ],
       );
 
   Widget _buildSourceScroll(
     BuildContext context,
     List<CatalogSource> sources,
-    void Function(int, bool) sort,
   ) => LayoutBuilder(
     builder: (context, constraints) {
       final inset = widget.introduction == null ? 0.0 : 24.0;
       final width = constraints.maxWidth - inset * 2;
       final filters = <({double? width, Widget child})>[
-        if (widget.toolbarBuilder == null)
-          (
-            width: null,
-            child: _searchField(width: width.clamp(44, 360), inline: true),
-          ),
         if (widget.series)
           (
             width: 190,
@@ -1081,7 +983,7 @@ class _SourceTableState extends State<SourceTable> {
           ),
       ];
       final background = Theme.of(context).scaffoldBackgroundColor;
-      final tableColor = Theme.of(context).colorScheme.surfaceContainerLow;
+      final tableColor = Theme.of(context).colorScheme.surfaceContainer;
       final header = ColoredBox(
         color: background,
         child: Column(
@@ -1091,19 +993,8 @@ class _SourceTableState extends State<SourceTable> {
               key: const ValueKey('source-filters'),
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Wrap(
-                  key: const ValueKey('source-primary-filters'),
-                  spacing: 12,
-                  runSpacing: 8,
-                  children: [
-                    for (final filter in filters)
-                      SizedBox(
-                        width: filter.width?.clamp(0, width),
-                        height: 44,
-                        child: filter.child,
-                      ),
-                  ],
-                ),
+                if (widget.toolbarBuilder == null)
+                  _searchField(width: width.clamp(44, 360), inline: true),
                 if (providers.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Wrap(
@@ -1163,16 +1054,18 @@ class _SourceTableState extends State<SourceTable> {
             ),
             const SizedBox(height: 8),
             if (widget.series)
-              Align(
-                alignment: Alignment.centerRight,
-                child: DesktopActionButton(
-                  onPressed: () => sort(6, !ascending),
-                  alwaysExpanded: true,
-                  icon: sortColumn == 6 && ascending
-                      ? Icons.arrow_upward_rounded
-                      : Icons.arrow_downward_rounded,
-                  label: tr('Сезон / серия', 'Season / episode'),
-                ),
+              Wrap(
+                key: const ValueKey('source-primary-filters'),
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  for (final filter in filters)
+                    SizedBox(
+                      width: filter.width?.clamp(0, width),
+                      height: 44,
+                      child: filter.child,
+                    ),
+                ],
               ),
             const SizedBox(height: 12),
           ],
@@ -1188,7 +1081,8 @@ class _SourceTableState extends State<SourceTable> {
           children: [
             TruncatedText(
               source.row.title,
-              maxLines: 2,
+              maxLines: 1,
+              style: const TextStyle(fontWeight: FontWeight.bold),
               key: ValueKey('source-name-$key'),
             ),
             for (final text in [source.audio, source.channel])
@@ -1219,82 +1113,87 @@ class _SourceTableState extends State<SourceTable> {
           singleLine: true,
           scrollable: false,
         );
-        return Container(
-          key: ValueKey('source-${source.row.provider.name}-${source.row.id}'),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: tableColor,
-            border: Border(bottom: Divider.createBorderSide(context)),
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: widget.compactActions
-                    ? (widget.game ? 32 : 70)
-                    : widget.game
-                    ? 176
-                    : 124,
-                child: _actions(source),
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: SourceActionOverlay(
+            key: ValueKey('source-actions-$key'),
+            busy: busy == key,
+            actions: _actions(source),
+            child: Container(
+              key: ValueKey(
+                'source-${source.row.provider.name}-${source.row.id}',
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, box) => Row(
-                    children: [
-                      Expanded(child: details),
-                      const SizedBox(width: 12),
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: box.maxWidth * .48,
-                        ),
-                        child: metadata,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              constraints: const BoxConstraints(minHeight: 54),
+              decoration: BoxDecoration(
+                color: tableColor,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, box) => Row(
+                        children: [
+                          Expanded(child: details),
+                          const SizedBox(width: 12),
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: box.maxWidth * .48,
+                            ),
+                            child: metadata,
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-              if (widget.series)
-                Padding(
-                  padding: const EdgeInsets.only(left: 12),
-                  child: SizedBox(
-                    width: width >= 600 ? 100 : 58,
-                    child: TruncatedText(sourceEpisodeDisplay(source)),
-                  ),
-                ),
-              if (!widget.game) ...[
-                const SizedBox(width: 8),
-                DesktopActionButton(
-                  key: ValueKey('source-watched-$key'),
-                  size: 40,
-                  revealLabel: false,
-                  label: tr('Просмотрено', 'Watched'),
-                  selected:
-                      title != null &&
-                      watched?.sourceWatched(title, source) == true,
-                  icon: Icons.visibility_outlined,
-                  onPressed: title == null || watched == null
-                      ? null
-                      : () async {
-                          try {
-                            await watched.toggle(title, source);
-                          } catch (_) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    tr(
-                                      'Не удалось сохранить отметку',
-                                      'Could not save watched status',
+                  if (widget.series)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: SizedBox(
+                        width: width >= 600 ? 100 : 58,
+                        child: TruncatedText(sourceEpisodeDisplay(source)),
+                      ),
+                    ),
+                  if (!widget.game) ...[
+                    const SizedBox(width: 8),
+                    DesktopActionButton(
+                      key: ValueKey('source-watched-$key'),
+                      size: 40,
+                      revealLabel: false,
+                      label: tr('Просмотрено', 'Watched'),
+                      selected:
+                          title != null &&
+                          watched?.sourceWatched(title, source) == true,
+                      icon: Icons.visibility_outlined,
+                      onPressed: title == null || watched == null
+                          ? null
+                          : () async {
+                              try {
+                                await watched.toggle(title, source);
+                              } catch (_) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        tr(
+                                          'Не удалось сохранить отметку',
+                                          'Could not save watched status',
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                ),
-              ],
-            ],
+                                  );
+                                }
+                              }
+                            },
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         );
       }

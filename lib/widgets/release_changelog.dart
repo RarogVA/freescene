@@ -11,7 +11,7 @@ class ReleaseChangelog extends StatelessWidget {
     super.key,
   });
 
-  static const version = '2.0.3';
+  static const version = '2.0.4';
   final bool english, tv, mobile;
 
   @override
@@ -19,25 +19,44 @@ class ReleaseChangelog extends StatelessWidget {
     final title = Theme.of(context).textTheme;
     final entries = [
       (
-        Icons.info_outline,
+        Icons.audiotrack_outlined,
         english
-            ? 'Updated the About screen.'
-            : 'Обновлено окно «О приложении».',
+            ? 'With English selected in FreeScene, the player prefers English audio, then a track marked as original. You can still choose another track.'
+            : 'Если в FreeScene выбран английский язык, плеер предпочитает английскую дорожку, а затем оригинальную. Дорожку можно сменить вручную.',
+      ),
+      (
+        Icons.translate_rounded,
+        english
+            ? 'Player controls, menus and torrent status follow the app language. Title pages show English genres and descriptions when available.'
+            : 'Кнопки и меню плеера, а также статус торрента учитывают язык приложения. В английском режиме карточки показывают жанры и доступные описания на английском.',
       ),
       if (!tv && !mobile)
         (
-          Icons.mic,
+          Icons.movie_outlined,
           english
-              ? 'Voice search now explains when macOS Dictation is disabled or speech recognition files are missing, and offers a shortcut to settings.'
-              : 'Голосовой поиск объясняет, когда в macOS отключена Диктовка или отсутствуют файлы распознавания, и предлагает перейти к настройкам.',
+              ? 'Title pages and search results now follow the TV layout. Hover over a result to watch or download. Season and episode filters appear below the result count.'
+              : 'Карточки и список найденного оформлены в стиле ТВ. Наведите курсор на результат, чтобы посмотреть или скачать. Фильтры сезона и серии находятся под счётчиком результатов.',
+        ),
+      if (!tv && !mobile)
+        (
+          Icons.favorite_outline,
+          english
+              ? 'Posters show watched, favorite and queue status. Right-click or press and hold to manage these from the tile menu.'
+              : 'На постерах видны отметки просмотра, избранного и очереди. Для действий с плиткой откройте меню правым кликом или долгим нажатием.',
         ),
       if (tv)
         (
-          Icons.sync_rounded,
+          Icons.live_tv_outlined,
           english
-              ? 'Update and license buttons now have icons matching the desktop app.'
-              : 'Кнопки обновлений и лицензий получили значки в стиле десктопного приложения.',
+              ? 'The Play button appears when a search result receives focus. Pressing and holding a tile shows the hold animation again.'
+              : 'Кнопка воспроизведения появляется при фокусе на результате поиска. При удержании плитки снова видна анимация.',
         ),
+      (
+        Icons.delete_outline_rounded,
+        english
+            ? 'The dialogs for deleting history entries and downloads now use matching buttons. Cancel receives focus first.'
+            : 'Окна удаления записей истории и загрузок получили единые кнопки. При открытии выбрана «Отмена».',
+      ),
     ];
     return AlertDialog(
       scrollable: true,

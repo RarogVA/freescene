@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../widgets/catalog_style.dart';
 
-/// The foreground border and actions follow the entire card, including controls.
+/// The entire poster responds to hover, focus, and presses.
 class CatalogTile extends StatefulWidget {
   const CatalogTile({
     required this.onTap,
@@ -20,18 +20,12 @@ class CatalogTile extends StatefulWidget {
   final FocusNode? focusNode;
   final Future<void> Function()? onContextMenu;
 
-  static bool actionsRevealedOf(BuildContext context) =>
-      context
-          .dependOnInheritedWidgetOfExactType<_CatalogTileInteraction>()
-          ?.active ??
-      true;
-
   @override
   State<CatalogTile> createState() => _CatalogTileState();
 }
 
 class _CatalogTileState extends State<CatalogTile> {
-  bool hovered = false, focused = false;
+  bool hovered = false, focused = false, pressed = false;
   bool menuOpen = false, controlClick = false;
   int? pointer;
   static const contextMenuChannel = MethodChannel('freescene/context_menu');
@@ -77,7 +71,10 @@ class _CatalogTileState extends State<CatalogTile> {
 
   Future<void> openMenu() async {
     if (menuOpen || widget.onContextMenu == null) return;
-    menuOpen = true;
+    setState(() {
+      menuOpen = true;
+      pressed = false;
+    });
     try {
       await widget.onContextMenu!();
     } finally {
@@ -93,80 +90,54 @@ class _CatalogTileState extends State<CatalogTile> {
       canRequestFocus: false,
       skipTraversal: true,
       onFocusChange: (value) => setState(() => focused = value),
-      child: _CatalogTileInteraction(
-        active: hovered || focused,
-        child: AnimatedScale(
-          scale:
-              (hovered || focused) && !MediaQuery.disableAnimationsOf(context)
-              ? 1.035
-              : 1,
-          duration: motionDuration(context, 180),
-          curve: Curves.easeOutCubic,
-          child: Card(
-            clipBehavior: Clip.antiAlias,
-            borderOnForeground: true,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: BorderSide(
-                width: 3,
-                color: hovered || focused
+      child: AnimatedScale(
+        scale: MediaQuery.disableAnimationsOf(context)
+            ? 1
+            : pressed
+            ? .985
+            : hovered || focused
+            ? 1.035
+            : 1,
+        duration: motionDuration(context, 180),
+        curve: Curves.easeOutCubic,
+        child: Card(
+          clipBehavior: Clip.antiAlias,
+          borderOnForeground: true,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(
+              width: 3,
+              color: hovered || focused
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.transparent,
+            ),
+          ),
+          child: Listener(
+            onPointerDown: (event) => pointer = event.pointer,
+            onPointerUp: (_) => pointer = null,
+            onPointerCancel: (_) => pointer = null,
+            child: InkWell(
+              focusNode: widget.focusNode,
+              overlayColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.pressed)
                     ? Theme.of(context).colorScheme.primary
+                          .withValues(alpha: .12)
                     : Colors.transparent,
               ),
-            ),
-            child: Listener(
-              onPointerDown: (event) => pointer = event.pointer,
-              onPointerUp: (_) => pointer = null,
-              onPointerCancel: (_) => pointer = null,
-              child: InkWell(
-                focusNode: widget.focusNode,
-                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-                onTapDown: (_) =>
-                    controlClick = HardwareKeyboard.instance.isControlPressed,
-                onTap: () => controlClick && widget.onContextMenu != null
-                    ? openMenu()
-                    : widget.onTap(),
-                onLongPress: widget.onContextMenu == null ? null : openMenu,
-                onSecondaryTap: widget.onContextMenu == null ? null : openMenu,
-                child: widget.child,
-              ),
+              onHighlightChanged: (value) =>
+                  setState(() => pressed = value && !menuOpen),
+              onTapDown: (_) =>
+                  controlClick = HardwareKeyboard.instance.isControlPressed,
+              onTap: () => controlClick && widget.onContextMenu != null
+                  ? openMenu()
+                  : widget.onTap(),
+              onLongPress: widget.onContextMenu == null ? null : openMenu,
+              onSecondaryTap: widget.onContextMenu == null ? null : openMenu,
+              child: widget.child,
             ),
           ),
         ),
       ),
     ),
   );
-}
-
-class _CatalogTileInteraction extends InheritedWidget {
-  const _CatalogTileInteraction({required this.active, required super.child});
-  final bool active;
-  @override
-  bool updateShouldNotify(_CatalogTileInteraction oldWidget) =>
-      active != oldWidget.active;
-}
-
-/// Hidden actions keep their geometry; they cannot intercept a card click or Tab.
-class CatalogTileAction extends StatelessWidget {
-  const CatalogTileAction({
-    required this.selected,
-    required this.child,
-    super.key,
-  });
-  final bool selected;
-  final Widget child;
-  @override
-  Widget build(BuildContext context) {
-    final visible = selected || CatalogTile.actionsRevealedOf(context);
-    return IgnorePointer(
-      ignoring: !visible,
-      child: ExcludeFocus(
-        excluding: !visible,
-        child: ExcludeSemantics(
-          excluding: !visible,
-          child: Opacity(opacity: visible ? 1 : 0, child: child),
-        ),
-      ),
-    );
-  }
 }

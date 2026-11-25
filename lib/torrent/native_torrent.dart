@@ -213,7 +213,13 @@ class TorrentController extends ChangeNotifier {
     final epoch = ++_watchEpoch;
     _pendingWatch = null;
     final task = tasks.where((t) => t.id == id).firstOrNull;
-    if (task == null) throw const FormatException('Torrent no longer exists');
+    if (task == null) {
+      throw FormatException(
+        english?.call() == true
+            ? 'Torrent no longer exists'
+            : 'Раздача больше недоступна',
+      );
+    }
     if (task.isVideoDownload) {
       final filename = (await _downloads()).completedFile(id);
       if (_disposed || _stopping || epoch != _watchEpoch) return;
@@ -250,7 +256,17 @@ class TorrentController extends ChangeNotifier {
     try {
       await command('prepareStream', {'id': id});
     } catch (_) {
-      if (epoch == _watchEpoch) _pendingWatch = null;
+      if (!_disposed && !_stopping && epoch == _watchEpoch) {
+        _pendingWatch = null;
+        await service
+            .call('playerMessage', {
+              'id': id,
+              'message': english?.call() == true
+                  ? 'Could not prepare the torrent for playback. Please try again.'
+                  : 'Не удалось подготовить раздачу к просмотру. Повторите попытку.',
+            })
+            .catchError((_) => null);
+      }
       rethrow;
     }
   }
@@ -282,7 +298,11 @@ class TorrentController extends ChangeNotifier {
       _pendingWatch = null;
       if (file == null) {
         if (_pendingWatchFile != null) {
-          throw const FormatException('History file is unavailable');
+          throw FormatException(
+            english?.call() == true
+                ? 'History file is unavailable'
+                : 'Файл из истории недоступен',
+          );
         }
         await service.call('cancelPreparedPlayer', {'id': task.id});
         return;
@@ -296,7 +316,14 @@ class TorrentController extends ChangeNotifier {
     } catch (e) {
       if (!_disposed && epoch == _watchEpoch) {
         _pendingWatch = null;
-        error = e is PlatformException ? e.message : e.toString();
+        error = switch (e) {
+          FormatException() => e.message,
+          PlatformException(:final message?) => message,
+          _ =>
+            english?.call() == true
+                ? 'Could not start playback. Please try again.'
+                : 'Не удалось начать воспроизведение. Повторите попытку.',
+        };
         await service
             .call('playerMessage', {'id': task.id, 'message': error})
             .catchError((_) => null);

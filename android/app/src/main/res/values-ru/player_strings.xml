@@ -1,1 +1,15 @@
-<resources><string name="player_rew_10">Назад на 10 секунд</string><string name="player_ffwd_10">Вперёд на 10 секунд</string><string name="player_subtitles">Субтитры</string></resources>
+<resources>
+    <string name="player_rew_10">Назад на 10 секунд</string>
+    <string name="player_ffwd_10">Вперёд на 10 секунд</string>
+    <string name="player_subtitles">Субтитры</string>
+    <string name="player_buffering">Буферизация…</string>
+    <string name="player_torrent_stats">Буферизация · ↓ %1$d КиБ/с · Сиды: %2$d · Пиры: %3$d</string>
+    <string name="player_local_torrent">Локальный .torrent</string>
+    <string name="player_download_unavailable">Загрузка недоступна. Вернитесь и повторите.</string>
+    <string name="player_getting_files">Получение списка файлов…</string>
+    <string name="player_no_video">В раздаче нет поддерживаемого видео</string>
+    <string name="player_history_file_missing">Файл из истории недоступен</string>
+    <string name="player_open_file_failed">Не удалось открыть файл</string>
+    <string name="player_open_torrent_failed">Не удалось открыть раздачу</string>
+    <string name="player_invalid_url">Недопустимый адрес видео</string>
+</resources>

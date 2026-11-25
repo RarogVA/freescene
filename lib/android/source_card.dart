@@ -1,3 +1,5 @@
+import '../widgets/app_icons.dart';
+
 import 'package:flutter/material.dart';
 
 import '../catalog/source_metadata.dart';
@@ -8,6 +10,7 @@ import '../catalog/cached_poster.dart';
 import '../catalog/poster_cache.dart';
 import '../catalog/source_format.dart';
 import 'remote_focus.dart';
+import '../widgets/catalog_style.dart';
 
 /// Source metadata and remote/touch actions share one card boundary.
 class AndroidSourceCard extends StatelessWidget {
@@ -107,16 +110,62 @@ class AndroidSourceCard extends StatelessWidget {
             radius: 24,
             alignment: Alignment.centerLeft,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            foregroundBuilder: (context, focused) => Positioned(
+              left: 0,
+              top: 2,
+              child: IgnorePointer(
+                child: ExcludeSemantics(
+                  child: AnimatedOpacity(
+                    opacity: focused ? 1 : 0,
+                    duration: motionDuration(context, 180),
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(end: focused ? 1 : 0),
+                      duration: motionDuration(context, 220),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, value, child) => ClipRect(
+                        child: Align(
+                          widthFactor: value,
+                          alignment: Alignment.centerLeft,
+                          child: child,
+                        ),
+                      ),
+                      child: Container(
+                        key: ValueKey(
+                          'source-play-${row.provider.name}-${row.id}',
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: colors.outlineVariant),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.play_arrow_rounded,
+                              size: 20,
+                              color: colors.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              tr('Смотреть', 'Watch'),
+                              style: TextStyle(color: colors.onSurface),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
             child: LayoutBuilder(
               builder: (context, box) => Row(
                 children: [
-                  Icon(
-                    Icons.play_circle_outline_rounded,
-                    color: onPlay == null
-                        ? colors.onSurfaceVariant
-                        : colors.primary,
-                  ),
-                  const SizedBox(width: 12),
                   Expanded(
                     child: TruncatedText(
                       row.title,
@@ -260,7 +309,7 @@ class AndroidSourceCard extends StatelessWidget {
                     if (onDownload != null)
                       action(
                         'download-${row.provider.name}-${row.id}',
-                        Icons.download_outlined,
+                        AppIcons.download,
                         tr('Скачать', 'Download'),
                         onDownload,
                       ),

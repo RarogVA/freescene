@@ -47,7 +47,7 @@ class TorrentService : Service() {
             .putExtra("downloads", true).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val pause = PendingIntent.getService(this, 52, Intent(this, TorrentService::class.java).setAction("pause"), PendingIntent.FLAG_IMMUTABLE)
         val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL) else Notification.Builder(this)
-        return builder.setSmallIcon(android.R.drawable.stat_sys_download).setContentTitle("FreeScene")
+        return builder.setSmallIcon(R.drawable.ic_download).setContentTitle("FreeScene")
             .setContentText(text).setContentIntent(launch).setOngoing(true)
             .addAction(Notification.Action.Builder(android.R.drawable.ic_media_pause, "Пауза", pause).build()).build()
     }

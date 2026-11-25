@@ -5,8 +5,9 @@ import '../android/remote_focus.dart';
 import '../android/tv_widgets.dart';
 import '../catalog/source_format.dart';
 import '../domain/provider_display.dart';
-import 'watch_history.dart';
 import '../widgets/desktop_controls.dart';
+import '../widgets/removal_dialog.dart';
+import 'watch_history.dart';
 
 class WatchHistoryPage extends StatefulWidget {
   const WatchHistoryPage({
@@ -218,25 +219,16 @@ class WatchHistoryPageState extends State<WatchHistoryPage> {
     setState(() => confirming = true);
     final yes = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(tr('Удалить записи?', 'Delete entries?')),
+      builder: (context) => RemovalDialog(
+        title: tr('Удалить записи?', 'Delete entries?'),
         content: Text(
           tr(
             'Будут удалены только записи истории. Загрузки и файлы останутся.',
             'Only history entries will be deleted. Downloads and files will remain.',
           ),
         ),
-        actions: [
-          TextButton(
-            autofocus: tv,
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(tr('Отмена', 'Cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(tr('Удалить', 'Delete')),
-          ),
-        ],
+        cancelLabel: tr('Отмена', 'Cancel'),
+        deleteLabel: tr('Удалить', 'Delete'),
       ),
     );
     if (!mounted) return;

@@ -14,6 +14,8 @@
 #pragma clang diagnostic ignored "-Wdocumentation"
 #pragma clang diagnostic ignored "-Wdocumentation-deprecated-sync"
 #include <vlc/vlc.h>
+#import "FSAudioPreference.h"
+#import "FSPlayerTrackLabels.h"
 #pragma clang diagnostic pop
 #import <UserNotifications/UserNotifications.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
@@ -58,7 +60,8 @@ static NSString *FSL(NSString *ru) {
     static NSDictionary *words;
     static dispatch_once_t once;
     dispatch_once(&once, ^{ words=@{
-      @"Плеер":@"Player", @"Ожидание источника…":@"Waiting for source…", @"Пауза":@"Pause",
+      @"Плеер":@"Player", @"FreeScene — Плеер":@"FreeScene — Player",
+      @"Скачанный файл не найден":@"Downloaded file not found", @"Ожидание источника…":@"Waiting for source…", @"Пауза":@"Pause",
       @"Повторить":@"Retry", @"На весь экран":@"Full screen", @"Аудио":@"Audio", @"Субтитры":@"Subtitles",
       @"Не удалось начать воспроизведение. Повторите попытку.":@"Could not start playback. Retry.",
       @"Ожидание метаданных торрента…":@"Waiting for torrent metadata…", @"Продолжить":@"Resume",
@@ -87,7 +90,7 @@ static NSString *FSL(NSString *ru) {
     return self;
 }
 - (void)symbol:(NSString *)name label:(NSString *)label {
-    if (![self.symbolName isEqualToString:name]) {
+    if (![self.symbolName isEqualToString:name] || ![self.toolTip isEqual:label]) {
         self.symbolName=name;
         self.image=[[NSImage imageWithSystemSymbolName:name accessibilityDescription:label] imageWithSymbolConfiguration:[NSImageSymbolConfiguration configurationWithPointSize:19 weight:NSFontWeightSemibold]];
     }
@@ -159,6 +162,9 @@ static NSString *FSL(NSString *ru) {
 @property int64_t seekDuration;
 @property BOOL started;
 @property NSInteger trackCount;
+@property BOOL preferEnglishAudio;
+@property BOOL manualAudio;
+@property NSString *audioPreferenceSnapshot;
 @property NSUInteger requestGeneration;
 @property FSProviderView *providerView;
 @property FSWatchedClock *watchedClock;
@@ -292,7 +298,8 @@ static NSString *FSL(NSString *ru) {
     self.time.textColor=FSThemeText(fsDark);
     self.position.trackFillColor=FSThemeAccent(fsDark);
     [self.position updateBusyAppearance];
-    [self.play symbol:@"pause.fill" label:FSL(@"Пауза")];
+    [self.play symbol:self.userPaused ? @"play.fill" : @"pause.fill" label:self.userPaused ? FSL(@"Продолжить") : FSL(@"Пауза")];
+    [self.position setAccessibilityLabel:fsEnglish ? @"Playback position" : @"Позиция воспроизведения"];
     [self.retryButton symbol:@"arrow.clockwise" label:FSL(@"Повторить")];
     [self.full symbol:@"arrow.up.left.and.arrow.down.right" label:FSL(@"На весь экран")];
     [self.scale symbol:@"aspectratio" label:fsEnglish ? @"Video scale" : @"Масштаб видео"];
@@ -300,7 +307,9 @@ static NSString *FSL(NSString *ru) {
     [self.subtitles symbol:@"captions.bubble" label:FSL(@"Субтитры")];
     [self.episodes symbol:@"list.bullet" label:fsEnglish ? @"Seasons and episodes" : @"Сезоны и серии"];
     for(FSRoundButton *button in @[self.play,self.retryButton,self.full,self.audio,self.subtitles,self.episodes,self.scale]) [button applyAppearance];
+    [self.videoSelection updateLanguage];
     [self.providerView applyAppearance];
+    if (self.window.visible && !self.providerView) [self tick:nil];
     [self showControls];
 }
 - (void)showControls { self.lastActivity=NSDate.date; self.bar.hidden=self.providerView!=nil; }
@@ -334,6 +343,7 @@ static NSString *FSL(NSString *ru) {
     BOOL keepPaused=task && [self.taskID isEqual:task] && self.userPaused && !self.location.length && location.length;
     ++self.requestGeneration;
     [self.videoSelection cancel]; self.videoSelection=nil;
+    self.preferEnglishAudio=fsEnglish;self.manualAudio=NO;self.audioPreferenceSnapshot=nil;
     self.location=location; self.taskID=task; self.mediaTitle=title; self.externalStatus=@""; self.playbackError=@""; self.started=NO; self.trackCount=-1;
     self.userPaused=keepPaused; self.torrentStats=task && !location.length ? @{@"metadata":@NO,@"dht":@"unknown",@"seeds":NSNull.null,@"peers":NSNull.null,@"rate":@0,@"error":@""} : nil;
     self.window.title=[@"FreeScene — " stringByAppendingString:title];
@@ -394,15 +404,38 @@ static NSString *FSL(NSString *ru) {
 }
 - (void)windowDidResize:(NSNotification *)note { [self applyScale]; }
 - (void)seek:(NSSlider *)sender { [self.video cancelInput]; libvlc_media_player_set_position(self.player,(float)sender.doubleValue); [self showControls]; }
-- (void)audioChanged:(NSMenuItem *)sender { libvlc_audio_set_track(self.player,(int)sender.tag); }
+- (void)audioChanged:(NSMenuItem *)sender { self.manualAudio=YES;libvlc_audio_set_track(self.player,(int)sender.tag); }
 - (void)subtitlesChanged:(NSMenuItem *)sender { libvlc_video_set_spu(self.player,(int)sender.tag); }
 - (void)tracks:(NSButton *)button description:(libvlc_track_description_t *)first selected:(int)selected action:(SEL)action {
     NSMenu *menu=[NSMenu new];
     menu.font=FSFont(13);
     if(!first) return;
+    // VLC menu descriptions follow the process locale. Build labels from the
+    // file metadata so the application language determines the menu language.
+    auto media = libvlc_media_player_get_media(self.player);
+    libvlc_media_track_t **tracks = nullptr;
+    unsigned count = media ? libvlc_media_tracks_get(media, &tracks) : 0;
+    NSMutableDictionary<NSNumber *, NSString *> *titles = [NSMutableDictionary dictionary];
+    auto type = action == @selector(audioChanged:) ? libvlc_track_audio : libvlc_track_text;
+    for (unsigned i = 0; i < count; ++i) {
+        auto *track = tracks[i];
+        if (track->i_type != type) continue;
+        NSString *language = track->psz_language ? [NSString stringWithUTF8String:track->psz_language] : nil;
+        NSString *name = track->psz_description ? [NSString stringWithUTF8String:track->psz_description] : nil;
+        titles[@(track->i_id)] = FSLocalizedTrackName(language, name, fsEnglish);
+    }
+    if (tracks) libvlc_media_tracks_release(tracks, count);
+    NSInteger ordinal = 0;
     for(auto* t=first;t;t=t->p_next) {
-        NSString *title=t->psz_name ? [NSString stringWithUTF8String:t->psz_name] : nil;
-        NSMenuItem *item=[menu addItemWithTitle:title ?: [NSString stringWithFormat:@"%d",t->i_id] action:action keyEquivalent:@""];
+        NSString *title;
+        if (t->i_id < 0) {
+            title = fsEnglish ? @"Off" : @"Выключено";
+        } else {
+            ++ordinal;
+            title = titles[@(t->i_id)];
+            if (!title.length) title = FSNumberedTrack(ordinal, fsEnglish);
+        }
+        NSMenuItem *item=[menu addItemWithTitle:title action:action keyEquivalent:@""];
         item.target=self; item.tag=t->i_id; item.state=t->i_id==selected ? NSControlStateValueOn : NSControlStateValueOff;
     }
     libvlc_track_description_list_release(first);
@@ -433,12 +466,43 @@ static NSString *FSL(NSString *ru) {
     self.time.stringValue=[NSString stringWithFormat:@"%@ / %@",[self clock:time],[self clock:duration]];
     self.position.doubleValue=position;
 }
+- (void)choosePreferredAudio {
+    if(!self.preferEnglishAudio || self.manualAudio)return;
+    libvlc_media_t *media=libvlc_media_player_get_media(self.player);if(!media)return;
+    libvlc_media_track_t **tracks=nullptr;
+    unsigned count=libvlc_media_tracks_get(media,&tracks);
+    libvlc_track_description_t *available=libvlc_audio_get_track_description(self.player);
+    int current=libvlc_audio_get_track(self.player),best=current;NSInteger bestScore=0;
+    NSMutableString *snapshot=[NSMutableString new];
+    for(unsigned i=0;i<count;i++) {
+        auto track=tracks[i];if(track->i_type!=libvlc_track_audio)continue;
+        NSString *label=track->psz_description ? [NSString stringWithUTF8String:track->psz_description] : @"";
+        NSString *language=track->psz_language ? [NSString stringWithUTF8String:track->psz_language] : @"";
+        BOOL selectable=NO;
+        for(auto item=available;item;item=item->p_next)if(item->i_id==track->i_id && item->i_id>=0) {
+            selectable=YES;
+            if(item->psz_name)label=[label stringByAppendingFormat:@" %@",[NSString stringWithUTF8String:item->psz_name]];
+        }
+        if(!selectable)continue;
+        NSInteger score=FSAudioPreferenceScore(language,label);
+        [snapshot appendFormat:@"%d:%@:%@;",track->i_id,language,label];
+        if(score>bestScore || (score>0 && score==bestScore && track->i_id==current)) {bestScore=score;best=track->i_id;}
+    }
+    libvlc_track_description_list_release(available);libvlc_media_tracks_release(tracks,count);
+    if([snapshot isEqualToString:self.audioPreferenceSnapshot])return;
+    self.audioPreferenceSnapshot=snapshot;
+    if(bestScore>0 && best!=current) {
+        // A failed selection must leave the engine's working default in place.
+        if(libvlc_audio_set_track(self.player,best)!=0 && current>=0)libvlc_audio_set_track(self.player,current);
+    }
+}
 - (void)tick:(id)sender {
     if (!self.window.visible || self.providerView) return;
     self.episodes.hidden=[[self.torrentFiles filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary *file,NSDictionary *bindings){return [file[@"video"] boolValue];}]] count]<2;
     auto state=libvlc_media_player_get_state(self.player);
     [self applyScale];
     BOOL playing=state==libvlc_Playing;
+    if(playing)[self choosePreferredAudio];
     [self.watchedClock sample:playing && !self.userPaused && !self.seeking at:NSProcessInfo.processInfo.systemUptime];
     [self.watchLaunch sample:playing && !self.userPaused && !self.seeking at:NSProcessInfo.processInfo.systemUptime];
     [self.play symbol:self.userPaused ? @"play.fill" : @"pause.fill" label:self.userPaused ? FSL(@"Продолжить") : FSL(@"Пауза")];
@@ -451,13 +515,15 @@ static NSString *FSL(NSString *ru) {
         self.audio.enabled=libvlc_audio_get_track_count(self.player)>0;
         self.subtitles.enabled=libvlc_video_get_spu_count(self.player)>0;
     }
-    if (self.externalStatus.length) self.status.stringValue=self.externalStatus;
     NSString *mediaState=state==libvlc_Error ? @"error" : state==libvlc_Ended ? @"ended" : state==libvlc_Opening || (!self.started && self.location.length) ? @"opening" : state==libvlc_Buffering ? @"buffering" : @"playing";
     NSDictionary *presentation=FSPlaybackPresentation(self.torrentStats,mediaState,self.userPaused,fsEnglish);
     self.position.busy=[presentation[@"busy"] boolValue] && !self.playbackError.length;
     self.position.enabled=libvlc_media_player_get_length(self.player)>0;
     if (self.torrentStats) self.status.stringValue=presentation[@"text"] ?: @"";
-    if (self.externalStatus.length) self.status.stringValue=[self.externalStatus stringByAppendingFormat:@"\n%@",self.status.stringValue];
+    if (self.externalStatus.length) {
+        NSString *problem = FSTorrentProblem(self.torrentStats, fsEnglish);
+        self.status.stringValue = [problem stringByAppendingFormat:@"\n%@", self.status.stringValue];
+    }
     if (self.playbackError.length) self.status.stringValue=self.playbackError;
     if(self.loadingTrailer) {
         self.status.stringValue=fsEnglish ? @"Loading trailer…" : @"Загрузка трейлера…";

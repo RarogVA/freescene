@@ -1,3 +1,6 @@
+import '../widgets/download_removal_dialog.dart';
+import '../widgets/app_icons.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -117,32 +120,8 @@ class _AndroidDownloadsState extends State<AndroidDownloads> {
   Future<void> remove(TorrentTask task) async {
     final choice = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(tr('Удалить загрузку?', 'Remove download?')),
-        content: SizedBox(
-          width: 480,
-          child: Text(task.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-        ),
-        actions: [
-          TextButton(
-            autofocus: widget.focus.enabled,
-            onPressed: () => Navigator.pop(context),
-            child: Text(tr('Отмена', 'Cancel')),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(tr('Оставить файлы', 'Keep files')),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.errorContainer,
-              foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(tr('Удалить с файлами', 'Delete files')),
-          ),
-        ],
-      ),
+      builder: (context) =>
+          DownloadRemovalDialog(title: task.title, english: widget.english),
     );
     if (choice == null || !mounted) {
       widget.focus.restore('remove-${task.id}');
@@ -321,7 +300,7 @@ class _AndroidDownloadsState extends State<AndroidDownloads> {
                             button(
                               'pause-${task.id}',
                               task.phase == 'paused'
-                                  ? Icons.download
+                                  ? AppIcons.download
                                   : Icons.pause,
                               task.phase == 'paused'
                                   ? tr('Продолжить', 'Resume')

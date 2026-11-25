@@ -9,18 +9,16 @@ class QueueButton extends StatelessWidget {
     required this.title,
     required this.queue,
     required this.english,
-    this.overPoster = false,
     super.key,
   });
   final CatalogTitle title;
   final QueueController queue;
-  final bool english, overPoster;
+  final bool english;
 
   @override
   Widget build(BuildContext context) => SavedTitleButton(
     title: title,
     controller: queue,
-    overPoster: overPoster,
     icon: Icons.playlist_add,
     selectedIcon: Icons.playlist_add_check,
     addLabel: english ? 'Add to queue' : 'Добавить в очередь',

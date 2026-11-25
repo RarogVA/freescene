@@ -273,14 +273,17 @@ class _TvDetailHeroState extends State<TvDetailHero> {
                     if (title.rating != null)
                       '★ ${title.rating!.toStringAsFixed(1)}',
                     if (title.year != null) '${title.year}',
-                    if (title.genres != null) title.genres!,
+                    ?title.genreLabel(english),
                   ].join('   ·   '),
                   style: TextStyle(color: colors.primary, fontSize: 14),
                 ),
                 const SizedBox(height: 16),
                 LayoutBuilder(
                   builder: (context, bounds) {
-                    final text = title.synopsis(english);
+                    final synopsis = title.synopsis(english);
+                    final text = english && synopsis.isEmpty
+                        ? 'No English description available'
+                        : synopsis;
                     final style = TextStyle(
                       color: colors.onSurfaceVariant,
                       height: 1.5,

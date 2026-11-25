@@ -38,11 +38,12 @@ class WebPlaybackProgress(private val received: (PlaybackHistory.Point, Boolean)
     }
 
     companion object {
-        fun script(browser: WebView, provider: String, position: Long, duration: Long): String {
+        fun script(browser: WebView, provider: String, position: Long, duration: Long, englishAudio: Boolean = false): String {
             val source = browser.context.assets.open("flutter_assets/assets/player/progress.js")
                 .bufferedReader().use { it.readText() }
-            val config = JSONObject().put("rootSelector", ProviderHost.web?.rootSelector(provider)).put("position", position).put("duration", duration)
-            return "($source)($config);"
+            val audio = browser.context.assets.open("flutter_assets/assets/player/audio_preference.js").bufferedReader().use { it.readText() }
+            val config = JSONObject().put("englishAudio", englishAudio).put("rootSelector", ProviderHost.web?.rootSelector(provider)).put("position", position).put("duration", duration)
+            return "($audio)($englishAudio);($source)($config);"
         }
         fun parse(message: String): Pair<PlaybackHistory.Point, Boolean>? = try {
             if (message.length > 512) null else {

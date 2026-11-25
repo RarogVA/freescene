@@ -1,3 +1,4 @@
+import '../widgets/app_icons.dart';
 import '../widgets/mobile_catalog_search.dart';
 import '../widgets/catalog_style.dart';
 import '../navigation/catalog_section_swipe.dart';
@@ -108,6 +109,10 @@ class _AndroidSession {
     PaintingBinding.instance.imageCache.maximumSize = budget.lite ? 64 : 160;
     final store = SettingsStore(runtime.profile);
     final preferences = await store.load();
+    await AndroidRuntime.channel.invokeMethod<void>(
+      'configurePlaybackLanguage',
+      {'english': preferences.english},
+    );
     final favorites = FavoritesController(
       store: FavoritesStore(runtime.profile),
     );
@@ -216,6 +221,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
   late final queue = widget.queue ?? QueueController();
   late final catalog = CatalogController(
     widget.repository,
+    english: preferences.english,
     favorites: favorites,
     queue: queue,
   );
@@ -610,8 +616,13 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
 
   Future<void> save(Preferences value) async {
     setState(() => preferences = value);
+    catalog.setEnglish(value.english);
     try {
       await widget.savePreferences(value);
+      await AndroidRuntime.channel.invokeMethod<void>(
+        'configurePlaybackLanguage',
+        {'english': value.english},
+      );
     } catch (_) {
       if (mounted) {
         await message(
@@ -1171,7 +1182,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
             const SizedBox(height: 8),
             item(
               'home',
-              Icons.grid_view_rounded,
+              AppIcons.home,
               tr('Каталог', 'Catalogue'),
               home,
               selected: screen == 'catalog',
@@ -1186,7 +1197,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
             const Spacer(),
             item(
               'settings',
-              Icons.tune_rounded,
+              AppIcons.settings,
               tr('Настройки', 'Settings'),
               settings,
               selected: screen == 'settings',
@@ -1228,16 +1239,16 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
           child: Row(
             children: [
               for (final item in [
-                ('home', Icons.home_outlined, tr('Домой', 'Home'), home),
+                ('home', AppIcons.home, tr('Домой', 'Home'), home),
                 (
                   'downloads',
-                  Icons.download_outlined,
+                  AppIcons.download,
                   tr('Загрузки', 'Downloads'),
                   downloads,
                 ),
                 (
                   'settings',
-                  Icons.settings_outlined,
+                  AppIcons.settings,
                   tr('Настройки', 'Settings'),
                   settings,
                 ),
@@ -1551,7 +1562,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                 const SizedBox(width: 8),
                 action(
                   'favorite-title',
-                  Icons.favorite_border_rounded,
+                  AppIcons.heartPlus,
                   tr('В избранное', 'Save'),
                   () => unawaited(toggle(favorites, title, 'favorite-title')),
                   selected: favorites.contains(title),
@@ -2114,11 +2125,16 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                               if (title.year != null) '${title.year}',
                               if (title.rating != null)
                                 '★ ${title.rating!.toStringAsFixed(1)}',
-                              if (title.genres != null) title.genres!,
+                              ?title.genreLabel(preferences.english),
                             ].join(' · '),
                           ),
                           const SizedBox(height: 16),
-                          Text(title.synopsis(preferences.english)),
+                          Text(
+                            title.synopsis(preferences.english).isEmpty &&
+                                    preferences.english
+                                ? 'No English description available'
+                                : title.synopsis(preferences.english),
+                          ),
                           if (title.trailer != null) ...[
                             const SizedBox(height: 12),
                             button(

@@ -1,6 +1,7 @@
 (function install(config, target, inheritedSink) {
   const window = target || globalThis;
   const document = window.document;
+  globalThis.__freesceneAudioInstall?.(config.englishAudio, window);
   const getComputedStyle = window.getComputedStyle.bind(window);
   if (window.__freescenePlayback?.document === document) return;
   let sink = window.FreeScenePlayback || inheritedSink;
@@ -67,6 +68,7 @@
         restored = true;
       } catch (_) { /* Metadata/seekable ranges may arrive on the next tick. */ }
     }
+    window.__freesceneAudio?.refresh(selected);
     report(false);
     // Enable only the visible branch selected by the provider adapter. This also
     // reaches nested cross-origin players and frames inserted after page load.
@@ -92,6 +94,7 @@
         video.pause(); report(true);
       } else if (value.action === 'settings') {
         const tracks = (list, text) => Array.from(list || []).slice(0, 32).map((track, i) => ({
+          language: (track.language || "").slice(0,64), kind: (track.kind || "").slice(0,64),
           label: (track.label || track.language || String(i + 1)).slice(0, 128),
           selected: text ? track.mode === 'showing' : track.enabled
         }));
@@ -100,6 +103,7 @@
       } else if (value.action === 'speed' && [.25,.5,.75,1,1.25,1.5,2].includes(value.value)) {
         video.playbackRate = value.value;
       } else if (Number.isInteger(value.value) && value.value >= -1 && value.value < 32) {
+        if (value.action === 'audio') window.__freesceneAudio?.manual(video);
         const tracks = value.action === 'audio' ? video.audioTracks : video.textTracks;
         if (tracks && value.value < tracks.length) for (let i = 0; i < tracks.length; i++) {
           if (value.action === 'audio') tracks[i].enabled = i === value.value;

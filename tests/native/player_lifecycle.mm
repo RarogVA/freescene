@@ -67,6 +67,36 @@ static NSDictionary *command(void *engine,NSDictionary *request) {
     fs_engine_free(raw);assert(!reply[@"error"]);return reply[@"result"];
 }
 int main() { @autoreleasepool {
+    // Switch the real method-channel handler with an existing player. The
+    // glyphs stay the same, but accessible labels and the menus must change.
+    FSNativeBridge *localeBridge = [FSNativeBridge new];
+    FSPlayer *localized = [FSPlayer alloc];
+    localized.play = [FSRoundButton new];
+    localized.retryButton = [FSRoundButton new];
+    localized.full = [FSRoundButton new];
+    localized.scale = [FSRoundButton new];
+    localized.audio = [FSRoundButton new];
+    localized.subtitles = [FSRoundButton new];
+    localized.episodes = [FSRoundButton new];
+    localeBridge.player = localized;
+    NSDictionary *progress = @{@"metadata":@YES, @"phase":@"downloading",
+        @"dht":@"searching", @"seeds":@5, @"peers":@3, @"rate":@2048};
+    for (NSNumber *english in @[@NO, @YES, @NO]) {
+        [localeBridge handle:[FlutterMethodCall methodCallWithMethodName:@"configureUI"
+            arguments:@{@"english":english, @"dark":@YES}] result:^(id result) { assert(!result); }];
+        assert(fsEnglish == english.boolValue);
+        NSString *audio = fsEnglish ? @"Audio" : @"Аудио";
+        assert([localized.audio.toolTip isEqual:audio]);
+        assert([localized.audio.accessibilityLabel isEqual:audio]);
+        assert([localized.audio.image.accessibilityDescription isEqual:audio]);
+        assert([localized.scale.toolTip isEqual:fsEnglish ? @"Video scale" : @"Масштаб видео"]);
+        NSString *status = FSPlaybackPresentation(progress, @"playing", NO, fsEnglish)[@"text"];
+        assert([status containsString:fsEnglish ? @"Seeds: 5 · Peers: 3" : @"Сиды: 5 · Пиры: 3"]);
+        assert([status containsString:fsEnglish ? @"Metadata: received" : @"Метаданные: получены"]);
+        assert([FSLocalizedTrackName(@"eng", @"Английский", fsEnglish) isEqual:fsEnglish ? @"English" : @"Английский"]);
+        assert([FSLocalizedTrackName(@"rus", @"Commentary", fsEnglish) containsString:@"Commentary"]);
+        assert([FSTorrentProblem(@{@"event":@"noPeers"}, fsEnglish) hasPrefix:fsEnglish ? @"No peers" : @"Нет доступных"]);
+    }
     // Returning from another Space must inspect the current page before timeout.
     FSProviderView *provider=[[FSProviderView alloc] initWithFrame:NSZeroRect];
     FSReadinessWebSpy *web=[FSReadinessWebSpy new];provider.web=(WKWebView *)web;provider.selectsPlayer=YES;

@@ -1,1 +1,15 @@
-<resources><string name="player_rew_10">Rewind 10 seconds</string><string name="player_ffwd_10">Forward 10 seconds</string><string name="player_subtitles">Subtitles</string></resources>
+<resources>
+    <string name="player_rew_10">Rewind 10 seconds</string>
+    <string name="player_ffwd_10">Forward 10 seconds</string>
+    <string name="player_subtitles">Subtitles</string>
+    <string name="player_buffering">Buffering…</string>
+    <string name="player_torrent_stats">Buffering · ↓ %1$d KiB/s · Seeds: %2$d · Peers: %3$d</string>
+    <string name="player_local_torrent">Local .torrent</string>
+    <string name="player_download_unavailable">Download unavailable. Go back and try again.</string>
+    <string name="player_getting_files">Retrieving file list…</string>
+    <string name="player_no_video">No supported video in this torrent</string>
+    <string name="player_history_file_missing">The file from your history is unavailable</string>
+    <string name="player_open_file_failed">Could not open the file</string>
+    <string name="player_open_torrent_failed">Could not open the torrent</string>
+    <string name="player_invalid_url">Invalid video address</string>
+</resources>

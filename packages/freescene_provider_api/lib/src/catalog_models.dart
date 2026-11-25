@@ -144,36 +144,63 @@ class CatalogTitle {
     this.year,
     this.rating,
     this.genres,
+    this.englishGenres,
     this.country,
+    this.englishCountry,
+    this.imdbId,
+    this.runtimeMinutes,
     this.poster,
     this.posterFallback,
     this.trailer,
   });
   final String id, name, description;
   final String? englishName, englishDescription, genres, country;
+  final String? englishGenres, englishCountry, imdbId;
+  final int? runtimeMinutes;
   final CatalogKind kind;
   final int? year;
   final double? rating;
   final Uri? poster, posterFallback;
   final CatalogTrailer? trailer;
   String title(bool english) => (english ? englishName : null) ?? name;
-  String synopsis(bool english) =>
-      (english ? englishDescription : null) ?? description;
+  static final _cyrillic = RegExp(r'[А-Яа-яЁё]');
+  static String? _nonRussian(String? value) =>
+      value == null || value.trim().isEmpty || _cyrillic.hasMatch(value)
+      ? null
+      : value;
+  String synopsis(bool english) => english
+      ? _nonRussian(englishDescription) ?? _nonRussian(description) ?? ''
+      : description;
+  String? genreLabel(bool english) =>
+      english ? englishGenres ?? genres : genres;
+  String? countryLabel(bool english) =>
+      english ? englishCountry ?? country : country;
 
-  CatalogTitle withTrailer(CatalogTrailer value) => CatalogTitle(
+  CatalogTitle withTrailer(CatalogTrailer value) => copyWith(trailer: value);
+
+  CatalogTitle copyWith({
+    String? englishDescription,
+    String? englishGenres,
+    String? englishCountry,
+    CatalogTrailer? trailer,
+  }) => CatalogTitle(
     id: id,
     kind: kind,
     name: name,
     englishName: englishName,
     description: description,
-    englishDescription: englishDescription,
+    englishDescription: englishDescription ?? this.englishDescription,
     year: year,
     rating: rating,
     genres: genres,
+    englishGenres: englishGenres ?? this.englishGenres,
     country: country,
+    englishCountry: englishCountry ?? this.englishCountry,
+    imdbId: imdbId,
+    runtimeMinutes: runtimeMinutes,
     poster: poster,
     posterFallback: posterFallback,
-    trailer: value,
+    trailer: trailer ?? this.trailer,
   );
 }
 
@@ -261,6 +288,7 @@ abstract class CatalogRepository {
     int start = 0,
   });
   Future<CatalogTitle> details(CatalogTitle title);
+  Future<String?> englishSynopsis(CatalogTitle title) async => null;
   Future<CatalogPage<CatalogSource>> sources(
     CatalogTitle title, {
     int start = 0,

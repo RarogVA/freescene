@@ -116,6 +116,9 @@ void main() {
     expect(controller.error, isNotNull);
     expect(controller.entries.length, 2);
   });
+  Finder dialogLabel(String label) =>
+      find.descendant(of: find.byType(AlertDialog), matching: find.text(label));
+
   for (final scenario in [
     (320.0, false, false),
     (960.0, true, false),
@@ -182,11 +185,18 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('history-delete')));
       await tester.pumpAndSettle();
       expect(entries.length, 3);
-      await tester.tap(
-        find
-            .widgetWithText(FilledButton, scenario.$2 ? 'Delete' : 'Удалить')
-            .last,
+      final cancel = dialogLabel(scenario.$2 ? 'Cancel' : 'Отмена');
+      expect(Focus.of(tester.element(cancel)).hasFocus, isTrue);
+      await tester.tap(cancel);
+      await tester.pumpAndSettle();
+      expect(
+        calls.where((call) => call.method == 'watchHistoryRemove'),
+        isEmpty,
       );
+      expect(key.currentState!.selected, hasLength(3));
+      await tester.tap(find.byKey(const ValueKey('history-delete')));
+      await tester.pumpAndSettle();
+      await tester.tap(dialogLabel(scenario.$2 ? 'Delete' : 'Удалить'));
       await tester.pumpAndSettle();
       expect(entries, isEmpty);
       expect(find.byKey(const ValueKey('watch-history-list')), findsNothing);
@@ -221,7 +231,7 @@ void main() {
       failDelete = true;
       await tester.tap(find.byKey(const ValueKey('history-delete')));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Удалить').last);
+      await tester.tap(dialogLabel('Удалить'));
       await tester.pumpAndSettle();
       expect(find.text('Выбрано: 3'), findsOneWidget);
       expect(entries.length, 3);

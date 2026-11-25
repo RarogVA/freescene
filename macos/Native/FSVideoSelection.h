@@ -26,9 +26,12 @@
 @interface FSVideoSelection : NSObject <NSTableViewDataSource,NSTableViewDelegate>
 @property NSPanel *panel;
 @property NSTableView *table;
+@property NSTextField *heading;
+@property FSChoiceButton *cancelButton, *playButton;
 @property NSArray<NSDictionary *> *files;
 @property(copy) void (^completion)(NSNumber *);
 - (void)showForPlayer:(NSWindow *)parent files:(NSArray<NSDictionary *> *)files title:(NSString *)title completion:(void (^)(NSNumber *))completion;
+- (void)updateLanguage;
 - (void)finish:(NSNumber *)index;
 - (void)cancel;
 @end
@@ -37,11 +40,11 @@
     self.files=files;self.completion=completion;
     CGFloat width=MIN(620,NSWidth(parent.contentView.bounds)-32),height=MIN(440,NSHeight(parent.contentView.bounds)-32);
     self.panel=[[NSPanel alloc] initWithContentRect:NSMakeRect(0,0,width,height) styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
-    self.panel.releasedWhenClosed=NO;self.panel.title=fsEnglish ? @"Choose an episode or file" : @"Выберите серию или файл";
+    self.panel.releasedWhenClosed=NO;
     NSView *root=self.panel.contentView ?: [NSView new];self.panel.contentView=root;
     self.panel.appearance=[NSAppearance appearanceNamed:fsDark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
     self.panel.backgroundColor=FSThemeBackground(fsDark);
-    NSTextField *heading=[NSTextField labelWithString:self.panel.title];heading.font=FSFont(21);
+    NSTextField *heading=self.heading=[NSTextField labelWithString:@""];heading.font=FSFont(21);
     NSTextField *name=[NSTextField labelWithString:title ?: @""];name.font=FSFont(13);name.maximumNumberOfLines=1;name.lineBreakMode=NSLineBreakByTruncatingMiddle;name.toolTip=title;
     for(NSTextField *label in @[heading,name]) { label.textColor=FSThemeText(fsDark); [label setContentCompressionResistancePriority:1 forOrientation:NSLayoutConstraintOrientationHorizontal]; }
     self.table=[NSTableView new];self.table.headerView=nil;self.table.rowHeight=64;self.table.intercellSpacing=NSMakeSize(0,4);self.table.allowsEmptySelection=NO;
@@ -51,22 +54,32 @@
     self.table.dataSource=self;self.table.delegate=self;self.table.target=self;self.table.doubleAction=@selector(play:);
     NSScrollView *scroll=[NSScrollView new];scroll.documentView=self.table;scroll.hasVerticalScroller=YES;scroll.drawsBackground=NO;
     [scroll setContentHuggingPriority:1 forOrientation:NSLayoutConstraintOrientationVertical];
-    FSChoiceButton *cancel=[self button:fsEnglish ? @"Cancel" : @"Отмена" primary:NO action:@selector(cancel:)];cancel.keyEquivalent=@"\e";
-    FSChoiceButton *play=[self button:fsEnglish ? @"Play" : @"Воспроизвести" primary:YES action:@selector(play:)];play.keyEquivalent=@"\r";
+    FSChoiceButton *cancel=self.cancelButton=[self buttonPrimary:NO action:@selector(cancel:)];cancel.keyEquivalent=@"\e";
+    FSChoiceButton *play=self.playButton=[self buttonPrimary:YES action:@selector(play:)];play.keyEquivalent=@"\r";
     NSView *space=[NSView new];[space setContentHuggingPriority:1 forOrientation:NSLayoutConstraintOrientationHorizontal];
     NSStackView *buttons=[NSStackView stackViewWithViews:@[space,cancel,play]];buttons.orientation=NSUserInterfaceLayoutOrientationHorizontal;buttons.distribution=NSStackViewDistributionFill;buttons.spacing=12;
     NSStackView *stack=[NSStackView stackViewWithViews:@[heading,name,scroll,buttons]];stack.orientation=NSUserInterfaceLayoutOrientationVertical;stack.distribution=NSStackViewDistributionFill;stack.alignment=NSLayoutAttributeLeading;stack.spacing=12;stack.translatesAutoresizingMaskIntoConstraints=NO;
     [root addSubview:stack];
     [NSLayoutConstraint activateConstraints:@[[stack.leadingAnchor constraintEqualToAnchor:root.leadingAnchor constant:24],[stack.trailingAnchor constraintEqualToAnchor:root.trailingAnchor constant:-24],[stack.topAnchor constraintEqualToAnchor:root.topAnchor constant:20],[stack.bottomAnchor constraintEqualToAnchor:root.bottomAnchor constant:-20],[name.widthAnchor constraintEqualToAnchor:stack.widthAnchor],[scroll.widthAnchor constraintEqualToAnchor:stack.widthAnchor],[scroll.heightAnchor constraintGreaterThanOrEqualToConstant:100],[buttons.widthAnchor constraintEqualToAnchor:stack.widthAnchor]]];
+    [self updateLanguage];
     [self.table reloadData];[self.table selectRowIndexes:[NSIndexSet indexSetWithIndex:0] byExtendingSelection:NO];
     [parent makeKeyAndOrderFront:nil];
     [parent beginSheet:self.panel completionHandler:^(NSModalResponse response){ [self cancel]; }];
     [self.panel makeFirstResponder:self.table];
 }
-- (FSChoiceButton *)button:(NSString *)title primary:(BOOL)primary action:(SEL)action {
-    FSChoiceButton *button=[[FSChoiceButton alloc] initWithFrame:NSZeroRect];button.title=title;button.target=self;button.action=action;button.primary=primary;button.bordered=NO;button.font=FSFont(14);button.focusRingType=NSFocusRingTypeNone;
-    NSColor *foreground=(primary ? FSThemeOnAccent(fsDark) : FSThemeText(fsDark));
-    button.attributedTitle=[[NSAttributedString alloc] initWithString:title attributes:@{NSFontAttributeName:FSFont(14),NSForegroundColorAttributeName:foreground}];
+- (void)updateLanguage {
+    if (!self.panel || !self.cancelButton || !self.playButton) return;
+    self.panel.title = fsEnglish ? @"Choose an episode or file" : @"Выберите серию или файл";
+    self.heading.stringValue = self.panel.title;
+    for (FSChoiceButton *button in @[self.cancelButton, self.playButton]) {
+        NSString *title = button.primary ? (fsEnglish ? @"Play" : @"Воспроизвести") : (fsEnglish ? @"Cancel" : @"Отмена");
+        NSColor *color = button.primary ? FSThemeOnAccent(fsDark) : FSThemeText(fsDark);
+        button.attributedTitle = [[NSAttributedString alloc] initWithString:title
+            attributes:@{ NSFontAttributeName:FSFont(14), NSForegroundColorAttributeName:color }];
+    }
+}
+- (FSChoiceButton *)buttonPrimary:(BOOL)primary action:(SEL)action {
+    FSChoiceButton *button=[[FSChoiceButton alloc] initWithFrame:NSZeroRect];button.target=self;button.action=action;button.primary=primary;button.bordered=NO;button.font=FSFont(14);button.focusRingType=NSFocusRingTypeNone;
     button.translatesAutoresizingMaskIntoConstraints=NO;
     [NSLayoutConstraint activateConstraints:@[[button.widthAnchor constraintEqualToConstant:primary ? 172 : 110],[button.heightAnchor constraintEqualToConstant:38]]];return button;
 }

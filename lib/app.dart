@@ -1,3 +1,4 @@
+import 'widgets/app_icons.dart';
 import 'history/watch_history.dart';
 import 'history/watch_history_page.dart';
 import 'history/history_playback.dart';
@@ -57,6 +58,7 @@ void runFreeScene({required ProviderSetup providers}) {
         'libVLC': 'libVLC-LGPL-2.1.txt',
         'VLC / FFmpeg / contrib': 'VLC-THIRD-PARTY-NOTICES.txt',
       },
+      'Google Material Symbols and Icons': 'Material-Icons-LICENSE.txt',
       'Play': 'Play-OFL.txt',
       if (Platform.isAndroid) 'AndroidX Media3': 'AndroidX-Media3-LICENSE.txt',
       if (Platform.isAndroid) ...{
@@ -251,6 +253,7 @@ class _FreeSceneAppState extends State<FreeSceneApp>
       widget.catalogRepository!.configureProviders(_preferences.providers);
       _catalog = CatalogController(
         widget.catalogRepository!,
+        english: _preferences.english,
         favorites: _favorites,
         queue: _queue,
       )..browse();
@@ -677,6 +680,7 @@ class _FreeSceneAppState extends State<FreeSceneApp>
         _preferences.language != value.language ||
         _preferences.appearance != value.appearance;
     setState(() => _preferences = value);
+    _catalog?.setEnglish(value.english);
     if (changedProviders && _catalog != null) {
       unawaited(_catalog!.configureProviders(value.providers));
     }
@@ -784,24 +788,24 @@ class _FreeSceneAppState extends State<FreeSceneApp>
                                   compact: compact,
                                   dense: dense,
                                   label: text('Домой', 'Home'),
-                                  leading: const Icon(Icons.home_outlined),
+                                  leading: const Icon(AppIcons.home),
                                   onTap: _goHome,
                                 ),
                                 const Spacer(),
                                 for (final entry in [
                                   (
                                     _Page.downloads,
-                                    Icons.download_outlined,
+                                    AppIcons.download,
                                     text('Загрузки', 'Downloads'),
                                   ),
                                   (
                                     _Page.history,
-                                    Icons.history,
+                                    AppIcons.history,
                                     text('История', 'History'),
                                   ),
                                   (
                                     _Page.settings,
-                                    Icons.settings_outlined,
+                                    AppIcons.settings,
                                     text('Настройки', 'Settings'),
                                   ),
                                 ])
@@ -825,8 +829,8 @@ class _FreeSceneAppState extends State<FreeSceneApp>
                                       : text('Свернуть', 'Collapse'),
                                   leading: Icon(
                                     _sidebarCollapsed
-                                        ? Icons.keyboard_double_arrow_right
-                                        : Icons.keyboard_double_arrow_left,
+                                        ? AppIcons.expand
+                                        : AppIcons.collapse,
                                   ),
                                   onTap: () => _update(
                                     _preferences.copyWith(
@@ -884,7 +888,6 @@ class _FreeSceneAppState extends State<FreeSceneApp>
                             )
                           : _catalog != null && _catalogKind != null
                           ? CatalogPageView(
-                              compactSourceActions: _sidebarCollapsed,
                               key: ValueKey(
                                 'catalog-view-$_catalogViewGeneration',
                               ),
@@ -965,7 +968,7 @@ class _FreeSceneAppState extends State<FreeSceneApp>
       _ => (
         text('Загрузки', 'Downloads'),
         text('Загрузок пока нет', 'No downloads yet'),
-        Icons.download_outlined,
+        AppIcons.download,
       ),
     };
     return Padding(
@@ -1004,39 +1007,53 @@ class _FreeSceneAppState extends State<FreeSceneApp>
     required VoidCallback? onTap,
     bool dense = false,
     bool selected = false,
-  }) => Tooltip(
-    message: label,
-    child: Padding(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: dense ? 2 : 4),
-      child: compact
-          ? IconButton.filledTonal(
-              key: key,
-              onPressed: onTap,
-              icon: leading,
-              style: IconButton.styleFrom(
-                backgroundColor: selected
-                    ? Theme.of(context).colorScheme.primaryContainer
-                    : Colors.transparent,
-                minimumSize: Size(52, dense ? 40 : 48),
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    final icon = IconTheme.merge(
+      data: IconThemeData(
+        size: 24,
+        weight: 400,
+        fill: 0,
+        color: selected ? colors.onPrimaryContainer : colors.onSurfaceVariant,
+      ),
+      child: leading,
+    );
+    return Tooltip(
+      message: label,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: dense ? 2 : 4),
+        child: compact
+            ? IconButton.filledTonal(
+                key: key,
+                onPressed: onTap,
+                icon: icon,
+                style: IconButton.styleFrom(
+                  backgroundColor: selected
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : Colors.transparent,
+                  minimumSize: Size(52, dense ? 40 : 48),
+                ),
+              )
+            : ListTile(
+                key: key,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                selected: selected,
+                enabled: onTap != null,
+                minTileHeight: dense ? 40 : null,
+                selectedTileColor: Theme.of(context)
+                    .colorScheme
+                    .primaryContainer,
+                leading: icon,
+                title: Text(label, maxLines: 1, overflow: TextOverflow.clip),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                minLeadingWidth: 24,
+                onTap: onTap,
               ),
-            )
-          : ListTile(
-              key: key,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              selected: selected,
-              enabled: onTap != null,
-              minTileHeight: dense ? 40 : null,
-              selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
-              leading: leading,
-              title: Text(label, maxLines: 1, overflow: TextOverflow.clip),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              minLeadingWidth: 24,
-              onTap: onTap,
-            ),
-    ),
-  );
+      ),
+    );
+  }
 
   Future<void> _showAbout() async {
     if (widget.nativeService != null) {

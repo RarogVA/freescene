@@ -2,6 +2,7 @@ package local.freescene.freescene
 import local.freescene.provider_host.ProviderHost
 
 import android.app.Activity
+import android.content.Context
 import android.app.AlertDialog
 import android.content.res.ColorStateList
 import android.graphics.Color
@@ -21,6 +22,11 @@ import java.io.ByteArrayInputStream
 
 /** The provider owns playback. The app always owns an accessible exit. */
 open class WebPlayerActivity : Activity() {
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(base)
+        applyOverrideConfiguration(PlaybackLanguage.configuration(base))
+    }
+
     private val main = Handler(Looper.getMainLooper())
     private var generation = 0
     private var active = false
@@ -69,6 +75,7 @@ open class WebPlayerActivity : Activity() {
     protected open fun prepareSession(done: (Boolean) -> Unit) {
         ProviderHost.web?.prepare(this, provider, done) ?: done(false)
     }
+    private val englishAudio by lazy { PlaybackLanguage.english(this) }
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
         PlayerColors.restore(this)
@@ -253,7 +260,7 @@ open class WebPlayerActivity : Activity() {
                     setSupportMultipleWindows(true)
                 }
                 PlayerPresentation.install(browser, scale.mode)
-                val progressScript = WebPlaybackProgress.script(browser, provider, resumePosition, resumeDuration)
+                val progressScript = WebPlaybackProgress.script(browser, provider, resumePosition, resumeDuration, englishAudio)
                 val progressKey = PlaybackHistory.webKey(provider, source)
                 WebPlaybackProgress(received = { point, ended ->
                     if (active && epoch == generation && browser === web) {

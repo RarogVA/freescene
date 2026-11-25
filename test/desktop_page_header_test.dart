@@ -6,6 +6,7 @@ import 'package:freescene/providers/demo.dart';
 import 'package:freescene/settings/preferences.dart';
 import 'package:freescene/torrent/native_torrent.dart';
 import 'package:freescene/widgets/desktop_controls.dart';
+import 'package:freescene/widgets/app_icons.dart';
 
 class _Native extends NativeTorrentService {
   final calls = <String>[];
@@ -37,6 +38,52 @@ class _Native extends NativeTorrentService {
 }
 
 void main() {
+  testWidgets('sidebar icon rendering stays identical when collapsed', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1280, 900);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pumpWidget(
+      FreeSceneApp(
+        initialPreferences: Preferences(),
+        savePreferences: (_) async {},
+        catalogRepository: DemoCatalog(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    TextStyle glyph(String id) {
+      final icon = find.descendant(
+        of: find.byKey(ValueKey('sidebar-$id')),
+        matching: find.byType(Icon),
+      );
+      return tester
+          .widget<RichText>(
+            find.descendant(of: icon, matching: find.byType(RichText)),
+          )
+          .text
+          .style!;
+    }
+
+    for (final selected in ['home', 'settings']) {
+      await tester.tap(find.byKey(ValueKey('sidebar-$selected')));
+      await tester.pumpAndSettle();
+      final before = {
+        for (final id in ['home', 'settings', 'downloads', 'history'])
+          id: glyph(id),
+      };
+      await tester.tap(find.byKey(const ValueKey('sidebar-toggle')));
+      await tester.pumpAndSettle();
+      for (final entry in before.entries) {
+        expect(glyph(entry.key), entry.value, reason: entry.key);
+      }
+      await tester.tap(find.byKey(const ValueKey('sidebar-toggle')));
+      await tester.pumpAndSettle();
+    }
+    await tester.pumpWidget(const SizedBox());
+  });
+
   for (final size in [const Size(1280, 900), const Size(800, 700)]) {
     for (final page in ['history', 'settings', 'downloads']) {
       testWidgets(
@@ -122,7 +169,7 @@ void main() {
               find.widgetWithText(DesktopActionButton, 'Продолжить'),
             );
             expect(watch.icon, Icons.play_arrow_rounded);
-            expect(resume.icon, Icons.download_rounded);
+            expect(resume.icon, AppIcons.download);
             await tester.tap(torrent);
             await tester.pumpAndSettle();
             expect(native.calls, contains('chooseTorrent'));
