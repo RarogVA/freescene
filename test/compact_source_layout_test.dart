@@ -34,7 +34,7 @@ CatalogSource source(String id) => CatalogSource(
 void main() {
   for (final dark in [true, false]) {
     testWidgets(
-      'TV single row, themed outline and independent watched action dark=$dark',
+      'TV places focus on Watch or Watched inside a stable row dark=$dark',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(960, 540));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -85,9 +85,26 @@ void main() {
         final eye = find.byKey(const ValueKey('remote-watched-fixture-a'));
         tester.widget<OutlinedButton>(row).focusNode!.requestFocus();
         await tester.pumpAndSettle();
-        final pill = tester.getRect(
-          find.byKey(const ValueKey('source-play-fixture-a')),
-        );
+        final play = find.byKey(const ValueKey('source-play-fixture-a'));
+        final pill = tester.getRect(play);
+        final accent = BorderSide(color: theme.colorScheme.primary, width: 3);
+        final neutral = BorderSide(color: theme.colorScheme.outlineVariant);
+        BorderSide buttonBorder(Finder button) => tester
+            .widget<OutlinedButton>(button)
+            .style!
+            .side!
+            .resolve({WidgetState.focused})!;
+        BorderSide watchBorder() =>
+            ((tester.widget<Container>(play).decoration as BoxDecoration).border
+                    as Border)
+                .top;
+        double watchOpacity() => tester
+            .widget<AnimatedOpacity>(
+              find
+                  .ancestor(of: play, matching: find.byType(AnimatedOpacity))
+                  .first,
+            )
+            .opacity;
         final bounds = tester.getRect(row);
         final eyeBounds = tester.getRect(eye);
         expect(
@@ -121,10 +138,10 @@ void main() {
         );
         expect(tester.getCenter(eye).dy, closeTo(center, 1));
         expect(find.text('Watch'), findsNWidgets(2));
-        expect(
-          tester.widget<OutlinedButton>(row).style!.side!.resolve({})!.color,
-          theme.colorScheme.primary,
-        );
+        expect(buttonBorder(row), neutral);
+        expect(buttonBorder(eye), neutral);
+        expect(watchBorder(), accent);
+        expect(watchOpacity(), 1);
         expect(
           tester
               .widget<OutlinedButton>(row)
@@ -136,7 +153,11 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.select);
         expect(plays, 1);
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-        await tester.pump();
+        await tester.pumpAndSettle();
+        expect(buttonBorder(row), neutral);
+        expect(buttonBorder(eye), accent);
+        expect(watchOpacity(), 0);
+        expect(tester.getRect(row), bounds);
         expect(
           tester.widget<OutlinedButton>(eye).focusNode!.hasPrimaryFocus,
           isTrue,

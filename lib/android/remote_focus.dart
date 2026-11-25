@@ -306,7 +306,7 @@ class RemoteButton extends StatefulWidget {
     this.tile = false,
     this.segment = false,
     this.alignment = Alignment.center,
-    this.foregroundBuilder,
+    this.focusIndicatorBuilder,
     super.key,
   });
   final String id;
@@ -319,7 +319,9 @@ class RemoteButton extends StatefulWidget {
   final double radius;
   final bool flat, tile, segment;
   final AlignmentGeometry alignment;
-  final Widget Function(BuildContext, bool)? foregroundBuilder;
+
+  /// Draws the focus indicator inside the button in place of its outer outline.
+  final Widget Function(BuildContext, bool)? focusIndicatorBuilder;
   @override
   State<RemoteButton> createState() => _RemoteButtonState();
 }
@@ -423,17 +425,18 @@ class _RemoteButtonState extends State<RemoteButton> {
     final colors = Theme.of(context).colorScheme;
     final outlineOnly =
         Theme.of(context).extension<RemoteFocusStyle>()?.outlineOnly ?? false;
+    final highlightButton = focused && widget.focusIndicatorBuilder == null;
     final button = OutlinedButton(
       key: ValueKey('remote-${widget.id}'),
       focusNode: node,
       statesController: buttonStates,
       onPressed: widget.onPressed,
       onLongPress: widget.onLongPress,
-      onFocusChange: (value) {
-        if (!widget.focus.enabled) return;
-        setState(() => focused = value);
-        if (!value && !openedMenu) clearPress(rebuild: false);
-        if (value) {
+      onFocusChange: (_) {
+        if (!widget.focus.enabled || focused == node.hasPrimaryFocus) return;
+        setState(() => focused = node.hasPrimaryFocus);
+        if (!focused && !openedMenu) clearPress(rebuild: false);
+        if (focused) {
           widget.focus.selected(widget.id);
           Scrollable.ensureVisible(context, alignment: 0.5);
         }
@@ -443,7 +446,7 @@ class _RemoteButtonState extends State<RemoteButton> {
         padding: widget.padding,
         alignment: widget.alignment,
         overlayColor: outlineOnly && !widget.tile ? Colors.transparent : null,
-        backgroundColor: focused && !widget.tile && !outlineOnly
+        backgroundColor: highlightButton && !widget.tile && !outlineOnly
             ? colors.primary
             : widget.selected
             ? widget.selectedBackground ??
@@ -455,19 +458,19 @@ class _RemoteButtonState extends State<RemoteButton> {
             : widget.flat
             ? Colors.transparent
             : null,
-        foregroundColor: focused && !widget.tile && !outlineOnly
+        foregroundColor: highlightButton && !widget.tile && !outlineOnly
             ? colors.onPrimary
             : widget.selected
             ? widget.selectedForeground ??
                   (widget.segment ? colors.onPrimary : colors.primary)
             : colors.onSurface,
         side: BorderSide(
-          color: focused
+          color: highlightButton
               ? colors.primary
               : widget.flat || widget.tile
               ? Colors.transparent
               : colors.outlineVariant,
-          width: focused ? 3 : 1,
+          width: highlightButton ? 3 : 1,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(widget.radius),
@@ -489,13 +492,13 @@ class _RemoteButtonState extends State<RemoteButton> {
               ),
               child: widget.child,
             )
-          : widget.foregroundBuilder == null
+          : widget.focusIndicatorBuilder == null
           ? widget.child
           : Stack(
               alignment: Alignment.centerLeft,
               children: [
                 widget.child,
-                widget.foregroundBuilder!(context, focused),
+                widget.focusIndicatorBuilder!(context, focused),
               ],
             ),
     );

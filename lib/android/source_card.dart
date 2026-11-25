@@ -110,7 +110,7 @@ class AndroidSourceCard extends StatelessWidget {
             radius: 24,
             alignment: Alignment.centerLeft,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            foregroundBuilder: (context, focused) => Positioned(
+            focusIndicatorBuilder: (context, focused) => Positioned(
               left: 0,
               top: 0,
               bottom: 0,
@@ -139,7 +139,12 @@ class AndroidSourceCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: colors.surfaceContainerHigh,
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: colors.outlineVariant),
+                          border: Border.all(
+                            color: focused
+                                ? colors.primary
+                                : colors.outlineVariant,
+                            width: 3,
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
