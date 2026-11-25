@@ -16,8 +16,8 @@ def build_player_test(source, name):
                '-L'+str(vlc/'lib'), '-lvlc', '-L'+str(root/'build/native'), '-lFreeSceneEngine']
     host=root/'packages/freescene_provider_host/macos/freescene_provider_host/Sources/freescene_provider_host'
     command += ['-I'+str(host/'include'), '-x', 'objective-c++', str(host/'FreesceneProviderHostPlugin.m')]
-    for name in ['Cocoa', 'QuartzCore', 'WebKit', 'CoreText', 'Security', 'UserNotifications', 'UniformTypeIdentifiers']:
-        command += ['-framework', name]
+    for framework_name in ['Cocoa', 'QuartzCore', 'WebKit', 'CoreText', 'Security', 'UserNotifications', 'UniformTypeIdentifiers']:
+        command += ['-framework', framework_name]
     for path in [framework, vlc/'lib', root/'build/native']:
         command += ['-Wl,-rpath,'+str(path)]
     binary = root / 'build' / (name + '-test')
@@ -27,7 +27,7 @@ def build_player_test(source, name):
     return binary
 
 if __name__ == '__main__':
-    build_player_test('tests/native/player_lifecycle.mm', 'player-lifecycle')
+    binary = build_player_test('tests/native/player_lifecycle.mm', 'player-lifecycle')
     with (root/'build/player-lifecycle.json').open('w') as output:
-        subprocess.run(['build/player-lifecycle-test'], cwd=root, stdout=output, check=True)
+        subprocess.run([str(binary)], cwd=root, stdout=output, check=True)
     print((root/'build/player-lifecycle.json').read_text())
