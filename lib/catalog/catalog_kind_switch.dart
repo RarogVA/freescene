@@ -9,11 +9,13 @@ class CatalogKindSwitch extends StatelessWidget {
     required this.value,
     required this.onChanged,
     required this.english,
+    this.kinds = CatalogKind.values,
     super.key,
   });
   final CatalogKind value;
   final ValueChanged<CatalogKind> onChanged;
   final bool english;
+  final List<CatalogKind> kinds;
 
   @override
   Widget build(BuildContext context) {
@@ -32,11 +34,14 @@ class CatalogKindSwitch extends StatelessWidget {
           final compact = constraints.maxWidth < 270;
           return Stack(
             children: [
-              CatalogSelectionThumb(index: value.index, count: 3),
+              CatalogSelectionThumb(
+                index: kinds.indexOf(value),
+                count: kinds.length,
+              ),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (final kind in CatalogKind.values)
+                  for (final kind in kinds)
                     Expanded(
                       child: Semantics(
                         selected: value == kind,

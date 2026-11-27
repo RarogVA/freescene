@@ -5,9 +5,11 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import shutil
 import subprocess
 import sys
 
+from release_assets import dmg_names
 from sign_freescene import DEFAULT_IDENTITY_DIR, load_identity, sign_bundle, validate_identity
 
 
@@ -86,10 +88,13 @@ def main():
             raise RuntimeError('Bundle does not contain a passed VLC distribution audit')
     info = plistlib.loads((bundle / 'Contents/Info.plist').read_bytes())
     version = info['CFBundleShortVersionString']
-    suffix = '-preview' if args.channel == 'preview' else ''
-    image = destination / f'FreeScene-{version}{suffix}-macos-{args.arch}.dmg'
+    names = (dmg_names(version, args.arch) if args.channel == 'stable'
+             else [f'FreeScene-{version}-preview-macos-{args.arch}.dmg'])
+    image = destination / names[0]
     run(sys.executable, str(ROOT / 'tools/package_dmg.py'), '--channel', args.channel,
         '--bundle', str(bundle), '--output', str(image))
+    for alias in names[1:]:
+        shutil.copyfile(image, destination / alias)
     report = {
         'passed': True, 'version': version, 'channel': args.channel, 'architecture': architecture,
         'xcode': xcode_version, 'minimumMacOS': info['LSMinimumSystemVersion'],

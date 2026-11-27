@@ -16,7 +16,7 @@ font = FontBuilder(1024, isTTF=True)
 icons = {
     'download': 0xE900, 'heart_plus': 0xE901, 'settings': 0xE902,
     'history': 0xE903, 'keyboard_double_arrow_left': 0xE904,
-    'keyboard_double_arrow_right': 0xE905,
+    'keyboard_double_arrow_right': 0xE905, 'tracker_add': 0xE906,
 }
 font.setupGlyphOrder(['.notdef', *icons])
 font.setupCharacterMap({code: name for name, code in icons.items()})

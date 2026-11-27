@@ -562,7 +562,7 @@ void main() {
       }
       await holdPoster(tester);
       expect(find.text('Убрать из'), findsNWidgets(2));
-      expect(find.text('Просмотрено'), findsOneWidget);
+      expect(find.text('Снять отметку'), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       await activate(tester, 'settings');

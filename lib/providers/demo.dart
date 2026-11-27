@@ -3,7 +3,12 @@ import 'package:freescene_provider_api/freescene_provider_api.dart';
 const demoProvider = SourceProvider('demo');
 final demoProviders = ProviderSetup(
   descriptors: const [
-    ProviderDescriptor(demoProvider, 'Demo', enabledByDefault: true),
+    ProviderDescriptor(
+      demoProvider,
+      'Demo',
+      enabledByDefault: true,
+      gameCatalog: true,
+    ),
   ],
   createCatalog: ({required bool android}) => DemoCatalog(),
   createTrailerResolver: (_) => _NoTrailers(),

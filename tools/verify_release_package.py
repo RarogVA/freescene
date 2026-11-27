@@ -6,7 +6,6 @@ launching/modifying the installed application. Writes an ignored JSON report
 and SHA256SUMS.txt in the supplied release directory.
 """
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -17,6 +16,8 @@ import stat
 import subprocess
 import tempfile
 import zipfile
+
+from release_assets import check_images, sha256
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,14 +38,6 @@ def require(condition, message):
 def run(*command):
     result = subprocess.run(list(map(str, command)), capture_output=True, check=True)
     return result.stdout, result.stderr
-
-
-def sha256(path):
-    digest = hashlib.sha256()
-    with path.open('rb') as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def load_json(path):
@@ -215,7 +208,8 @@ def verify_release(release, version, build_number):
     bundle = release / 'FreeScene.app'
     require(not list(release.glob('FreeScene-*-macos-*.zip')),
             'macOS releases must contain DMG packages only; remove legacy application ZIPs')
-    image = release / f'FreeScene-{version}-macos-{architecture}.dmg'
+    images = check_images(release, version, [architecture])
+    image = images[0]
     companion = release / SOURCES_NAME
     require(companion.is_file() and sha256(companion) == SOURCES_SHA256,
             'Release directory needs the verified VLC source companion')
@@ -274,7 +268,7 @@ def verify_release(release, version, build_number):
         finally:
             if attached or os.path.ismount(mount):
                 run('/usr/bin/hdiutil', 'detach', mount)
-    assets = [image, companion]
+    assets = [*images, companion]
     hashes = {path.name: sha256(path) for path in assets}
     checksums = release / 'SHA256SUMS.txt'
     checksums.write_text(''.join(f'{digest}  {name}\n' for name, digest in hashes.items()), encoding='utf-8')

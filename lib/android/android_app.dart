@@ -7,6 +7,8 @@ import '../history/watch_history.dart';
 import '../history/watch_history_page.dart';
 import '../history/history_playback.dart';
 import '../catalog/watched.dart';
+import '../catalog/tracker_updates.dart';
+import '../catalog/tracker_source_visibility.dart';
 
 import 'dart:async';
 import 'dart:io';
@@ -63,6 +65,7 @@ class _AndroidBootstrapState extends State<AndroidBootstrap> {
           initialPreferences: value.preferences,
           savePreferences: value.store.save,
           repository: value.repository,
+          updates: value.updates,
           favorites: value.favorites,
           queue: value.queue,
           posterCache: value.cache,
@@ -101,6 +104,12 @@ class _AndroidSession {
   final QueueController queue;
   final PosterDiskCache cache;
   final repository = ProviderSetup.current.createCatalog(android: true);
+  late final updates = TrackerUpdates(
+    ProviderSetup.current.createCatalog(android: true),
+    favorites,
+    queue,
+    file: File('${runtime.profile.path}/tracker-updates.json'),
+  );
   static Future<_AndroidSession> open() async {
     final runtime = await AndroidRuntime.load();
     final budget = AndroidBudget.forDevice(runtime);
@@ -149,6 +158,7 @@ class AndroidApp extends StatefulWidget {
     this.favorites,
     this.queue,
     this.posterCache,
+    this.updates,
     this.showChangelogOnStartup = false,
     this.play,
     this.voice,
@@ -163,6 +173,7 @@ class AndroidApp extends StatefulWidget {
   final FavoritesController? favorites;
   final QueueController? queue;
   final PosterDiskCache? posterCache;
+  final TrackerUpdates? updates;
   final bool showChangelogOnStartup;
   final Future<void> Function(CatalogSource)? play;
   final Future<String?> Function()? voice;
@@ -222,6 +233,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
   late final catalog = CatalogController(
     widget.repository,
     english: preferences.english,
+    updates: widget.updates,
     favorites: favorites,
     queue: queue,
   );
@@ -251,6 +263,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
     widget.repository.configureProviders(
       preferences.providers.intersection(SourceProvider.values.toSet()),
     );
+    widget.updates?.configure(preferences.providers);
     catalog.addListener(_changed);
     gridScroll.addListener(loadNearEnd);
     sourcesScroll.addListener(scheduleSourceLoad);
@@ -350,6 +363,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       watched.refresh();
+      unawaited(widget.updates?.refresh());
       if (screen == 'history') watchHistory.refresh();
     }
     if (state == AppLifecycleState.resumed && !modal) {
@@ -464,6 +478,7 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
         favorite: favorites.contains(title),
         queued: queue.contains(title),
         watched: watched.titleWatched(title),
+        manuallyWatched: watched.manuallyWatched(title),
       ),
       restore: tile,
     );
@@ -475,9 +490,14 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
         await toggle(favorites, title, tile);
       case 'queue':
         await toggle(queue, title, tile);
+      case 'unwatch':
       case 'watched':
         try {
-          await watched.markTitle(title);
+          if (result == 'unwatch') {
+            await watched.removeTitleMark(title);
+          } else {
+            await watched.markTitle(title);
+          }
         } catch (_) {
           if (mounted) {
             await message(
@@ -1793,6 +1813,9 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
       favorite: favorites.contains(title),
       queued: queue.contains(title),
       cache: widget.posterCache,
+      updateLabel: catalog.localCollectionOnly
+          ? widget.updates?.label(title, preferences.english)
+          : null,
     ),
   );
 
@@ -2225,20 +2248,25 @@ class _AndroidAppState extends State<AndroidApp> with WidgetsBindingObserver {
                       'source-row-${source.row.provider.name}-${source.row.id}',
                     ),
                     padding: const EdgeInsets.only(bottom: 8),
-                    child: AndroidSourceCard(
-                      source: source,
-                      title: title,
-                      posterCache: widget.posterCache,
-                      previewDecodeWidth: budget.posterWidth,
-                      focus: remote,
-                      english: preferences.english,
-                      series: title.kind == CatalogKind.series,
-                      onDownload: !widget.runtime.tv && source.row.isTorrent
-                          ? () => unawaited(downloadSource(source))
-                          : null,
-                      onPlay: source.canWatch
-                          ? () => unawaited(play(source))
-                          : null,
+                    child: TrackerSourceVisibility.wrap(
+                      AndroidSourceCard(
+                        source: source,
+                        title: title,
+                        posterCache: widget.posterCache,
+                        previewDecodeWidth: budget.posterWidth,
+                        focus: remote,
+                        english: preferences.english,
+                        series: title.kind == CatalogKind.series,
+                        onDownload: !widget.runtime.tv && source.row.isTorrent
+                            ? () => unawaited(downloadSource(source))
+                            : null,
+                        onPlay: source.canWatch
+                            ? () => unawaited(play(source))
+                            : null,
+                      ),
+                      widget.updates,
+                      title,
+                      source,
                     ),
                   ),
                 Wrap(
