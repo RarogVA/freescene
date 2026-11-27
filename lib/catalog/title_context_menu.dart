@@ -11,6 +11,7 @@ class TitleContextMenu extends StatelessWidget {
     this.favorite,
     this.queued,
     this.watched,
+    this.manuallyWatched = false,
     this.favoriteEnabled = true,
     this.queueEnabled = true,
     super.key,
@@ -19,7 +20,7 @@ class TitleContextMenu extends StatelessWidget {
   final CatalogTitle title;
   final bool english;
   final bool? favorite, queued, watched;
-  final bool favoriteEnabled, queueEnabled;
+  final bool favoriteEnabled, queueEnabled, manuallyWatched;
 
   String tr(String ru, String en) => english ? en : ru;
 
@@ -144,13 +145,19 @@ class TitleContextMenu extends StatelessWidget {
               ),
             if (watched case final marked?)
               item(
-                'watched',
+                manuallyWatched ? 'unwatch' : 'watched',
                 Icons.visibility_outlined,
-                marked ? tr('Просмотрено', 'Watched') : tr('Отметить', 'Mark'),
-                marked
+                manuallyWatched
+                    ? tr('Снять отметку', 'Unmark')
+                    : marked
+                    ? tr('Просмотрено', 'Watched')
+                    : tr('Отметить', 'Mark'),
+                manuallyWatched
+                    ? tr('Снять отметку «Просмотрено»', 'Remove watched mark')
+                    : marked
                     ? tr('Просмотрено', 'Watched')
                     : tr('Отметить просмотренным', 'Mark as watched'),
-                enabled: !marked,
+                enabled: manuallyWatched || !marked,
                 selected: marked,
               ),
           ],

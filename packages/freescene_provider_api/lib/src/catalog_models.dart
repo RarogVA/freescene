@@ -142,6 +142,7 @@ class CatalogTitle {
     this.description = '',
     this.englishDescription,
     this.year,
+    this.premiere,
     this.rating,
     this.genres,
     this.englishGenres,
@@ -153,6 +154,7 @@ class CatalogTitle {
     this.posterFallback,
     this.trailer,
   });
+  final DateTime? premiere;
   final String id, name, description;
   final String? englishName, englishDescription, genres, country;
   final String? englishGenres, englishCountry, imdbId;
@@ -179,6 +181,8 @@ class CatalogTitle {
   CatalogTitle withTrailer(CatalogTrailer value) => copyWith(trailer: value);
 
   CatalogTitle copyWith({
+    int? year,
+    DateTime? premiere,
     String? englishDescription,
     String? englishGenres,
     String? englishCountry,
@@ -190,7 +194,8 @@ class CatalogTitle {
     englishName: englishName,
     description: description,
     englishDescription: englishDescription ?? this.englishDescription,
-    year: year,
+    year: year ?? this.year,
+    premiere: premiere ?? this.premiere,
     rating: rating,
     genres: genres,
     englishGenres: englishGenres ?? this.englishGenres,

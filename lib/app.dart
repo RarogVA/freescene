@@ -3,6 +3,7 @@ import 'history/watch_history.dart';
 import 'history/watch_history_page.dart';
 import 'history/history_playback.dart';
 import 'catalog/watched.dart';
+import 'catalog/tracker_updates.dart';
 
 import 'package:freescene_provider_api/freescene_provider_api.dart';
 
@@ -92,6 +93,12 @@ class _FreeSceneBootstrapState extends State<FreeSceneBootstrap> {
   )..restore();
   late final _queue = QueueController(store: QueueStore(widget.store.directory))
     ..restore();
+  late final _updates = TrackerUpdates(
+    ProviderSetup.current.createCatalog(android: false),
+    _favorites,
+    _queue,
+    file: File('${widget.store.directory.path}/tracker-updates.json'),
+  );
   late final _catalogRepository = ProviderSetup.current.createCatalog(
     android: false,
   );
@@ -107,6 +114,7 @@ class _FreeSceneBootstrapState extends State<FreeSceneBootstrap> {
           savePreferences: widget.store.save,
           nativeService: const NativeTorrentService(),
           catalogRepository: _catalogRepository,
+          updates: _updates,
           favorites: _favorites,
           queue: _queue,
         );
@@ -145,6 +153,7 @@ class FreeSceneApp extends StatefulWidget {
     this.nativeService,
     this.showChangelogOnStartup = false,
     this.catalogRepository,
+    this.updates,
     this.favorites,
     this.queue,
     super.key,
@@ -154,6 +163,7 @@ class FreeSceneApp extends StatefulWidget {
   final NativeTorrentService? nativeService;
   final bool showChangelogOnStartup;
   final CatalogRepository? catalogRepository;
+  final TrackerUpdates? updates;
   final FavoritesController? favorites;
   final QueueController? queue;
 
@@ -169,6 +179,9 @@ class _FreeSceneAppState extends State<FreeSceneApp>
   final historyPage = GlobalKey<WatchHistoryPageState>();
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(widget.updates?.refresh());
+    }
     if (state == AppLifecycleState.resumed && _page == _Page.history) {
       watchHistory.refresh();
     }
@@ -251,9 +264,11 @@ class _FreeSceneAppState extends State<FreeSceneApp>
     });
     if (widget.catalogRepository != null) {
       widget.catalogRepository!.configureProviders(_preferences.providers);
+      widget.updates?.configure(_preferences.providers);
       _catalog = CatalogController(
         widget.catalogRepository!,
         english: _preferences.english,
+        updates: widget.updates,
         favorites: _favorites,
         queue: _queue,
       )..browse();
@@ -307,6 +322,13 @@ class _FreeSceneAppState extends State<FreeSceneApp>
     _searchChanged(query, immediate: true);
   }
 
+  List<CatalogKind> get _catalogKinds => [
+    CatalogKind.movies,
+    CatalogKind.series,
+    if (_preferences.providers.any((p) => p.descriptor?.gameCatalog == true))
+      CatalogKind.games,
+  ];
+
   Widget _catalogSwitch() => CatalogKindSwitch(
     key: const ValueKey('catalog-kind-switch'),
     value: switch (_lastCatalogPage) {
@@ -315,6 +337,7 @@ class _FreeSceneAppState extends State<FreeSceneApp>
       _ => CatalogKind.movies,
     },
     english: _preferences.english,
+    kinds: _catalogKinds,
     onChanged: _selectKind,
   );
 
@@ -679,10 +702,24 @@ class _FreeSceneAppState extends State<FreeSceneApp>
     final changedUI =
         _preferences.language != value.language ||
         _preferences.appearance != value.appearance;
-    setState(() => _preferences = value);
+    final leaveGames =
+        changedProviders &&
+        _lastCatalogPage == _Page.games &&
+        !value.providers.any((p) => p.descriptor?.gameCatalog == true);
+    setState(() {
+      _preferences = value;
+      if (leaveGames) {
+        _lastCatalogPage = _Page.movies;
+        if (_page == _Page.games) _page = _Page.movies;
+      }
+    });
     _catalog?.setEnglish(value.english);
     if (changedProviders && _catalog != null) {
+      if (leaveGames) {
+        _catalog!.back();
+      }
       unawaited(_catalog!.configureProviders(value.providers));
+      if (leaveGames) unawaited(_catalog!.browse(kind: CatalogKind.movies));
     }
     if (changedUI && widget.nativeService != null) {
       unawaited(
@@ -900,6 +937,7 @@ class _FreeSceneAppState extends State<FreeSceneApp>
                               english: _preferences.english,
                               kindSwitch: _catalogSwitch(),
                               onKindChanged: _selectKind,
+                              kinds: _catalogKinds,
                               searchControls: (refresh) => DesktopSearchField(
                                 key: const ValueKey('catalog-search-pill'),
                                 fieldKey: const ValueKey('catalog-search'),

@@ -27,12 +27,18 @@ class ProviderDescriptor {
     this.enabledByDefault = false,
     this.qualityInPlayer = false,
     this.showThumbnail = false,
+    this.gameCatalog = false,
+    this.torrentTracker = false,
     this.descriptionRu,
     this.descriptionEn,
   });
   final SourceProvider id;
   final String label;
-  final bool enabledByDefault, qualityInPlayer, showThumbnail;
+  final bool enabledByDefault,
+      qualityInPlayer,
+      showThumbnail,
+      gameCatalog,
+      torrentTracker;
   final String? descriptionRu, descriptionEn;
 }
 
@@ -57,6 +63,18 @@ class PeerCounts {
   String get peersLabel => peers?.toString() ?? '—';
 }
 
+/// A calendar day from provider metadata (ISO dates may include a timestamp).
+DateTime? catalogDay(Object? value) {
+  if (value is! String) return null;
+  final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})(?:$|[ T])').firstMatch(value);
+  if (match == null) return null;
+  final year = int.parse(match[1]!),
+      month = int.parse(match[2]!),
+      day = int.parse(match[3]!);
+  final date = DateTime.utc(year, month, day);
+  return year >= 1888 && date.month == month && date.day == day ? date : null;
+}
+
 class SourceRow {
   const SourceRow({
     required this.id,
@@ -67,6 +85,9 @@ class SourceRow {
     this.quality,
     this.sizeBytes,
     this.durationSeconds,
+    this.releaseYear,
+    this.releaseDate,
+    this.publishedDate,
     this.season,
     this.episode,
     this.catalogueCounts = const PeerCounts(),
@@ -79,7 +100,8 @@ class SourceRow {
   final DownloadKind download;
   final String? quality;
   final int? sizeBytes;
-  final int? durationSeconds;
+  final int? durationSeconds, releaseYear;
+  final DateTime? releaseDate, publishedDate;
   final int? season;
   final int? episode;
   final PeerCounts catalogueCounts;

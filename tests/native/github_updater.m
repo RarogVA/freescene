@@ -14,11 +14,11 @@ int main(int argc,const char **argv){@autoreleasepool {
     for(NSString *v in @[@"0.0.0",@"1.2.1",@"v10.12.13"])check(FSUpdateVersion(v)!=nil,"strict stable version accepted");
     for(NSString *v in @[@"01.2.1",@"1.2",@"1.2.1-beta.1",@"1.2.1+19",@"1.2.1\n",@"v1.2.9999999999",@"1.2.-1"])check(!FSUpdateVersion(v),"nonstable or malformed version refused");
     check(FSUpdateCompareVersions(@"1.10.0",@"1.2.9")==NSOrderedDescending,"version comparison is numeric");
-    NSMutableDictionary *asset=[@{@"name":[NSString stringWithFormat:@"FreeScene-1.2.1-macos-%@.dmg",FSUpdateArchitectureName()],@"id":@123,@"url":@"https://api.github.com/repos/RarogVA/freescene/releases/assets/123",@"digest":[@"sha256:" stringByAppendingString:[@"a" stringByPaddingToLength:64 withString:@"a" startingAtIndex:0]],@"size":@1024,@"state":@"uploaded"} mutableCopy];
+    NSMutableDictionary *asset=[@{@"name":[NSString stringWithFormat:@"FreeScene-macos-%@.dmg",FSUpdateArchitectureName()],@"id":@123,@"url":@"https://api.github.com/repos/RarogVA/freescene/releases/assets/123",@"digest":[@"sha256:" stringByAppendingString:[@"a" stringByPaddingToLength:64 withString:@"a" startingAtIndex:0]],@"size":@1024,@"state":@"uploaded"} mutableCopy];
     NSMutableDictionary *release=[@{@"tag_name":@"v1.2.1",@"draft":@NO,@"prerelease":@NO,@"assets":@[asset]} mutableCopy];
     NSString *reason=nil;check(FSUpdateReleaseAsset(release,@"1.2.0",&reason)!=nil,"stable release asset selected");
     NSString *correctName=asset[@"name"];
-    asset[@"name"]=[NSString stringWithFormat:@"FreeScene-1.2.1-macos-%@.dmg",[FSUpdateArchitectureName() isEqual:@"arm64"] ? @"x86_64" : @"arm64"];
+    asset[@"name"]=[NSString stringWithFormat:@"FreeScene-macos-%@.dmg",[FSUpdateArchitectureName() isEqual:@"arm64"] ? @"x86_64" : @"arm64"];
     check(!FSUpdateReleaseAsset(release,@"1.2.0",nil),"release for the other architecture refused");asset[@"name"]=correctName;
     asset[@"name"]=[correctName.stringByDeletingPathExtension stringByAppendingPathExtension:@"zip"];
     check(!FSUpdateReleaseAsset(release,@"1.2.0",nil),"legacy ZIP is not selected as a DMG update");asset[@"name"]=correctName;
@@ -28,6 +28,13 @@ int main(int argc,const char **argv){@autoreleasepool {
     NSString *digest=asset[@"digest"];[asset removeObjectForKey:@"digest"];check(!FSUpdateReleaseAsset(release,@"1.2.0",nil),"missing API digest refused");asset[@"digest"]=digest;
     asset[@"url"]=@"https://evil.example/update.zip";check(!FSUpdateReleaseAsset(release,@"1.2.0",nil),"asset URL must match hardcoded repository and ID");asset[@"url"]=@"https://api.github.com/repos/RarogVA/freescene/releases/assets/123";
     release[@"assets"]=@[asset,asset];check(!FSUpdateReleaseAsset(release,@"1.2.0",nil),"duplicate update asset refused");
+    NSMutableDictionary *transitionAlias=[asset mutableCopy];
+    transitionAlias[@"name"]=[NSString stringWithFormat:@"FreeScene-2.0.5-macos-%@.dmg",FSUpdateArchitectureName()];
+    release[@"tag_name"]=@"v2.0.5";release[@"assets"]=@[transitionAlias,asset];
+    check([FSUpdateReleaseAsset(release,@"2.0.4",nil)[@"version"] isEqual:@"2.0.5"],"transition selects the stable asset using its release tag");
+    release[@"tag_name"]=@"v2.0.6";release[@"assets"]=@[asset];
+    check([FSUpdateReleaseAsset(release,@"2.0.5",nil)[@"version"] isEqual:@"2.0.6"],"two-image release updates bridge clients");
+    if ([root isEqual:@"--assets-only"]) { printf("passed %d asset checks\n",checks);return 0; }
     check(FSUpdateHashMatches([root stringByAppendingPathComponent:@"hash.bin"],@"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"),"matching SHA256 accepted");
     check(!FSUpdateHashMatches([root stringByAppendingPathComponent:@"hash.bin"],[@"0" stringByPaddingToLength:64 withString:@"0" startingAtIndex:0]),"damaged download digest refused");
     NSMutableURLRequest *request=[NSMutableURLRequest requestWithURL:[NSURL URLWithString:@"https://release-assets.githubusercontent.com/asset?sig=fixture"]];[request setValue:@"Bearer fixture" forHTTPHeaderField:@"Authorization"];[request setValue:@"private=fixture" forHTTPHeaderField:@"Cookie"];

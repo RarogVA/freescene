@@ -61,6 +61,58 @@ CatalogPage<CatalogSource> page(
   nextStart: next ?? start,
 );
 void main() {
+  test('exclude dates preceding a premiere while preserving numeric titles and dimensions', () {
+    final selected = CatalogTitle(
+      id: '1',
+      kind: CatalogKind.series,
+      name: 'Тёмная материя',
+      englishName: 'Dark Matter',
+      premiere: DateTime.utc(2024, 5, 8),
+    );
+    bool accepts(
+      String name, {
+      CatalogTitle? title,
+      int? year,
+      DateTime? published,
+    }) => includeCatalogSource(
+      CatalogKind.series,
+      CatalogSource(
+        row: SourceRow(
+          id: 'r',
+          provider: provider,
+          title: name,
+          releaseYear: year,
+          publishedDate: published,
+          watch: SourceKind.magnet,
+          download: DownloadKind.magnet,
+        ),
+      ),
+      title: title ?? selected,
+    );
+    expect(
+      accepts('Dark Matter (2015) S03E01', published: DateTime.utc(2026)),
+      isFalse,
+    );
+    expect(accepts('Dark Matter', year: 2015), isFalse);
+    expect(accepts('Dark Matter 07.05.2024'), isFalse);
+    expect(accepts('Dark Matter 2024-05-08'), isTrue);
+    expect(accepts('Dark Matter 2024 S01E01 · 1920 x 1080'), isTrue);
+    expect(accepts('Dark Matter S02E01 (2026)'), isTrue);
+    expect(accepts('Dark Matter S01E01'), isTrue);
+    expect(
+      accepts(
+        '1917 (2019)',
+        title: const CatalogTitle(
+          id: '2',
+          kind: CatalogKind.movies,
+          name: '1917',
+          year: 2019,
+        ),
+      ),
+      isTrue,
+    );
+  });
+
   for (final kind in [CatalogKind.movies, CatalogKind.series]) {
     test(
       '$kind excludes either short duration or forbidden title, independent of other metadata',

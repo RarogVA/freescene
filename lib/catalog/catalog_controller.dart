@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'catalog_models.dart';
 import 'favorites.dart';
 import 'source_policy.dart';
+import 'tracker_updates.dart';
 import 'watch_queue.dart';
 
 class ProviderSources {
@@ -22,10 +23,13 @@ class CatalogController extends ChangeNotifier {
     this.repository, {
     this.favorites,
     this.queue,
+    this.updates,
     this._english = false,
   }) {
     favorites?.addListener(_favoritesChanged);
     queue?.addListener(_queueChanged);
+    updates?.addListener(_changed);
+    updates?.sync();
   }
   final CatalogRepository repository;
   bool _english;
@@ -77,6 +81,7 @@ class CatalogController extends ChangeNotifier {
 
   final FavoritesController? favorites;
   final QueueController? queue;
+  final TrackerUpdates? updates;
   bool favoritesOnly = false, queueOnly = false;
   bool get localCollectionOnly => favoritesOnly || queueOnly;
   FavoritesController? get _collection => queueOnly ? queue : favorites;
@@ -102,6 +107,7 @@ class CatalogController extends ChangeNotifier {
   bool _disposed = false;
   Future<void> configureProviders(Set<SourceProvider> enabled) async {
     repository.configureProviders(enabled);
+    updates?.configure(enabled);
     if (selected case final title?) {
       await open(title);
     } else {
@@ -139,12 +145,14 @@ class CatalogController extends ChangeNotifier {
 
   void _favoritesChanged() {
     if (_disposed) return;
+    updates?.sync();
     if (favoritesOnly) _collectionListing();
     _changed();
   }
 
   void _queueChanged() {
     if (_disposed) return;
+    updates?.sync();
     if (queueOnly) _collectionListing();
     _changed();
   }
@@ -298,8 +306,27 @@ class CatalogController extends ChangeNotifier {
     await Future.wait([
       (() async {
         try {
-          final detail = await repository.details(title);
-          if (!_disposed && generation == _detailsGeneration) selected = detail;
+          final loaded = await repository.details(title);
+          final detail = loaded.copyWith(
+            year: loaded.year ?? title.year,
+            premiere: loaded.premiere ?? title.premiere,
+          );
+          if (!_disposed && generation == _detailsGeneration) {
+            selected = detail;
+            if (detail.premiere != title.premiere ||
+                detail.year != title.year) {
+              bool rejected(CatalogSource source) =>
+                  !includeCatalogSource(detail.kind, source, title: detail);
+              sources = sources.where((s) => !rejected(s)).toList();
+              for (final state in providerStates.values) {
+                final before = state.items.length;
+                state.items.removeWhere(rejected);
+                final removed = before - state.items.length;
+                state._excluded += removed;
+                state.total -= removed;
+              }
+            }
+          }
         } catch (e) {
           if (!_disposed && generation == _detailsGeneration) detailsError = e;
         } finally {
@@ -337,7 +364,10 @@ class CatalogController extends ChangeNotifier {
         String key(CatalogSource s) => '${s.row.provider.name}/${s.row.id}';
         final fresh = page.items.where((s) => state._seen.add(key(s))).toList();
         final accepted = fresh
-            .where((s) => includeCatalogSource(title.kind, s))
+            .where(
+              (s) =>
+                  includeCatalogSource(title.kind, s, title: selected ?? title),
+            )
             .toList();
         state._excluded += fresh.length - accepted.length;
         final existing = sources.map(key).toSet();
@@ -399,6 +429,8 @@ class CatalogController extends ChangeNotifier {
     ++_detailsGeneration;
     favorites?.removeListener(_favoritesChanged);
     queue?.removeListener(_queueChanged);
+    updates?.removeListener(_changed);
+    updates?.dispose();
     repository.close();
     super.dispose();
   }

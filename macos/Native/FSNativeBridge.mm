@@ -176,6 +176,20 @@ static NSString *FSL(NSString *ru) {
 - (void)applyAppearance;
 - (void)open:(NSString *)location title:(NSString *)title task:(NSString *)task userAgent:(NSString *)userAgent;
 @end
+// A separate managed window participates in App Exposé and Dock previews even
+// when the user prefers automatic window tabbing.
+static NSWindow *FSCreatePlayerWindow(void) {
+    NSWindowStyleMask style=NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
+        NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable;
+    NSWindow *window=[[NSWindow alloc] initWithContentRect:NSMakeRect(100,100,1100,700)
+        styleMask:style backing:NSBackingStoreBuffered defer:NO];
+    window.releasedWhenClosed=NO;
+    window.tabbingMode=NSWindowTabbingModeDisallowed;
+    window.collectionBehavior=NSWindowCollectionBehaviorManaged | NSWindowCollectionBehaviorFullScreenPrimary;
+    window.excludedFromWindowsMenu=NO;
+    return window;
+}
+
 @implementation FSPlayer
 - (instancetype)init {
     if (!(self=[super init])) return nil;
@@ -186,8 +200,8 @@ static NSString *FSL(NSString *ru) {
     self.vlc=libvlc_new(6,args);
     if (!self.vlc) return nil;
     self.player=libvlc_media_player_new(self.vlc);
-    self.window=[[NSWindow alloc] initWithContentRect:NSMakeRect(100,100,1100,700) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable|NSWindowStyleMaskMiniaturizable|NSWindowStyleMaskResizable backing:NSBackingStoreBuffered defer:NO];
-    self.window.title=FSL(@"FreeScene — Плеер"); self.window.delegate=self; self.window.releasedWhenClosed=NO;
+    self.window=FSCreatePlayerWindow();
+    self.window.title=FSL(@"FreeScene — Плеер"); self.window.delegate=self;
     self.window.minSize=NSMakeSize(640,400); self.window.acceptsMouseMovedEvents=YES;
     self.window.backgroundColor=NSColor.blackColor;
     NSView *root=self.window.contentView; root.wantsLayer=YES; root.layer.backgroundColor=NSColor.blackColor.CGColor;

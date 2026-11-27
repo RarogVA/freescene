@@ -1,5 +1,5 @@
 """Exercise release-verifier extraction guards without macOS UI or Keychain."""
-import importlib.util
+import sys
 from pathlib import Path
 import stat
 import tempfile
@@ -8,12 +8,36 @@ import warnings
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
-specification = importlib.util.spec_from_file_location('verify_release_package', ROOT / 'tools/verify_release_package.py')
-verifier = importlib.util.module_from_spec(specification)
-specification.loader.exec_module(verifier)
+sys.path.insert(0, str(ROOT / 'tools'))
+import verify_release_package as verifier
+from release_assets import check_images, dmg_names, finalize
 
 
 class PackageGuardTests(unittest.TestCase):
+    def test_transition_and_final_download_sets(self):
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            legacy = directory / 'FreeScene-2.0.4-macos-arm64.dmg'
+            legacy.write_bytes(b'arm64')
+            self.assertEqual(check_images(directory, '2.0.4', ['arm64']), [legacy])
+            stable = directory / 'FreeScene-macos-arm64.dmg'
+            stable.write_bytes(b'arm64')
+            self.assertEqual(check_images(directory, '2.0.4', ['arm64']), [legacy, stable])
+            legacy.unlink()
+            for arch in ('arm64', 'x86_64'):
+                for name in dmg_names('2.0.5', arch):
+                    (directory / name).write_bytes(arch.encode())
+            self.assertEqual(len(check_images(directory, '2.0.5', ('arm64', 'x86_64'))), 4)
+            (directory / 'FreeScene-2.0.5-macos-arm64.dmg').write_bytes(b'wrong')
+            with self.assertRaisesRegex(ValueError, 'identical'):
+                check_images(directory, '2.0.5', ('arm64', 'x86_64'))
+            with self.assertRaisesRegex(ValueError, 'Unexpected'):
+                check_images(directory, '2.0.6', ('arm64', 'x86_64'))
+            for alias in directory.glob('FreeScene-2.0.5-*.dmg'):
+                alias.unlink()
+            finalize(directory, '2.0.6')
+            self.assertEqual(len((directory / 'SHA256SUMS.txt').read_text().splitlines()), 2)
+
     def archive(self, entries):
         temporary = tempfile.TemporaryDirectory(prefix='freescene-release-package-test-')
         self.addCleanup(temporary.cleanup)

@@ -19,6 +19,8 @@ import '../widgets/desktop_controls.dart';
 import '../domain/provider_display.dart';
 import 'source_metadata.dart';
 import 'watched.dart';
+import 'tracker_source_visibility.dart';
+import 'tracker_updates.dart';
 import 'truncated_text.dart';
 import 'source_format.dart';
 export 'source_format.dart' show catalogBytes, sourceEpisodeDisplay;
@@ -35,6 +37,7 @@ class CatalogPageView extends StatelessWidget {
     required this.controller,
     required this.english,
     this.kindSwitch,
+    this.kinds = CatalogKind.values,
     this.onKindChanged,
     this.searchControls,
     this.onUseSource,
@@ -46,6 +49,7 @@ class CatalogPageView extends StatelessWidget {
   final CatalogController controller;
   final bool english;
   final Widget? kindSwitch;
+  final List<CatalogKind> kinds;
   final ValueChanged<CatalogKind>? onKindChanged;
   final Widget Function(Widget refresh)? searchControls;
   final Future<void> Function(CatalogSource, bool watch)? onUseSource;
@@ -286,6 +290,7 @@ class CatalogPageView extends StatelessWidget {
         english: english,
         favorite: eligible ? favorites?.contains(title) : null,
         queued: eligible ? queue?.contains(title) : null,
+        manuallyWatched: watched?.manuallyWatched(title) ?? false,
         watched: eligible ? watched?.titleWatched(title) : null,
         favoriteEnabled:
             favorites != null &&
@@ -305,6 +310,8 @@ class CatalogPageView extends StatelessWidget {
           await favorites!.toggle(title);
         case 'queue':
           await queue!.toggle(title);
+        case 'unwatch':
+          await watched!.removeTitleMark(title);
         case 'watched':
           await watched!.markTitle(title);
       }
@@ -329,7 +336,7 @@ class CatalogPageView extends StatelessWidget {
             child: CatalogSectionSwipe(
               key: const ValueKey('catalog-section-swipe'),
               value: controller.kind,
-              kinds: CatalogKind.values,
+              kinds: kinds,
               onChanged: onKindChanged,
               child: _AutoPagedCatalogue(
                 controller: controller,
@@ -414,6 +421,9 @@ class CatalogPageView extends StatelessWidget {
                           onContextMenu: () => _titleMenu(context, item),
                           child: PosterCardContent(
                             title: item,
+                            updateLabel: controller.localCollectionOnly
+                                ? controller.updates?.label(item, english)
+                                : null,
                             english: english,
                             favorite:
                                 controller.favorites?.contains(item) ?? false,
@@ -445,6 +455,7 @@ class CatalogPageView extends StatelessWidget {
     ];
     return SourceTable(
       toolbarBuilder: _detailsToolbar,
+      updates: controller.updates,
       title: title,
       key: ValueKey('${title.kind}-${title.id}'),
       sources: controller.sources,
@@ -728,11 +739,13 @@ class SourceTable extends StatefulWidget {
     this.title,
     this.onUseSource,
     this.introduction,
+    this.updates,
     this.toolbarBuilder,
     this.footer,
     super.key,
   });
   final Widget? introduction, footer;
+  final TrackerUpdates? updates;
   final Widget Function(Widget search)? toolbarBuilder;
   final CatalogTitle? title;
   final List<CatalogSource> sources;
@@ -1213,7 +1226,12 @@ class _SourceTableState extends State<SourceTable> {
               PinnedHeaderSliver(child: header),
               SliverList(
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) => sourceRow(sources[index]),
+                  (context, index) => TrackerSourceVisibility.wrap(
+                    sourceRow(sources[index]),
+                    widget.updates,
+                    widget.title,
+                    sources[index],
+                  ),
                   childCount: sources.length,
                 ),
               ),

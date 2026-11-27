@@ -7,14 +7,61 @@ import 'package:freescene/app.dart';
 import 'package:freescene/android/android_app.dart';
 import 'package:freescene/android/android_runtime.dart';
 import 'package:freescene/catalog/catalog_tile.dart';
+import 'package:freescene/catalog/catalog_kind_switch.dart';
+import 'package:freescene/catalog/catalog_models.dart';
 import 'package:freescene/catalog/favorites.dart';
 import 'package:freescene/catalog/title_context_menu.dart';
 import 'package:freescene/catalog/watch_queue.dart';
+import 'package:freescene/catalog/watched.dart';
 import 'package:freescene/providers/demo.dart';
 import 'package:freescene/settings/preferences.dart';
 import 'package:freescene/torrent/native_torrent.dart';
 
 void main() {
+  for (final language in AppLanguage.values) {
+    testWidgets(
+      'games follow the enabled catalogue provider (${language.name})',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(1280, 1000);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
+        await tester.pumpWidget(
+          FreeSceneApp(
+            initialPreferences: Preferences(language: language, providers: {}),
+            catalogRepository: DemoCatalog(),
+            savePreferences: (_) async {},
+          ),
+        );
+        await tester.pumpAndSettle();
+        final games = find.byKey(const ValueKey('catalog-kind-games'));
+        Future<void> toggleProvider() async {
+          await tester.tap(find.byKey(const ValueKey('sidebar-settings')));
+          await tester.pumpAndSettle();
+          final checkbox = find.byKey(const ValueKey('provider-demo'));
+          await tester.ensureVisible(checkbox);
+          await tester.tap(checkbox);
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('settings-back')));
+          await tester.pumpAndSettle();
+        }
+
+        expect(games, findsNothing);
+        await toggleProvider();
+        expect(games, findsOneWidget);
+        await tester.tap(games);
+        await tester.pumpAndSettle();
+        await toggleProvider();
+        expect(games, findsNothing);
+        final selected = tester.widget<CatalogKindSwitch>(
+          find.byType(CatalogKindSwitch),
+        );
+        expect(selected.value, CatalogKind.movies);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+
   for (final tv in [false, true]) {
     for (final dark in [false, true]) {
       testWidgets(
@@ -35,8 +82,12 @@ void main() {
             if (call.method == 'watchedSnapshot') return watched;
             if (call.method == 'setWatched') {
               marks.add(call);
-              watched[call.arguments['watchedSource'] as String] =
-                  call.arguments['watchedTitle'] as String;
+              final key = call.arguments['watchedSource'] as String;
+              if (call.arguments['watched'] == true) {
+                watched[key] = call.arguments['watchedTitle'] as String;
+              } else {
+                watched.remove(key);
+              }
             }
             return null;
           });
@@ -128,14 +179,28 @@ void main() {
           await tester.pumpAndSettle();
           expect(marks, hasLength(1));
           await open();
-          expect(find.text('Просмотрено'), findsOneWidget);
+          expect(find.text('Снять отметку'), findsOneWidget);
+          final titleKey = watched.keys.single;
+          if (dark) {
+            watched['source-1'] = titleKey;
+            await tester
+                .widget<WatchedScope>(find.byType(WatchedScope))
+                .notifier!
+                .refresh();
+          }
+          await tester.tap(find.byKey(const ValueKey('title-menu-unwatch')));
+          await tester.pumpAndSettle();
+          expect(marks.last.arguments['watched'], isFalse);
+          expect(watched, dark ? {'source-1': titleKey} : isEmpty);
+          await open();
+          expect(find.text(dark ? 'Просмотрено' : 'Отметить'), findsOneWidget);
           expect(
             tester
                 .widget<FilledButton>(
                   find.byKey(const ValueKey('title-menu-watched')),
                 )
                 .onPressed,
-            isNull,
+            dark ? isNull : isNotNull,
           );
           await tester.tap(find.byKey(const ValueKey('title-menu-watch')));
           await tester.pumpAndSettle();

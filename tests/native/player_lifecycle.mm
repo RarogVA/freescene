@@ -67,6 +67,20 @@ static NSDictionary *command(void *engine,NSDictionary *request) {
     fs_engine_free(raw);assert(!reply[@"error"]);return reply[@"result"];
 }
 int main() { @autoreleasepool {
+    [NSApplication sharedApplication];
+    NSWindow *catalogWindow=[[NSWindow alloc] initWithContentRect:NSMakeRect(-4000,-4000,32,32)
+        styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
+    catalogWindow.releasedWhenClosed=NO;
+    NSWindow *movieWindow=FSCreatePlayerWindow();
+    [movieWindow setFrame:NSMakeRect(-4100,-4100,32,32) display:NO];
+    assert(movieWindow.tabbingMode==NSWindowTabbingModeDisallowed && !movieWindow.excludedFromWindowsMenu);
+    assert(movieWindow.collectionBehavior & NSWindowCollectionBehaviorManaged);
+    [catalogWindow orderBack:nil]; [movieWindow orderBack:nil];
+    assert([NSApp.orderedWindows containsObject:catalogWindow] && [NSApp.orderedWindows containsObject:movieWindow]);
+    [movieWindow close];
+    assert(!movieWindow.visible && catalogWindow.visible);
+    [catalogWindow close];
+
     // Switch the real method-channel handler with an existing player. The
     // glyphs stay the same, but accessible labels and the menus must change.
     FSNativeBridge *localeBridge = [FSNativeBridge new];

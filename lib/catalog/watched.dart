@@ -37,6 +37,8 @@ class WatchedController extends ChangeNotifier {
 
   bool titleWatched(CatalogTitle title) =>
       _entries.containsValue(jsonEncode([title.kind.name, title.id]));
+  bool manuallyWatched(CatalogTitle title) =>
+      _entries.containsKey(jsonEncode([title.kind.name, title.id]));
   bool sourceWatched(CatalogTitle title, CatalogSource source) =>
       _entries.containsKey(watchedIdentity(title, source)['watchedSource']);
   Future<void> refresh() async {
@@ -75,6 +77,12 @@ class WatchedController extends ChangeNotifier {
     if (titleWatched(title) || title.kind == CatalogKind.games) return;
     final key = jsonEncode([title.kind.name, title.id]);
     await _set({'watchedTitle': key, 'watchedSource': key}, true);
+  }
+
+  Future<void> removeTitleMark(CatalogTitle title) async {
+    if (!manuallyWatched(title)) return;
+    final key = jsonEncode([title.kind.name, title.id]);
+    await _set({'watchedTitle': key, 'watchedSource': key}, false);
   }
 
   Future<void> toggle(CatalogTitle title, CatalogSource source) async {

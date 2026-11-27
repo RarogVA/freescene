@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_icons.dart';
+
 import '../catalog/catalog_models.dart';
 import '../catalog/cached_poster.dart';
 import '../catalog/poster_cache.dart';
@@ -163,11 +165,13 @@ class PosterCardContent extends StatelessWidget {
     required this.english,
     required this.favorite,
     required this.queued,
+    this.updateLabel,
     this.cache,
     super.key,
   });
   final CatalogTitle title;
   final bool english, favorite, queued;
+  final String? updateLabel;
   final PosterDiskCache? cache;
 
   @override
@@ -222,6 +226,22 @@ class PosterCardContent extends StatelessWidget {
                             ),
                           ),
                         ],
+                      ),
+                    ),
+                  ),
+                if (updateLabel case final label?)
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Tooltip(
+                      message: label,
+                      child: _PosterBadge(
+                        background: const Color(0xff703b1b),
+                        child: const Icon(
+                          AppIcons.trackerUpdate,
+                          size: 18,
+                          color: Color(0xffffc18a),
+                        ),
                       ),
                     ),
                   ),
@@ -310,16 +330,23 @@ class PosterCardContent extends StatelessWidget {
 }
 
 class _PosterBadge extends StatelessWidget {
-  const _PosterBadge({required this.child, this.accent = false});
+  const _PosterBadge({
+    required this.child,
+    this.accent = false,
+    this.background,
+  });
   final Widget child;
   final bool accent;
+  final Color? background;
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
     decoration: BoxDecoration(
-      color: accent
-          ? Theme.of(context).colorScheme.primaryContainer
-          : const Color(0xd9101216),
+      color:
+          background ??
+          (accent
+              ? Theme.of(context).colorScheme.primaryContainer
+              : const Color(0xd9101216)),
       borderRadius: BorderRadius.circular(7),
     ),
     child: child,

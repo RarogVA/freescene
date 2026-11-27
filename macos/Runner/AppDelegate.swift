@@ -7,6 +7,7 @@ class AppDelegate: FlutterAppDelegate {
   @objc func openVideo(_ sender: Any?) { FSNativeBridge.openLocalVideo() }
 
   override func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+    if flag { return true }
     FSNativeBridge.showMainWindow()
     return false
   }
