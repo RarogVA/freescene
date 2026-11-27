@@ -94,7 +94,7 @@ static void waitFor(BOOL (^done)(void)) {
 }
 static NSData *data(id value){return [NSJSONSerialization dataWithJSONObject:value options:0 error:nil];}
 static NSMutableDictionary *release(NSString *version) {
-    NSDictionary *asset=@{@"name":[NSString stringWithFormat:@"FreeScene-macos-%@.dmg",FSUpdateArchitectureName()],@"id":@123,
+    NSDictionary *asset=@{@"name":[NSString stringWithFormat:@"FreeScene-%@-macos-%@.dmg",version,FSUpdateArchitectureName()],@"id":@123,
         @"url":@"https://api.github.com/repos/RarogVA/freescene/releases/assets/123",@"digest":[@"sha256:" stringByAppendingString:[@"a" stringByPaddingToLength:64 withString:@"a" startingAtIndex:0]],@"size":@1024,@"state":@"uploaded"};
     return [@{@"tag_name":[@"v" stringByAppendingString:version],@"draft":@NO,@"prerelease":@NO,@"assets":@[asset]} mutableCopy];
 }

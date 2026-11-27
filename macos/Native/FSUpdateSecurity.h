@@ -65,7 +65,7 @@ static NSDictionary *FSUpdateReleaseAsset(id raw,NSString *installed,NSString **
     if(!FSUpdateVersion(tag)){if(error)*error=@"release_version";return nil;}
     if(FSUpdateCompareVersions(tag,installed)!=NSOrderedDescending){if(error)*error=@"up_to_date";return nil;}
     NSString *version=[tag hasPrefix:@"v"] ? [tag substringFromIndex:1] : tag;
-    NSString *name=[NSString stringWithFormat:@"FreeScene-macos-%@.dmg",FSUpdateArchitectureName()];
+    NSString *name=[NSString stringWithFormat:@"FreeScene-%@-macos-%@.dmg",version,FSUpdateArchitectureName()];
     if(![raw[@"assets"] isKindOfClass:NSArray.class]){if(error)*error=@"asset";return nil;}
     NSDictionary *found=nil;
     for(id item in raw[@"assets"])if([item isKindOfClass:NSDictionary.class] && [item[@"name"] isEqual:name]) {
